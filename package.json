@@ -1,0 +1,105 @@
+{
+  "name": "gedpi",
+  "version": "0.12.0",
+  "description": "Single-agent Pi package that interviews the user, documents the spec, and implements work in bounded slices.",
+  "type": "module",
+  "license": "MIT",
+  "author": "Eduard-David Gyarmati",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edgyarmati/ged-mono"
+  },
+  "homepage": "https://github.com/edgyarmati/ged-mono#readme",
+  "bugs": {
+    "url": "https://github.com/edgyarmati/ged-mono/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "gedpi": "bin/gedpi.js"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "agent",
+    "planning",
+    "implementation",
+    "interview"
+  ],
+  "files": [
+    "bin",
+    "agents",
+    "CHANGELOG.md",
+    "extensions",
+    "prompts",
+    "skills",
+    "src",
+    "templates",
+    "vendor/pi-diff-review",
+    "README.md",
+    "CREDITS.md"
+  ],
+  "scripts": {
+    "chat": "node ./bin/gedpi.js",
+    "check": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "vitest run",
+    "verify": "npm run check && npm run lint && npm test && npm run pack:check",
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm run verify"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.13",
+    "@types/node": "^25.6.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.5"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/ged-core/index.ts",
+      "./extensions/ged-memory/index.ts",
+      "./node_modules/glimpseui/pi-extension/index.ts",
+      "./node_modules/pi-web-access/index.ts",
+      "./node_modules/pi-intercom/index.ts",
+      "./node_modules/pi-subagents/src/extension/index.ts",
+      "./node_modules/pi-interview/index.ts",
+      "./node_modules/pi-diff-review/src/index.ts",
+      "./node_modules/pi-prompt-template-model/index.ts",
+      "./node_modules/@juanibiapina/pi-extension-settings/dist/index.js",
+      "./node_modules/@juanibiapina/pi-powerbar/dist"
+    ],
+    "skills": [
+      "./skills",
+      "./node_modules/glimpseui/skills",
+      "./node_modules/pi-intercom/skills",
+      "./node_modules/pi-subagents/skills",
+      "./node_modules/pi-web-access/skills",
+      "./node_modules/pi-prompt-template-model/skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.119",
+    "@juanibiapina/pi-extension-settings": "^0.6.1",
+    "@juanibiapina/pi-powerbar": "^0.9.1",
+    "@mariozechner/pi-coding-agent": "^0.70.2",
+    "glimpseui": "^0.8.0",
+    "pi-diff-review": "file:./vendor/pi-diff-review",
+    "pi-interview": "^0.8.6",
+    "pi-intercom": "^0.3.0",
+    "pi-prompt-template-model": "^0.9.1",
+    "pi-subagents": "^0.21.4",
+    "pi-web-access": "^0.10.6",
+    "zod": "^4.3.6"
+  },
+  "overrides": {
+    "@mozilla/readability": "0.6.0",
+    "brace-expansion": "5.0.5",
+    "picomatch": "4.0.4",
+    "vite": "7.3.2"
+  }
+}

@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+.omni/
+.omnicode/
+.pi/
+.env
+.env.*
+*.log
+*.swp
+*.swo
+*.tsbuildinfo
+coverage/
+Thumbs.db
