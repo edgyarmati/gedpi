@@ -8,6 +8,8 @@ import {
   initCheckpointState,
   readCheckpointState,
   recordCheckpoint,
+  validateCommitCheckpoints,
+  validatePlanCheckpoints,
   writeCheckpointState,
 } from "../src/orchestration.js";
 
@@ -129,6 +131,88 @@ describe("checkpoint state management", () => {
     expect(updated.planCheckpoints["ged-planner"]?.status).toBe("skipped");
     expect(updated.planCheckpoints["ged-planner"]?.skipReason).toBe(
       "Task classified as trivial",
+    );
+  });
+});
+
+describe("checkpoint validation", () => {
+  it("plan validation passes when ged-planner completed", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const withPlanner = recordCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-04T10:00:00Z",
+      status: "completed",
+      findingCount: 1,
+    });
+    const result = validatePlanCheckpoints(withPlanner);
+    expect(result.valid).toBe(true);
+    expect(result.missing).toEqual([]);
+  });
+
+  it("plan validation fails when ged-planner missing for non-trivial", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const result = validatePlanCheckpoints(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-planner");
+  });
+
+  it("plan validation passes for trivial classification", () => {
+    const state = initCheckpointState("trivial", "README update");
+    const result = validatePlanCheckpoints(state);
+    expect(result.valid).toBe(true);
+  });
+
+  it("commit validation passes when ged-verifier completed", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const withVerifier = recordCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T11:00:00Z",
+        status: "completed",
+        findingCount: 0,
+        blocksCommit: false,
+      },
+      "T04",
+    );
+    const result = validateCommitCheckpoints(withVerifier, "T04");
+    expect(result.valid).toBe(true);
+  });
+
+  it("commit validation fails when ged-verifier missing for non-trivial", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const result = validateCommitCheckpoints(state, "T04");
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-verifier");
+  });
+
+  it("commit validation passes for trivial classification", () => {
+    const state = initCheckpointState("trivial", "Config change");
+    const result = validateCommitCheckpoints(state, "T01");
+    expect(result.valid).toBe(true);
+  });
+
+  it("commit validation passes when checkpoint was skipped with reason", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const withSkip = recordCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T11:00:00Z",
+        status: "skipped",
+        skipReason: "User asked to skip",
+      },
+      "T04",
+    );
+    const result = validateCommitCheckpoints(withSkip, "T04");
+    expect(result.valid).toBe(true);
+  });
+
+  it("validation returns warning when no checkpoint state", () => {
+    const result = validatePlanCheckpoints(null);
+    expect(result.valid).toBe(true);
+    expect(result.warning).toBe(
+      "No checkpoint state found — subagents may not be enabled",
     );
   });
 });

@@ -67,3 +67,50 @@ export function recordCheckpoint(
     },
   };
 }
+
+export interface CheckpointValidation {
+  valid: boolean;
+  missing: string[];
+  warning?: string;
+}
+
+export function validatePlanCheckpoints(
+  state: CheckpointState | null,
+): CheckpointValidation {
+  if (!state) {
+    return {
+      valid: true,
+      missing: [],
+      warning: "No checkpoint state found — subagents may not be enabled",
+    };
+  }
+  if (state.classification === "trivial") {
+    return { valid: true, missing: [] };
+  }
+  const missing: string[] = [];
+  if (!state.planCheckpoints["ged-planner"]) {
+    missing.push("ged-planner");
+  }
+  return { valid: missing.length === 0, missing };
+}
+
+export function validateCommitCheckpoints(
+  state: CheckpointState | null,
+  taskId: string,
+): CheckpointValidation {
+  if (!state) {
+    return {
+      valid: true,
+      missing: [],
+      warning: "No checkpoint state found — subagents may not be enabled",
+    };
+  }
+  if (state.classification === "trivial") {
+    return { valid: true, missing: [] };
+  }
+  const missing: string[] = [];
+  if (!state.taskCheckpoints[taskId]?.["ged-verifier"]) {
+    missing.push("ged-verifier");
+  }
+  return { valid: missing.length === 0, missing };
+}
