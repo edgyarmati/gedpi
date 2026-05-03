@@ -24,12 +24,27 @@ export function initCheckpointState(
   };
 }
 
+function isValidCheckpointState(value: unknown): value is CheckpointState {
+  if (typeof value !== "object" || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  return (
+    (obj.classification === "trivial" ||
+      obj.classification === "non-trivial") &&
+    typeof obj.classificationReason === "string" &&
+    typeof obj.planCheckpoints === "object" &&
+    obj.planCheckpoints !== null &&
+    typeof obj.taskCheckpoints === "object" &&
+    obj.taskCheckpoints !== null
+  );
+}
+
 export async function readCheckpointState(
   rootDir: string,
 ): Promise<CheckpointState | null> {
   try {
     const raw = await readFile(path.join(rootDir, CHECKPOINT_FILE), "utf8");
-    return JSON.parse(raw) as CheckpointState;
+    const parsed: unknown = JSON.parse(raw);
+    return isValidCheckpointState(parsed) ? parsed : null;
   } catch {
     return null;
   }

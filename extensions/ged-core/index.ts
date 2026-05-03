@@ -137,21 +137,27 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
     if (!checkpointState || checkpointState.classification === "trivial")
       return;
 
-    const lastTaskId = Object.keys(checkpointState.taskCheckpoints).pop();
+    const taskIds = Object.keys(checkpointState.taskCheckpoints);
+    const tasksToValidate = taskIds.length > 0 ? taskIds : ["unknown"];
 
-    const commitValidation = validateCommitCheckpoints(
-      checkpointState,
-      lastTaskId ?? "unknown",
-    );
+    const allMissing: string[] = [];
+    for (const taskId of tasksToValidate) {
+      const validation = validateCommitCheckpoints(checkpointState, taskId);
+      if (!validation.valid) {
+        allMissing.push(
+          ...validation.missing.map((m) => `${m} (task ${taskId})`),
+        );
+      }
+    }
 
-    if (!commitValidation.valid) {
+    if (allMissing.length > 0) {
       api.sendMessage({
         customType: "ged-checkpoint-warning",
-        content: `Checkpoint warning: You committed without completing required checkpoints: ${commitValidation.missing.join(", ")}. For non-trivial work, dispatch ged-verifier for clean-context review before committing. If intentionally skipped, record a skip reason in .ged/runtime/checkpoints.json.`,
+        content: `Checkpoint warning: You committed without completing required checkpoints: ${allMissing.join(", ")}. For non-trivial work, dispatch ged-verifier for clean-context review before committing. If intentionally skipped, record a skip reason in .ged/runtime/checkpoints.json.`,
         display: true,
         details: {
           title: "checkpoint-gate",
-          missing: commitValidation.missing,
+          missing: allMissing,
         },
       });
     }

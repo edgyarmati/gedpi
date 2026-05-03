@@ -69,6 +69,24 @@ describe("checkpoint state management", () => {
     expect(state).toBeNull();
   });
 
+  it("returns null for malformed checkpoint JSON", async () => {
+    await writeFileAtomic(
+      path.join(tmpDir, ".ged", "runtime", "checkpoints.json"),
+      '{"classification": "invalid-value"}',
+    );
+    const state = await readCheckpointState(tmpDir);
+    expect(state).toBeNull();
+  });
+
+  it("returns null for non-object checkpoint JSON", async () => {
+    await writeFileAtomic(
+      path.join(tmpDir, ".ged", "runtime", "checkpoints.json"),
+      '"just a string"',
+    );
+    const state = await readCheckpointState(tmpDir);
+    expect(state).toBeNull();
+  });
+
   it("initializes checkpoint state with classification", () => {
     const state = initCheckpointState("non-trivial", "Multi-file feature");
     expect(state.classification).toBe("non-trivial");
