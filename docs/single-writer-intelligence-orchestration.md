@@ -294,3 +294,24 @@ Acceptance criterion: `gh auth status` and similar user CLIs should see the user
 - The setup flow makes the no-writer model clear to users.
 - Status display shows resolved per-agent configs with provider options and checkpoint policy.
 - User CLI config/auth is not broken by runtime config isolation.
+
+## Implementation Status (2026-05-04)
+
+### Implemented
+- Orchestration prompt injected into brain system prompt when `agents.enabled: true`
+- Task classification gate: trivial tasks skip subagent workflow, non-trivial get mandatory checkpoints
+- Checkpoint state tracking in `.ged/runtime/checkpoints.json`
+- Turn-end validation: warns if commits happen without ged-verifier checkpoint for non-trivial work
+- Skip-with-reason recording for intentionally skipped checkpoints
+- Prompt instructs brain to dispatch subagents via the `subagent` tool at three mandatory checkpoints
+
+### How enforcement works
+1. **Prompt enforcement**: The orchestration prompt tells the brain exactly when to dispatch each subagent and how to record checkpoints
+2. **Code enforcement**: The `turn_end` hook detects recent commits and validates that ged-verifier was run (or explicitly skipped) for non-trivial tasks
+3. **Classification gate**: The brain classifies each request as trivial or non-trivial at the start. Trivial tasks bypass all subagent checkpoints.
+
+### Files involved
+- `src/orchestration.ts` — checkpoint state management, validation, orchestration prompt
+- `src/brain.ts` — conditional orchestration prompt injection
+- `src/contracts.ts` — checkpoint and classification types
+- `extensions/ged-core/index.ts` — turn_end checkpoint validation hook
