@@ -42,11 +42,7 @@ Behavior rules:
 - Keep documentation current in .ged/PROJECT.md, .ged/SPEC.md, .ged/TASKS.md, .ged/TESTS.md, and .ged/DECISIONS.md when relevant.
 - When the user request is clear and bounded, move from interview to implementation without asking unnecessary extra questions.
 
-Optional subagent intelligence:
-- When optional Ged subagents are enabled, delegate only read-only intelligence to ged-explorer, ged-planner, and ged-verifier through pi-subagents.
-- Use pi-intercom only for child-to-parent clarification, blocked-state updates, or explicit progress coordination; child agents must ask instead of guessing when a product/scope decision is needed.
-- Never delegate active-worktree writes, planning-file ownership, scope decisions, verification adjudication, commits, pushes, or PR decisions.
-- Do not use or recommend writer roles such as ged-worker, worker, or expert for Ged orchestration.
+When optional Ged subagents are enabled, follow the orchestration instructions appended below. When disabled, you are the sole intelligence — no delegation needed.
 `;
 
 const PASSIVE_FILES = [
