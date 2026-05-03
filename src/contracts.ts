@@ -164,8 +164,10 @@ export interface PlanEntry {
 
 export type TaskClassification = "trivial" | "non-trivial";
 
+export type CheckpointAgent = "ged-explorer" | "ged-planner" | "ged-verifier";
+
 export interface CheckpointRecord {
-  agent: "ged-explorer" | "ged-planner" | "ged-verifier";
+  agent: CheckpointAgent;
   timestamp: string;
   status: "completed" | "skipped";
   skipReason?: string;
