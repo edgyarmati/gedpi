@@ -3,6 +3,8 @@ import os from "node:os";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { writeFileAtomic } from "../src/atomic.js";
+import { buildWorkflowPromptSuffix } from "../src/brain.js";
 import type { CheckpointRecord, CheckpointState } from "../src/contracts.js";
 import {
   buildOrchestrationPrompt,
@@ -266,5 +268,56 @@ describe("orchestration prompt", () => {
   it("includes intercom usage instructions", () => {
     const result = buildOrchestrationPrompt(true);
     expect(result).toContain("pi-intercom");
+  });
+});
+
+describe("brain orchestration integration", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), "ged-brain-orch-"));
+    await mkdir(path.join(tmpDir, ".ged"), { recursive: true });
+    await writeFileAtomic(
+      path.join(tmpDir, ".ged", "STATE.md"),
+      "Current phase: plan\nActive task: T01\nStatus summary: planning\nBlockers: None\nNext step: implement\n",
+    );
+    await writeFileAtomic(
+      path.join(tmpDir, ".ged", "TASKS.md"),
+      "| ID | Title |\n|---|---|\n| T01 | Test |\n",
+    );
+    await writeFileAtomic(
+      path.join(tmpDir, ".ged", "TESTS.md"),
+      "## Checks\n- npm test\n",
+    );
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("includes orchestration prompt when agents enabled", async () => {
+    await mkdir(path.join(tmpDir, ".gedcode"), { recursive: true });
+    await writeFileAtomic(
+      path.join(tmpDir, ".gedcode", "settings.json"),
+      JSON.stringify({ agents: { enabled: true } }),
+    );
+    const suffix = await buildWorkflowPromptSuffix(tmpDir);
+    expect(suffix).toContain("Subagent orchestration");
+    expect(suffix).toContain("Single-writer invariant");
+  });
+
+  it("omits orchestration prompt when agents disabled", async () => {
+    await mkdir(path.join(tmpDir, ".gedcode"), { recursive: true });
+    await writeFileAtomic(
+      path.join(tmpDir, ".gedcode", "settings.json"),
+      JSON.stringify({ agents: { enabled: false } }),
+    );
+    const suffix = await buildWorkflowPromptSuffix(tmpDir);
+    expect(suffix).not.toContain("Subagent orchestration");
+  });
+
+  it("omits orchestration prompt when no settings file", async () => {
+    const suffix = await buildWorkflowPromptSuffix(tmpDir);
+    expect(suffix).not.toContain("Subagent orchestration");
   });
 });

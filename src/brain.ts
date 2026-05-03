@@ -1,7 +1,9 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 
+import { readEffectiveGedAgentsSettings } from "./agent-settings.js";
 import type { GedState } from "./contracts.js";
+import { buildOrchestrationPrompt } from "./orchestration.js";
 import { ensurePiSettings, loadSavedTheme } from "./theme.js";
 import type {
   EnsureCurrentGedResult,
@@ -168,9 +170,17 @@ export async function buildWorkflowPromptSuffix(cwd: string): Promise<string> {
     readOptional(path.join(cwd, ".ged", "TESTS.md")),
   ]);
 
-  return `${BRAIN_SYSTEM_APPEND}
+  const agentSettings = await readEffectiveGedAgentsSettings(cwd).catch(
+    () => null,
+  );
+  const orchestrationPrompt = buildOrchestrationPrompt(
+    agentSettings?.enabled ?? false,
+  );
 
-## Current Durable Task State
+  return [
+    BRAIN_SYSTEM_APPEND,
+    orchestrationPrompt,
+    `## Current Durable Task State
 
 ${renderStateSummary(state)}
 
@@ -180,8 +190,10 @@ ${renderStateSummary(state)}
 ${clipSection(tasks, 1600)}
 
 ### .ged/TESTS.md
-${clipSection(tests, 1200)}
-`;
+${clipSection(tests, 1200)}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 export async function buildBrainSystemPromptSuffix(
