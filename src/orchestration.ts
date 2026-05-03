@@ -26,10 +26,7 @@ export async function readCheckpointState(
   rootDir: string,
 ): Promise<CheckpointState | null> {
   try {
-    const raw = await readFile(
-      path.join(rootDir, CHECKPOINT_FILE),
-      "utf8",
-    );
+    const raw = await readFile(path.join(rootDir, CHECKPOINT_FILE), "utf8");
     return JSON.parse(raw) as CheckpointState;
   } catch {
     return null;

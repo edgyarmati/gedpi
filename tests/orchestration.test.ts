@@ -1,18 +1,14 @@
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, beforeEach, describe, it, expect } from "vitest";
-import type {
-  TaskClassification,
-  CheckpointRecord,
-  CheckpointState,
-} from "../src/contracts.js";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { CheckpointRecord, CheckpointState } from "../src/contracts.js";
 import {
-  readCheckpointState,
-  writeCheckpointState,
-  recordCheckpoint,
   initCheckpointState,
+  readCheckpointState,
+  recordCheckpoint,
+  writeCheckpointState,
 } from "../src/orchestration.js";
 
 describe("checkpoint types", () => {
@@ -102,14 +98,18 @@ describe("checkpoint state management", () => {
 
   it("records a task checkpoint", () => {
     const state = initCheckpointState("non-trivial", "Feature work");
-    const updated = recordCheckpoint(state, {
-      agent: "ged-verifier",
-      timestamp: "2026-05-04T11:00:00Z",
-      status: "completed",
-      findingCount: 0,
-      blocksCommit: false,
-    }, "T04");
-    expect(updated.taskCheckpoints["T04"]?.["ged-verifier"]).toEqual({
+    const updated = recordCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T11:00:00Z",
+        status: "completed",
+        findingCount: 0,
+        blocksCommit: false,
+      },
+      "T04",
+    );
+    expect(updated.taskCheckpoints.T04?.["ged-verifier"]).toEqual({
       agent: "ged-verifier",
       timestamp: "2026-05-04T11:00:00Z",
       status: "completed",
