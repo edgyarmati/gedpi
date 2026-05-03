@@ -225,6 +225,12 @@ Store per-task briefs, outputs, and failure histories here.
 `,
   },
   {
+    path: `${GED_DIR}/.gitignore`,
+    content: `# Ephemeral session state
+runtime/
+`,
+  },
+  {
     path: `.pi/agents/ged-brain.md`,
     content: `---
 name: ged-brain
