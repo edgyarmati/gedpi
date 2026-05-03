@@ -262,4 +262,9 @@ describe("orchestration prompt", () => {
     const result = buildOrchestrationPrompt(true);
     expect(result).toContain("checkpoints.json");
   });
+
+  it("includes intercom usage instructions", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("pi-intercom");
+  });
 });
