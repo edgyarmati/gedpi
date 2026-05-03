@@ -161,3 +161,26 @@ export interface PlanEntry {
   createdAt: string;
   completedAt?: string;
 }
+
+export type TaskClassification = "trivial" | "non-trivial";
+
+export interface CheckpointRecord {
+  agent: "ged-explorer" | "ged-planner" | "ged-verifier";
+  timestamp: string;
+  status: "completed" | "skipped";
+  skipReason?: string;
+  findingCount?: number;
+  blocksCommit?: boolean;
+}
+
+export interface CheckpointState {
+  classification: TaskClassification;
+  classificationReason: string;
+  planCheckpoints: Partial<
+    Record<"ged-explorer" | "ged-planner", CheckpointRecord>
+  >;
+  taskCheckpoints: Record<
+    string,
+    Partial<Record<"ged-explorer" | "ged-verifier", CheckpointRecord>>
+  >;
+}
