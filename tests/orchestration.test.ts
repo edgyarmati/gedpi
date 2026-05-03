@@ -5,6 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CheckpointRecord, CheckpointState } from "../src/contracts.js";
 import {
+  buildOrchestrationPrompt,
   initCheckpointState,
   readCheckpointState,
   recordCheckpoint,
@@ -214,5 +215,51 @@ describe("checkpoint validation", () => {
     expect(result.warning).toBe(
       "No checkpoint state found — subagents may not be enabled",
     );
+  });
+});
+
+describe("orchestration prompt", () => {
+  it("returns empty string when agents disabled", () => {
+    const result = buildOrchestrationPrompt(false);
+    expect(result).toBe("");
+  });
+
+  it("includes single-writer invariant when enabled", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("Single-writer invariant");
+  });
+
+  it("includes task classification instructions", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("TRIVIAL");
+    expect(result).toContain("NON-TRIVIAL");
+  });
+
+  it("names all three mandatory checkpoints", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("ged-explorer");
+    expect(result).toContain("ged-planner");
+    expect(result).toContain("ged-verifier");
+  });
+
+  it("includes skip policy", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("skip reason");
+  });
+
+  it("includes clean-context review instructions", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("clean-context review");
+    expect(result).toContain("adjudicate");
+  });
+
+  it("references subagent tool for dispatch", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("subagent");
+  });
+
+  it("references checkpoint state file", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("checkpoints.json");
   });
 });
