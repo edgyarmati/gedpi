@@ -339,3 +339,71 @@ describe("commit detection", () => {
     expect(commits).toEqual([]);
   });
 });
+
+describe("orchestration integration", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), "ged-orch-int-"));
+    await mkdir(path.join(tmpDir, ".ged", "runtime"), { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("full non-trivial workflow: init → plan checkpoint → task checkpoint → validate", async () => {
+    let state = initCheckpointState("non-trivial", "Add user authentication");
+    await writeCheckpointState(tmpDir, state);
+
+    const planCheck = validatePlanCheckpoints(state);
+    expect(planCheck.valid).toBe(false);
+    expect(planCheck.missing).toContain("ged-planner");
+
+    state = recordCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: new Date().toISOString(),
+      status: "completed",
+      findingCount: 2,
+    });
+    await writeCheckpointState(tmpDir, state);
+
+    const planCheck2 = validatePlanCheckpoints(state);
+    expect(planCheck2.valid).toBe(true);
+
+    const commitCheck = validateCommitCheckpoints(state, "T01");
+    expect(commitCheck.valid).toBe(false);
+    expect(commitCheck.missing).toContain("ged-verifier");
+
+    state = recordCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: new Date().toISOString(),
+        status: "completed",
+        findingCount: 0,
+        blocksCommit: false,
+      },
+      "T01",
+    );
+    await writeCheckpointState(tmpDir, state);
+
+    const commitCheck2 = validateCommitCheckpoints(state, "T01");
+    expect(commitCheck2.valid).toBe(true);
+
+    const persisted = await readCheckpointState(tmpDir);
+    expect(persisted?.classification).toBe("non-trivial");
+    expect(persisted?.planCheckpoints["ged-planner"]?.status).toBe("completed");
+    expect(persisted?.taskCheckpoints["T01"]?.["ged-verifier"]?.status).toBe(
+      "completed",
+    );
+  });
+
+  it("full trivial workflow: init → all validations pass without checkpoints", async () => {
+    const state = initCheckpointState("trivial", "Fix typo in README");
+    await writeCheckpointState(tmpDir, state);
+
+    expect(validatePlanCheckpoints(state).valid).toBe(true);
+    expect(validateCommitCheckpoints(state, "T01").valid).toBe(true);
+  });
+});
