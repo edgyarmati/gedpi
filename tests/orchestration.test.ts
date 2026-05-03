@@ -8,6 +8,7 @@ import { buildWorkflowPromptSuffix } from "../src/brain.js";
 import type { CheckpointRecord, CheckpointState } from "../src/contracts.js";
 import {
   buildOrchestrationPrompt,
+  detectRecentCommits,
   initCheckpointState,
   readCheckpointState,
   recordCheckpoint,
@@ -319,5 +320,22 @@ describe("brain orchestration integration", () => {
   it("omits orchestration prompt when no settings file", async () => {
     const suffix = await buildWorkflowPromptSuffix(tmpDir);
     expect(suffix).not.toContain("Subagent orchestration");
+  });
+});
+
+describe("commit detection", () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), "ged-git-"));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns empty array in non-git directory", async () => {
+    const commits = await detectRecentCommits(tmpDir, 60);
+    expect(commits).toEqual([]);
   });
 });

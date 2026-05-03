@@ -1,5 +1,7 @@
+import { execFile } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { promisify } from "node:util";
 
 import { writeFileAtomic } from "./atomic.js";
 import type {
@@ -171,4 +173,30 @@ If a checkpoint is skipped because the task is trivial, subagents are disabled o
 Use pi-intercom only for child-to-parent clarification when a subagent is blocked on a scope or product decision. Child agents must ask instead of guessing.
 
 There is no writer subagent role. Do not delegate source edits, planning-file ownership, scope decisions, verification adjudication, commits, pushes, or PR decisions to subagents.`;
+}
+
+const execFileAsync = promisify(execFile);
+
+export async function detectRecentCommits(
+  rootDir: string,
+  withinSeconds: number,
+): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync(
+      "git",
+      [
+        "log",
+        `--since=${withinSeconds} seconds ago`,
+        "--format=%H",
+        "--no-merges",
+      ],
+      { cwd: rootDir, timeout: 5000 },
+    );
+    return stdout
+      .trim()
+      .split("\n")
+      .filter((line) => line.length > 0);
+  } catch {
+    return [];
+  }
 }

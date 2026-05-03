@@ -2,7 +2,10 @@ import { fileURLToPath } from "node:url";
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
-import { syncGedSubagentRuntimeConfig } from "../../src/agent-settings.js";
+import {
+  readEffectiveGedAgentsSettings,
+  syncGedSubagentRuntimeConfig,
+} from "../../src/agent-settings.js";
 import {
   buildPassiveGedPromptSuffix,
   buildWorkflowPromptSuffix,
@@ -10,6 +13,11 @@ import {
 } from "../../src/brain.js";
 import { createGedCommands } from "../../src/commands.js";
 import { renderHeader } from "../../src/header.js";
+import {
+  detectRecentCommits,
+  readCheckpointState,
+  validateCommitCheckpoints,
+} from "../../src/orchestration.js";
 import {
   registerGedMessageRenderer,
   registerPiCommands,
@@ -111,5 +119,41 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
     return {
       systemPrompt: prompt,
     };
+  });
+
+  api.on("turn_end", async (_event, ctx) => {
+    const gedMode = readGedMode(ctx.cwd);
+    if (!gedMode) return;
+
+    const agentSettings = await readEffectiveGedAgentsSettings(ctx.cwd).catch(
+      () => null,
+    );
+    if (!agentSettings?.enabled) return;
+
+    const recentCommits = await detectRecentCommits(ctx.cwd, 120);
+    if (recentCommits.length === 0) return;
+
+    const checkpointState = await readCheckpointState(ctx.cwd);
+    if (!checkpointState || checkpointState.classification === "trivial")
+      return;
+
+    const lastTaskId = Object.keys(checkpointState.taskCheckpoints).pop();
+
+    const commitValidation = validateCommitCheckpoints(
+      checkpointState,
+      lastTaskId ?? "unknown",
+    );
+
+    if (!commitValidation.valid) {
+      api.sendMessage({
+        customType: "ged-checkpoint-warning",
+        content: `Checkpoint warning: You committed without completing required checkpoints: ${commitValidation.missing.join(", ")}. For non-trivial work, dispatch ged-verifier for clean-context review before committing. If intentionally skipped, record a skip reason in .ged/runtime/checkpoints.json.`,
+        display: true,
+        details: {
+          title: "checkpoint-gate",
+          missing: commitValidation.missing,
+        },
+      });
+    }
   });
 }
