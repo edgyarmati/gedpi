@@ -1,15 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { isToolCallEventType } from "@mariozechner/pi-coding-agent";
-
 import type { CheckpointAgent } from "@ged/shared-checkpoints";
-
 import {
-  isGitCommitCommand,
   hasSkipCheckpointMarker,
+  isGitCommitCommand,
 } from "@ged/shared-checkpoints";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 import {
   readEffectiveGedAgentsSettings,
@@ -134,10 +130,7 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
     const toolName: string = (input.toolName as string) ?? "";
 
     // --- Auto-recording: detect subagent dispatches and record checkpoints ---
-    const subagentName = detectSubagentDispatch(
-      toolName,
-      input,
-    );
+    const subagentName = detectSubagentDispatch(toolName, input);
     if (subagentName) {
       try {
         let state = await readCheckpointState(ctx.cwd);
@@ -152,8 +145,7 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
         }
         const now = new Date().toISOString();
         const isTaskAgent =
-          subagentName === "ged-explorer" ||
-          subagentName === "ged-verifier";
+          subagentName === "ged-explorer" || subagentName === "ged-verifier";
         state = recordCheckpoint(
           state,
           {
@@ -171,7 +163,11 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
 
     // --- Planner guard: block write/edit to non-.ged source files ---
     if (toolName === "write" || toolName === "edit") {
-      const filePath = String((input as Record<string, unknown>).filePath ?? (input as Record<string, unknown>).path ?? "");
+      const filePath = String(
+        (input as Record<string, unknown>).filePath ??
+          (input as Record<string, unknown>).path ??
+          "",
+      );
       // Allow .ged/ writes unconditionally
       if (
         filePath.includes(`${path.sep}.ged${path.sep}`) ||
@@ -204,9 +200,9 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
       if (typeof command === "string" && isGitCommitCommand(command)) {
         // Check for bypass marker — only effective if settings allow it
         if (hasSkipCheckpointMarker(command)) {
-          const settings = await readEffectiveGedAgentsSettings(
-            ctx.cwd,
-          ).catch(() => null);
+          const settings = await readEffectiveGedAgentsSettings(ctx.cwd).catch(
+            () => null,
+          );
           if (settings?.allowCheckpointBypass) {
             return; // Allow through
           }

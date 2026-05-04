@@ -8,33 +8,23 @@ import type {
   CheckpointValidation,
 } from "@ged/shared-checkpoints";
 
-import {
-  initCheckpointState,
-  isGitCommitCommand,
-  hasSkipCheckpointMarker,
-  parseCheckpointState,
-  recordCheckpoint,
-  validateAllVerifierCheckpoints,
-  validatePlannerCheckpoint,
-  validateVerifierCheckpoint,
-} from "@ged/shared-checkpoints";
+import { parseCheckpointState } from "@ged/shared-checkpoints";
 
 import { writeFileAtomic } from "./atomic.js";
 
 // Re-export shared functions for backward compatibility
+// Legacy alias: validateCommitCheckpoints = validateAllVerifierCheckpoints
 export {
+  hasSkipCheckpointMarker,
   initCheckpointState,
   isGitCommitCommand,
-  hasSkipCheckpointMarker,
   parseCheckpointState,
   recordCheckpoint,
   validateAllVerifierCheckpoints,
+  validateAllVerifierCheckpoints as validateCommitCheckpoints,
   validatePlannerCheckpoint,
   validateVerifierCheckpoint,
 } from "@ged/shared-checkpoints";
-
-// Legacy alias: validateCommitCheckpoints = validateAllVerifierCheckpoints
-export { validateAllVerifierCheckpoints as validateCommitCheckpoints } from "@ged/shared-checkpoints";
 
 const CHECKPOINT_FILE = ".ged/runtime/checkpoints.json";
 
@@ -62,15 +52,11 @@ export async function writeCheckpointState(
 
 // ─── Guard messages ─────────────────────────────────────────────────────
 
-export function plannerGuardMessage(
-  validation: CheckpointValidation,
-): string {
+export function plannerGuardMessage(validation: CheckpointValidation): string {
   return `GedCode planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner via the subagent tool, or reclassify the task as trivial.`;
 }
 
-export function verifierGuardMessage(
-  validation: CheckpointValidation,
-): string {
+export function verifierGuardMessage(validation: CheckpointValidation): string {
   return `GedCode verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier via the subagent tool for clean-context review.`;
 }
 
@@ -82,8 +68,7 @@ export function detectSubagentDispatch(
 ): string | null {
   if (toolName !== "task" && toolName !== "Task") return null;
 
-  const subagentType =
-    input.subagent_type || input.agent || input.subagentType;
+  const subagentType = input.subagent_type || input.agent || input.subagentType;
   if (typeof subagentType !== "string") return null;
 
   if (

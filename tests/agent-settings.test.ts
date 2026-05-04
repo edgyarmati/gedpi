@@ -22,7 +22,11 @@ describe("Ged optional agent settings", () => {
 
     await expect(
       readEffectiveGedAgentsSettings(rootDir, { homeDir }),
-    ).resolves.toEqual({ enabled: false, models: {}, allowCheckpointBypass: false });
+    ).resolves.toEqual({
+      enabled: false,
+      models: {},
+      allowCheckpointBypass: false,
+    });
   });
 
   test("merges global settings with project override", async () => {

@@ -2,7 +2,10 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
-import type { CheckpointState, CheckpointRecord } from "@ged/shared-checkpoints";
+import type {
+  CheckpointRecord,
+  CheckpointState,
+} from "@ged/shared-checkpoints";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "../src/atomic.js";
 import { buildWorkflowPromptSuffix } from "../src/brain.js";
@@ -12,7 +15,6 @@ import {
   initCheckpointState,
   readCheckpointState,
   recordCheckpoint,
-  validateAllVerifierCheckpoints,
   validatePlannerCheckpoint,
   validateVerifierCheckpoint,
   writeCheckpointState,
@@ -416,7 +418,7 @@ describe("orchestration integration", () => {
     const persisted = await readCheckpointState(tmpDir);
     expect(persisted?.classification).toBe("non-trivial");
     expect(persisted?.planCheckpoints["ged-planner"]?.status).toBe("completed");
-    expect(persisted?.taskCheckpoints["T01"]?.["ged-verifier"]?.status).toBe(
+    expect(persisted?.taskCheckpoints.T01?.["ged-verifier"]?.status).toBe(
       "completed",
     );
   });
