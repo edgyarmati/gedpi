@@ -2,9 +2,25 @@
 
 ## Unreleased
 
+### Breaking changes
+
+- **Removed `/ged-mode` toggle** — the full Ged workflow is now always active. There is no passive/off mode. The agent classifies tasks as trivial or non-trivial internally.
+
+### Features
+
+- Strengthened orchestration prompt with prescriptive mandatory subagent dispatch instructions and exact tool-call formats.
+- Updated ASCII logo to wider GEDPI design and simplified header subtitle.
+- Added changelog version tracking to launcher settings for future upgrade notifications.
+
+### Fixes
+
+- Fixed orchestration test that leaked real user settings when no `.gedcode/settings.json` existed in the test directory.
+
 ### Documentation
 
-- Added a single-writer intelligence orchestration implementation handoff for future GedPi work, covering read-only explorer/planner/verifier roles, model settings with per-agent options, `/ged-agents` setup behavior, clean-context review, and config-isolation safeguards.
+- Added release instructions and changelog discipline rules to `AGENTS.md`.
+- Updated `AGENTS.md` and `README.md` to reflect always-on workflow behavior.
+- Added a single-writer intelligence orchestration implementation handoff for future GedPi work.
 
 ## 0.12.0 - 2026-04-27
 

@@ -50,6 +50,31 @@ The Ged workflow is always active:
 
 **Commits**: After completing any task — including individual implementation slices, bug fixes, refactors, or cleanup — create a git commit to snapshot the work. Before committing, run the `verify` skill (`npm run check && npm run lint && npm test`) and fix any failures. Use conventional commit format (`feat:`, `fix:`, `refactor:`, `chore:`, etc.). Never leave completed work uncommitted. Check `git status` after each task; if there are staged or unstaged changes, commit them.
 
+**Changelog**: Every committed change that is user-facing (features, fixes, behavior changes, dependency bumps, deprecations) must add an entry under `## Unreleased` in `CHANGELOG.md`. Group entries by category (`### Features`, `### Fixes`, `### Documentation`, `### Dependencies`, etc.). Keep the changelog current during each slice — don't batch it at release time. On release, `## Unreleased` is renamed to `## X.Y.Z - YYYY-MM-DD` and a fresh `## Unreleased` header is added.
+
+## Releases
+
+GedPi is published to npm as `gedpi`.
+
+### How to release
+
+1. Ensure `CHANGELOG.md` has all changes under `## Unreleased`.
+2. Bump `version` in `packages/gedpi/package.json` to the new version.
+3. Rename `## Unreleased` to `## X.Y.Z - YYYY-MM-DD` and add a new `## Unreleased` section at the top.
+4. Commit: `chore: release gedpi X.Y.Z`.
+5. Tag: `git tag gedpi-vX.Y.Z`.
+6. Push: `git push origin main --tags`.
+7. The `release-gedpi.yml` workflow will: verify → npm pack → npm publish with provenance → create GitHub release.
+
+### Tag format
+
+- GedPi releases use `gedpi-v*` tags (e.g., `gedpi-v0.13.0`).
+- GedCode releases use `gedcode-v*` tags — they are independent.
+
+### Deprecation note
+
+The previous npm package `omni-pi` is deprecated. `gedpi` is the active package.
+
 ## TypeScript
 
 - ES modules only — NodeNext module resolution, `import.meta.url` for paths. No CommonJS in `src/` or `extensions/`.
