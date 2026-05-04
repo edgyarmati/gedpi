@@ -22,7 +22,7 @@ describe("Ged optional agent settings", () => {
 
     await expect(
       readEffectiveGedAgentsSettings(rootDir, { homeDir }),
-    ).resolves.toEqual({ enabled: false, models: {} });
+    ).resolves.toEqual({ enabled: false, models: {}, allowCheckpointBypass: false });
   });
 
   test("merges global settings with project override", async () => {
@@ -52,6 +52,7 @@ describe("Ged optional agent settings", () => {
         "ged-explorer": "opencode/nemotron",
         "ged-planner": { model: "openai/gpt-5.5", reasoningEffort: "high" },
       },
+      allowCheckpointBypass: false,
     });
   });
 

@@ -8,6 +8,9 @@
 
 ### Features
 
+- **Hard enforcement of planner and verifier checkpoints** — write/edit to source files is now structurally blocked until ged-planner has been dispatched for non-trivial work, and git commit is blocked until ged-verifier has been dispatched. Guards are implemented in the tool-call interception layer and cannot be bypassed by prompt instructions alone. Escape hatch available via `allowCheckpointBypass` setting.
+- **Shared checkpoint package** (`@ged/shared-checkpoints`) — extracted checkpoint state types, validation, git commit detection, and auto-recording into a shared package used by both GedCode and GedPi. Ensures .ged/ memory format stays interchangeable.
+- **Auto-recording of subagent dispatches** — when a Task tool dispatches ged-explorer, ged-planner, or ged-verifier, the checkpoint is automatically recorded without relying on the agent to write it manually.
 - Strengthened orchestration prompt with prescriptive mandatory subagent dispatch instructions and exact tool-call formats.
 - Updated ASCII logo to wider GEDPI design and simplified header subtitle.
 - Added changelog version tracking to launcher settings for future upgrade notifications.

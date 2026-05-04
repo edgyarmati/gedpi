@@ -3,48 +3,49 @@ import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import { writeFileAtomic } from "./atomic.js";
 import type {
-  CheckpointRecord,
   CheckpointState,
-  TaskClassification,
-} from "./contracts.js";
+  CheckpointValidation,
+} from "@ged/shared-checkpoints";
+
+import {
+  initCheckpointState,
+  isGitCommitCommand,
+  hasSkipCheckpointMarker,
+  parseCheckpointState,
+  recordCheckpoint,
+  validateAllVerifierCheckpoints,
+  validatePlannerCheckpoint,
+  validateVerifierCheckpoint,
+} from "@ged/shared-checkpoints";
+
+import { writeFileAtomic } from "./atomic.js";
+
+// Re-export shared functions for backward compatibility
+export {
+  initCheckpointState,
+  isGitCommitCommand,
+  hasSkipCheckpointMarker,
+  parseCheckpointState,
+  recordCheckpoint,
+  validateAllVerifierCheckpoints,
+  validatePlannerCheckpoint,
+  validateVerifierCheckpoint,
+} from "@ged/shared-checkpoints";
+
+// Legacy alias: validateCommitCheckpoints = validateAllVerifierCheckpoints
+export { validateAllVerifierCheckpoints as validateCommitCheckpoints } from "@ged/shared-checkpoints";
 
 const CHECKPOINT_FILE = ".ged/runtime/checkpoints.json";
 
-export function initCheckpointState(
-  classification: TaskClassification,
-  classificationReason: string,
-): CheckpointState {
-  return {
-    classification,
-    classificationReason,
-    planCheckpoints: {},
-    taskCheckpoints: {},
-  };
-}
-
-function isValidCheckpointState(value: unknown): value is CheckpointState {
-  if (typeof value !== "object" || value === null) return false;
-  const obj = value as Record<string, unknown>;
-  return (
-    (obj.classification === "trivial" ||
-      obj.classification === "non-trivial") &&
-    typeof obj.classificationReason === "string" &&
-    typeof obj.planCheckpoints === "object" &&
-    obj.planCheckpoints !== null &&
-    typeof obj.taskCheckpoints === "object" &&
-    obj.taskCheckpoints !== null
-  );
-}
+// ─── Read / Write ───────────────────────────────────────────────────────
 
 export async function readCheckpointState(
   rootDir: string,
 ): Promise<CheckpointState | null> {
   try {
     const raw = await readFile(path.join(rootDir, CHECKPOINT_FILE), "utf8");
-    const parsed: unknown = JSON.parse(raw);
-    return isValidCheckpointState(parsed) ? parsed : null;
+    return parseCheckpointState(raw);
   } catch {
     return null;
   }
@@ -59,78 +60,43 @@ export async function writeCheckpointState(
   await writeFileAtomic(filePath, `${JSON.stringify(state, null, 2)}\n`);
 }
 
-export function recordCheckpoint(
-  state: CheckpointState,
-  record: CheckpointRecord,
-  taskId?: string,
-): CheckpointState {
-  if (taskId) {
-    return {
-      ...state,
-      taskCheckpoints: {
-        ...state.taskCheckpoints,
-        [taskId]: {
-          ...state.taskCheckpoints[taskId],
-          [record.agent]: record,
-        },
-      },
-    };
-  }
-  return {
-    ...state,
-    planCheckpoints: {
-      ...state.planCheckpoints,
-      [record.agent]: record,
-    },
-  };
+// ─── Guard messages ─────────────────────────────────────────────────────
+
+export function plannerGuardMessage(
+  validation: CheckpointValidation,
+): string {
+  return `GedCode planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner via the subagent tool, or reclassify the task as trivial.`;
 }
 
-export interface CheckpointValidation {
-  valid: boolean;
-  missing: string[];
-  warning?: string;
+export function verifierGuardMessage(
+  validation: CheckpointValidation,
+): string {
+  return `GedCode verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier via the subagent tool for clean-context review.`;
 }
 
-export function validatePlanCheckpoints(
-  state: CheckpointState | null,
-): CheckpointValidation {
-  if (!state) {
-    return {
-      valid: true,
-      missing: [],
-      warning: "No checkpoint state found — subagents may not be enabled",
-    };
+// ─── Auto-recording ─────────────────────────────────────────────────────
+
+export function detectSubagentDispatch(
+  toolName: string,
+  input: Record<string, unknown>,
+): string | null {
+  if (toolName !== "task" && toolName !== "Task") return null;
+
+  const subagentType =
+    input.subagent_type || input.agent || input.subagentType;
+  if (typeof subagentType !== "string") return null;
+
+  if (
+    subagentType === "ged-explorer" ||
+    subagentType === "ged-planner" ||
+    subagentType === "ged-verifier"
+  ) {
+    return subagentType;
   }
-  if (state.classification === "trivial") {
-    return { valid: true, missing: [] };
-  }
-  const missing: string[] = [];
-  if (!state.planCheckpoints["ged-planner"]) {
-    missing.push("ged-planner");
-  }
-  return { valid: missing.length === 0, missing };
+  return null;
 }
 
-export function validateCommitCheckpoints(
-  state: CheckpointState | null,
-  taskId: string,
-): CheckpointValidation {
-  if (!state) {
-    return {
-      valid: true,
-      missing: [],
-      warning: "No checkpoint state found — subagents may not be enabled",
-    };
-  }
-  if (state.classification === "trivial") {
-    return { valid: true, missing: [] };
-  }
-  const missing: string[] = [];
-  if (!state.taskCheckpoints[taskId]?.["ged-verifier"]) {
-    missing.push("ged-verifier");
-  }
-  return { valid: missing.length === 0, missing };
-}
+// ─── Orchestration prompt ───────────────────────────────────────────────
 
 export function buildOrchestrationPrompt(agentsEnabled: boolean): string {
   if (!agentsEnabled) {
@@ -153,6 +119,14 @@ Write your classification and reason to .ged/runtime/checkpoints.json using:
 {"classification": "trivial|non-trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}
 \`\`\`
 
+### Hard enforcement (structural guards)
+
+Both the planner and verifier checkpoints are now **structurally enforced**:
+- The **planner guard** blocks write/edit to source files until ged-planner has been dispatched for non-trivial work.
+- The **verifier guard** blocks git commit until ged-verifier has been dispatched for non-trivial work.
+
+These guards are implemented in the tool-call interception layer — they cannot be bypassed by instruction alone. The only way to commit without verification is to set \`workflow.allowCheckpointBypass: true\` in GedCode settings.
+
 ### Mandatory checkpoints for non-trivial work
 
 When subagents are enabled and the task is non-trivial, use mandatory intelligence checkpoints:
@@ -163,17 +137,7 @@ When subagents are enabled and the task is non-trivial, use mandatory intelligen
 
 3. **ged-verifier** — Dispatch via the subagent tool for clean-context review before committing meaningful implementation changes. The verifier reviews your diff and tests with minimal prior assumptions. You adjudicate each finding (accept, reject, needs-user), fix accepted issues, and rerun verification.
 
-After each subagent completes, record the checkpoint in .ged/runtime/checkpoints.json:
-\`\`\`json
-{"agent": "ged-verifier", "timestamp": "...", "status": "completed", "findingCount": 2, "blocksCommit": false}
-\`\`\`
-
-### Skip policy
-
-If a checkpoint is skipped because the task is trivial, subagents are disabled or unavailable, the call fails, or the user explicitly asks not to delegate, record a checkpoint with status "skipped" and a skip reason. Example:
-\`\`\`json
-{"agent": "ged-planner", "timestamp": "...", "status": "skipped", "skipReason": "User asked to skip planning critique"}
-\`\`\`
+After each subagent completes, the checkpoint is automatically recorded when you dispatch via the Task tool.
 
 ### Clean-context review flow (before every meaningful commit)
 
@@ -181,7 +145,7 @@ If a checkpoint is skipped because the task is trivial, subagents are disabled o
 2. Dispatch ged-verifier for clean-context review of the diff and tests
 3. Adjudicate each finding: accept (fix before commit), reject (record reason), or needs-user (ask)
 4. Fix accepted issues and rerun verification
-5. Record the checkpoint, then commit
+5. Commit — the verifier guard will allow it through
 
 ### Intercom usage
 
@@ -189,6 +153,8 @@ Use pi-intercom only for child-to-parent clarification when a subagent is blocke
 
 There is no writer subagent role. Do not delegate source edits, planning-file ownership, scope decisions, verification adjudication, commits, pushes, or PR decisions to subagents.`;
 }
+
+// ─── Git commit detection ───────────────────────────────────────────────
 
 const execFileAsync = promisify(execFile);
 

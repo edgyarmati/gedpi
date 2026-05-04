@@ -2,18 +2,19 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import type { CheckpointState, CheckpointRecord } from "@ged/shared-checkpoints";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "../src/atomic.js";
 import { buildWorkflowPromptSuffix } from "../src/brain.js";
-import type { CheckpointRecord, CheckpointState } from "../src/contracts.js";
 import {
   buildOrchestrationPrompt,
   detectRecentCommits,
   initCheckpointState,
   readCheckpointState,
   recordCheckpoint,
-  validateCommitCheckpoints,
-  validatePlanCheckpoints,
+  validateAllVerifierCheckpoints,
+  validatePlannerCheckpoint,
+  validateVerifierCheckpoint,
   writeCheckpointState,
 } from "../src/orchestration.js";
 
@@ -166,21 +167,21 @@ describe("checkpoint validation", () => {
       status: "completed",
       findingCount: 1,
     });
-    const result = validatePlanCheckpoints(withPlanner);
+    const result = validatePlannerCheckpoint(withPlanner);
     expect(result.valid).toBe(true);
     expect(result.missing).toEqual([]);
   });
 
   it("plan validation fails when ged-planner missing for non-trivial", () => {
     const state = initCheckpointState("non-trivial", "Feature work");
-    const result = validatePlanCheckpoints(state);
+    const result = validatePlannerCheckpoint(state);
     expect(result.valid).toBe(false);
     expect(result.missing).toContain("ged-planner");
   });
 
   it("plan validation passes for trivial classification", () => {
     const state = initCheckpointState("trivial", "README update");
-    const result = validatePlanCheckpoints(state);
+    const result = validatePlannerCheckpoint(state);
     expect(result.valid).toBe(true);
   });
 
@@ -197,20 +198,20 @@ describe("checkpoint validation", () => {
       },
       "T04",
     );
-    const result = validateCommitCheckpoints(withVerifier, "T04");
+    const result = validateVerifierCheckpoint(withVerifier, "T04");
     expect(result.valid).toBe(true);
   });
 
   it("commit validation fails when ged-verifier missing for non-trivial", () => {
     const state = initCheckpointState("non-trivial", "Feature work");
-    const result = validateCommitCheckpoints(state, "T04");
+    const result = validateVerifierCheckpoint(state, "T04");
     expect(result.valid).toBe(false);
     expect(result.missing).toContain("ged-verifier");
   });
 
   it("commit validation passes for trivial classification", () => {
     const state = initCheckpointState("trivial", "Config change");
-    const result = validateCommitCheckpoints(state, "T01");
+    const result = validateVerifierCheckpoint(state, "T01");
     expect(result.valid).toBe(true);
   });
 
@@ -226,12 +227,12 @@ describe("checkpoint validation", () => {
       },
       "T04",
     );
-    const result = validateCommitCheckpoints(withSkip, "T04");
+    const result = validateVerifierCheckpoint(withSkip, "T04");
     expect(result.valid).toBe(true);
   });
 
   it("validation returns warning when no checkpoint state", () => {
-    const result = validatePlanCheckpoints(null);
+    const result = validatePlannerCheckpoint(null);
     expect(result.valid).toBe(true);
     expect(result.warning).toBe(
       "No checkpoint state found — subagents may not be enabled",
@@ -263,9 +264,10 @@ describe("orchestration prompt", () => {
     expect(result).toContain("ged-verifier");
   });
 
-  it("includes skip policy", () => {
+  it("includes hard enforcement section", () => {
     const result = buildOrchestrationPrompt(true);
-    expect(result).toContain("skip reason");
+    expect(result).toContain("planner guard");
+    expect(result).toContain("verifier guard");
   });
 
   it("includes clean-context review instructions", () => {
@@ -376,7 +378,7 @@ describe("orchestration integration", () => {
     let state = initCheckpointState("non-trivial", "Add user authentication");
     await writeCheckpointState(tmpDir, state);
 
-    const planCheck = validatePlanCheckpoints(state);
+    const planCheck = validatePlannerCheckpoint(state);
     expect(planCheck.valid).toBe(false);
     expect(planCheck.missing).toContain("ged-planner");
 
@@ -388,10 +390,10 @@ describe("orchestration integration", () => {
     });
     await writeCheckpointState(tmpDir, state);
 
-    const planCheck2 = validatePlanCheckpoints(state);
+    const planCheck2 = validatePlannerCheckpoint(state);
     expect(planCheck2.valid).toBe(true);
 
-    const commitCheck = validateCommitCheckpoints(state, "T01");
+    const commitCheck = validateVerifierCheckpoint(state, "T01");
     expect(commitCheck.valid).toBe(false);
     expect(commitCheck.missing).toContain("ged-verifier");
 
@@ -408,7 +410,7 @@ describe("orchestration integration", () => {
     );
     await writeCheckpointState(tmpDir, state);
 
-    const commitCheck2 = validateCommitCheckpoints(state, "T01");
+    const commitCheck2 = validateVerifierCheckpoint(state, "T01");
     expect(commitCheck2.valid).toBe(true);
 
     const persisted = await readCheckpointState(tmpDir);
@@ -423,7 +425,7 @@ describe("orchestration integration", () => {
     const state = initCheckpointState("trivial", "Fix typo in README");
     await writeCheckpointState(tmpDir, state);
 
-    expect(validatePlanCheckpoints(state).valid).toBe(true);
-    expect(validateCommitCheckpoints(state, "T01").valid).toBe(true);
+    expect(validatePlannerCheckpoint(state).valid).toBe(true);
+    expect(validateVerifierCheckpoint(state, "T01").valid).toBe(true);
   });
 });

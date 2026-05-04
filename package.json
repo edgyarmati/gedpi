@@ -83,6 +83,7 @@
     ]
   },
   "dependencies": {
+    "@ged/shared-checkpoints": "file:../shared",
     "@anthropic-ai/claude-agent-sdk": "^0.2.119",
     "@juanibiapina/pi-extension-settings": "^0.6.1",
     "@juanibiapina/pi-powerbar": "^0.9.1",

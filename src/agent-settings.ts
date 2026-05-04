@@ -21,6 +21,7 @@ export interface GedAgentsSettings {
   enabled?: boolean;
   defaultModel?: AgentModelConfig;
   models?: Partial<Record<GedAgentRole, AgentModelConfig>>;
+  allowCheckpointBypass?: boolean;
 }
 
 export interface GedRuntimeSettings {
@@ -31,6 +32,7 @@ export interface EffectiveGedAgentsSettings {
   enabled: boolean;
   defaultModel?: AgentModelConfig;
   models: Partial<Record<GedAgentRole, AgentModelConfig>>;
+  allowCheckpointBypass: boolean;
 }
 
 export function globalGedSettingsPath(homeDir = os.homedir()): string {
@@ -82,6 +84,10 @@ export function cleanAgentsSettings(value: unknown): GedAgentsSettings {
     }
   }
 
+  if (typeof value.allowCheckpointBypass === "boolean") {
+    settings.allowCheckpointBypass = value.allowCheckpointBypass;
+  }
+
   return settings;
 }
 
@@ -120,6 +126,10 @@ export async function readEffectiveGedAgentsSettings(
       ...(globalAgents.models ?? {}),
       ...(projectAgents.models ?? {}),
     },
+    allowCheckpointBypass:
+      projectAgents.allowCheckpointBypass ??
+      globalAgents.allowCheckpointBypass ??
+      false,
   };
 }
 
