@@ -53,11 +53,17 @@ export async function writeCheckpointState(
 // ─── Guard messages ─────────────────────────────────────────────────────
 
 export function plannerGuardMessage(validation: CheckpointValidation): string {
-  return `GedCode planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner via the subagent tool, or reclassify the task as trivial.`;
+  if (validation.missing.includes("classification")) {
+    return 'GedPi planner guard: you must classify the task before editing source files. Write your classification to .ged/runtime/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+  }
+  return `GedPi planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner via the subagent tool, or reclassify the task as trivial.`;
 }
 
 export function verifierGuardMessage(validation: CheckpointValidation): string {
-  return `GedCode verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier via the subagent tool for clean-context review.`;
+  if (validation.missing.includes("classification")) {
+    return 'GedPi verifier guard: you must classify the task before committing. Write your classification to .ged/runtime/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+  }
+  return `GedPi verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier via the subagent tool for clean-context review.`;
 }
 
 // ─── Auto-recording ─────────────────────────────────────────────────────
@@ -106,9 +112,12 @@ Write your classification and reason to .ged/runtime/checkpoints.json using:
 
 ### Hard enforcement (structural guards)
 
-Both the planner and verifier checkpoints are now **structurally enforced**:
-- The **planner guard** blocks write/edit to source files until ged-planner has been dispatched for non-trivial work.
-- The **verifier guard** blocks git commit until ged-verifier has been dispatched for non-trivial work.
+All source file edits and git commits are **structurally guarded**:
+
+1. **Classification is required** — If \`.ged/runtime/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
+2. **Trivial classification** allows immediate edits and commits — no subagent dispatches needed.
+3. **Non-trivial classification** requires dispatching \`ged-planner\` before edits and \`ged-verifier\` before commits.
+4. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
 
 These guards are implemented in the tool-call interception layer — they cannot be bypassed by instruction alone. The only way to commit without verification is to set \`workflow.allowCheckpointBypass: true\` in GedCode settings.
 

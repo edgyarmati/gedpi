@@ -4,6 +4,7 @@ import type { CheckpointAgent } from "@ged/shared-checkpoints";
 import {
   hasSkipCheckpointMarker,
   isGitCommitCommand,
+  shouldAutoEscalate,
 } from "@ged/shared-checkpoints";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
@@ -55,7 +56,15 @@ import { registerThemeCommand } from "../../src/theme-command.js";
 import { registerUpdater } from "../../src/updater.js";
 import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
 
+// ─── Session-level touched-files tracking ──────────────────────────
+const touchedSourceFiles = new Set<string>();
+
 export default function gedCoreExtension(api: ExtensionAPI): void {
+  // Reset touched files on session start
+  api.on("session_start", () => {
+    touchedSourceFiles.clear();
+  });
+
   registerGedMessageRenderer(api);
   registerPiCommands(api, createGedCommands());
   registerThemeCommand(api);
@@ -177,20 +186,34 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
         return;
       }
 
-      const state = await readCheckpointState(ctx.cwd);
-      // Note: auto-escalation is not implemented in the guard — the agent
-      // is expected to classify correctly via the orchestration prompt.
-      // The planner guard enforces that classification is honored.
+      let state = await readCheckpointState(ctx.cwd);
+
+      // Auto-escalation: if classified as trivial but touching >1 source file,
+      // reclassify to non-trivial and persist. This triggers the planner guard
+      // on subsequent writes until ged-planner is dispatched.
+      if (state?.classification === "trivial") {
+        touchedSourceFiles.add(filePath);
+        if (shouldAutoEscalate(state.classification, [...touchedSourceFiles])) {
+          state = {
+            ...state,
+            classification: "non-trivial",
+            classificationReason:
+              "Auto-escalated: >1 source file touched in this session",
+          };
+          await writeCheckpointState(ctx.cwd, state);
+        }
+      }
 
       const validation = validatePlannerCheckpoint(state);
       if (!validation.valid) {
+        const message = plannerGuardMessage(validation);
         api.sendMessage({
           customType: "ged-checkpoint-blocked",
-          content: plannerGuardMessage(validation),
+          content: message,
           display: true,
           details: { title: "planner-guard", missing: validation.missing },
         });
-        return { block: true, reason: plannerGuardMessage(validation) };
+        return { block: true, reason: message };
       }
     }
 

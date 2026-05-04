@@ -233,12 +233,11 @@ describe("checkpoint validation", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("validation returns warning when no checkpoint state", () => {
+  it("validation returns invalid when no checkpoint state", () => {
     const result = validatePlannerCheckpoint(null);
-    expect(result.valid).toBe(true);
-    expect(result.warning).toBe(
-      "No checkpoint state found — subagents may not be enabled",
-    );
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("classification");
+    expect(result.warning).toContain("classify the task");
   });
 });
 
@@ -268,8 +267,8 @@ describe("orchestration prompt", () => {
 
   it("includes hard enforcement section", () => {
     const result = buildOrchestrationPrompt(true);
-    expect(result).toContain("planner guard");
-    expect(result).toContain("verifier guard");
+    expect(result).toContain("Classification is required");
+    expect(result).toContain("structurally guarded");
   });
 
   it("includes clean-context review instructions", () => {
