@@ -336,7 +336,9 @@ describe("brain orchestration integration", () => {
   });
 
   it("omits orchestration prompt when no settings file", async () => {
-    const suffix = await buildWorkflowPromptSuffix(tmpDir);
+    const suffix = await buildWorkflowPromptSuffix(tmpDir, {
+      homeDir: tmpDir,
+    });
     expect(suffix).not.toContain("Subagent orchestration");
   });
 });
