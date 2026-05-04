@@ -9,7 +9,6 @@ import {
 } from "./agent-settings.js";
 import type { AppCommandDefinition } from "./pi.js";
 import { executeRtkCommand } from "./rtk.js";
-import { formatGedModeStatus, readGedMode, saveGedMode } from "./theme.js";
 
 async function executeGedAgentsCommand(
   cwd: string,
@@ -46,25 +45,6 @@ async function executeGedAgentsCommand(
 
 export function createGedCommands(): AppCommandDefinition[] {
   return [
-    {
-      name: "ged-mode",
-      description: "Toggle Ged mode on or off for this project",
-      async execute(context) {
-        const enabled = !readGedMode(context.cwd);
-        saveGedMode(context.cwd, enabled);
-        context.runtime?.ctx.ui.setStatus(
-          "gedpi",
-          formatGedModeStatus(enabled),
-        );
-        if (!enabled) {
-          context.runtime?.ctx.ui.setWidget("ged-dashboard", undefined);
-          context.runtime?.ctx.ui.setWidget("ged-todos", undefined);
-        }
-        return enabled
-          ? "Ged mode is now ON. The next agent turn will initialize or refresh .ged/ and use the full Ged workflow."
-          : "Ged mode is now OFF. Ged will keep using durable standards from .ged/ when present, but task workflow state is disabled.";
-      },
-    },
     {
       name: "ged-rtk",
       description:

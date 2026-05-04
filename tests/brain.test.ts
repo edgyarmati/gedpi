@@ -9,7 +9,6 @@ import {
   buildPassiveGedPromptSuffix,
   ensureGedReady,
 } from "../src/brain.js";
-import { saveGedMode } from "../src/theme.js";
 
 async function createTempProject(prefix: string): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), prefix));
@@ -59,59 +58,8 @@ describe("Ged brain runtime", () => {
     expect(prompt).not.toContain("### .ged/TESTS.md");
   });
 
-  test("gedCoreExtension leaves ged init off by default and only injects passive prompt", async () => {
+  test("gedCoreExtension always initializes and injects the full workflow prompt", async () => {
     const rootDir = await createTempProject("ged-brain-ext-");
-    const handlers = new Map<string, (...args: unknown[]) => unknown>();
-    const statuses: Array<string | undefined> = [];
-    const sentMessages: string[] = [];
-
-    gedCoreExtension({
-      registerMessageRenderer() {
-        return undefined;
-      },
-      registerCommand() {},
-      registerShortcut() {},
-      sendUserMessage(message: string) {
-        sentMessages.push(message);
-      },
-      on(event: string, handler: (...args: unknown[]) => unknown) {
-        handlers.set(event, handler);
-      },
-    } as never);
-
-    await handlers.get("session_start")?.(
-      { type: "session_start" },
-      {
-        cwd: rootDir,
-        ui: {
-          setTitle() {},
-          setTheme() {},
-          setHeader() {},
-          notify() {},
-          setStatus(_key: string, value: string | undefined) {
-            statuses.push(value);
-          },
-        },
-      },
-    );
-    const beforeStart = (await handlers.get("before_agent_start")?.(
-      {
-        type: "before_agent_start",
-        prompt: "Build me a todo app",
-        systemPrompt: "BASE",
-      },
-      { cwd: rootDir },
-    )) as { systemPrompt: string };
-
-    expect(statuses).toHaveLength(3);
-    expect(sentMessages).toHaveLength(0);
-    expect(beforeStart.systemPrompt).toContain("BASE");
-    expect(beforeStart.systemPrompt).not.toContain("GedPi Single-Brain Mode");
-  });
-
-  test("gedCoreExtension initializes and injects workflow prompt when ged mode is on", async () => {
-    const rootDir = await createTempProject("ged-brain-ext-on-");
-    saveGedMode(rootDir, true);
     const handlers = new Map<string, (...args: unknown[]) => unknown>();
 
     gedCoreExtension({
@@ -126,6 +74,19 @@ describe("Ged brain runtime", () => {
       },
     } as never);
 
+    await handlers.get("session_start")?.(
+      { type: "session_start" },
+      {
+        cwd: rootDir,
+        ui: {
+          setTitle() {},
+          setTheme() {},
+          setHeader() {},
+          notify() {},
+          setStatus() {},
+        },
+      },
+    );
     const beforeStart = (await handlers.get("before_agent_start")?.(
       {
         type: "before_agent_start",
@@ -135,6 +96,7 @@ describe("Ged brain runtime", () => {
       { cwd: rootDir },
     )) as { systemPrompt: string };
 
+    expect(beforeStart.systemPrompt).toContain("BASE");
     expect(beforeStart.systemPrompt).toContain("GedPi Single-Brain Mode");
     expect(beforeStart.systemPrompt).toContain(
       "use the interview tool now to run a concise onboarding interview",

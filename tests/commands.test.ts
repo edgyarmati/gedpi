@@ -12,12 +12,10 @@ import {
 } from "../src/agent-settings.js";
 import { createGedCommands } from "../src/commands.js";
 import { rewriteCommandWithRtk } from "../src/rtk.js";
-import { readGedMode } from "../src/theme.js";
 
 describe("Ged command surface", () => {
   test("createGedCommands exposes GedPi commands", () => {
     expect(createGedCommands().map((command) => command.name)).toEqual([
-      "ged-mode",
       "ged-rtk",
       "ged-agents",
     ]);
@@ -42,13 +40,7 @@ describe("Ged command surface", () => {
     } as never);
 
     expect(rendererRegistrations).toBeGreaterThan(0);
-    expect(commands).toEqual([
-      "ged-mode",
-      "ged-rtk",
-      "ged-agents",
-      "theme",
-      "update",
-    ]);
+    expect(commands).toEqual(["ged-rtk", "ged-agents", "theme", "update"]);
     expect(events).toContain("session_start");
     expect(events).toContain("before_agent_start");
     expect(events).toContain("tool_call");
@@ -72,48 +64,6 @@ describe("Ged command surface", () => {
 
     expect(statusRegistrations).toEqual([]);
     expect(skillsRegistrations).toEqual([]);
-  });
-
-  test("ged-mode command toggles the persisted mode flag", async () => {
-    const command = createGedCommands()[0];
-    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-mode-command-"));
-    const statuses: string[] = [];
-
-    const first = await command.execute({
-      cwd,
-      runtime: {
-        pi: {} as never,
-        ctx: {
-          ui: {
-            setStatus(_key: string, value: string) {
-              statuses.push(value);
-            },
-            setWidget() {},
-          },
-        } as never,
-      },
-    });
-
-    expect(typeof first).toBe("string");
-    expect(readGedMode(cwd)).toBe(true);
-
-    await command.execute({
-      cwd,
-      runtime: {
-        pi: {} as never,
-        ctx: {
-          ui: {
-            setStatus(_key: string, value: string) {
-              statuses.push(value);
-            },
-            setWidget() {},
-          },
-        } as never,
-      },
-    });
-
-    expect(readGedMode(cwd)).toBe(false);
-    expect(statuses).toHaveLength(2);
   });
 
   test("rewriteCommandWithRtk returns rewritten bash command when supported", async () => {

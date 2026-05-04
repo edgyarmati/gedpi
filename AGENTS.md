@@ -15,11 +15,11 @@ This file provides guidance to Codex and other AI agents when working with code 
 
 GedPi is a batteries-included Pi package built around a single conversational brain.
 
-**Agent flow**: Ged now starts in normal Pi behavior by default. When `/ged-mode` is enabled, one brain interviews the user, writes the spec into `.ged/`, breaks work into bounded slices, implements them, and records verification/results in durable memory.
+**Agent flow**: GedPi always starts in full workflow mode. One brain interviews the user, writes the spec into `.ged/`, breaks work into bounded slices, implements them, and records verification/results in durable memory. The agent classifies tasks as trivial or non-trivial and adjusts its behavior accordingly — no manual toggle needed.
 
 Future orchestration work should follow `docs/single-writer-intelligence-orchestration.md`: keep the primary Ged brain as the default writer and decision owner, use additional agents/model calls as read-only scouts, smart friends, or clean-context reviewers, and only allow writer workers through explicit branch/worktree-backed isolation. Do not reintroduce unstructured multi-agent writer swarms.
 
-**Memory**: `.ged/` files hold durable project standards, context, and Ged workflow state — not source code. When Ged mode is off, only the durable standards/context should be treated as active guidance. `.pi/` is Pi-runtime-local state and should stay out of Git.
+**Memory**: `.ged/` files hold durable project standards, context, and Ged workflow state — not source code. `.pi/` is Pi-runtime-local state and should stay out of Git.
 
 **Extensions**: Pi loads extensions listed in `package.json` under `pi.extensions`. Custom entrypoints live in `extensions/`. Third-party extensions are referenced via `./node_modules/` paths.
 
@@ -41,14 +41,7 @@ Bundled defaults now include `find-skills`, `skill-creator`, and `brainstorming`
 
 Always document plans and progress. Before making changes, state what you intend to do. After completing tasks, summarize what was done.
 
-`/ged-mode` is persistent per project through `.pi/settings.json`.
-
-When Ged mode is off:
-- keep the normal Pi behavior
-- treat `.ged/PROJECT.md`, `.ged/SPEC.md`, `.ged/DECISIONS.md`, `.ged/CONFIG.md`, `.ged/SKILLS.md`, and `.ged/STANDARDS.md` as passive guidance if present
-- ignore `.ged/TASKS.md`, `.ged/STATE.md`, `.ged/TESTS.md`, `.ged/tasks/`, and `.ged/SESSION-SUMMARY.md` for workflow execution
-
-When Ged mode is turned on for a project:
+The Ged workflow is always active:
 - lazily initialize or migrate `.ged/` on the first real agent turn
 - discover external standards files such as `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `.cursor/rules/**/*.mdc`, `.cursorrules`, `.windsurf/rules/**`, and `.continue/rules/**`
 - ask the user whether to keep repo-wide standards in Ged's durable config

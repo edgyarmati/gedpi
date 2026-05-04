@@ -9,7 +9,6 @@ import type {
 import type { GedState } from "../../src/contracts.js";
 import { runDoctor } from "../../src/doctor.js";
 import { renderCompactStatusWidget } from "../../src/status.js";
-import { readGedMode } from "../../src/theme.js";
 
 async function readState(cwd: string): Promise<GedState | null> {
   try {
@@ -45,10 +44,6 @@ async function readState(cwd: string): Promise<GedState | null> {
 }
 
 async function updateWidget(ctx: ExtensionContext): Promise<void> {
-  if (!readGedMode(ctx.cwd)) {
-    ctx.ui.setWidget("ged-dashboard", undefined);
-    return;
-  }
   const state = await readState(ctx.cwd);
   if (state) {
     const report = await runDoctor(ctx.cwd);

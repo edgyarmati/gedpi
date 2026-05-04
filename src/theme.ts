@@ -102,7 +102,6 @@ export type RtkMode = "off" | "auto";
 interface PiSettings {
   quietStartup?: boolean;
   gedTheme?: string;
-  gedMode?: boolean;
   rtkMode?: RtkMode;
   [key: string]: unknown;
 }
@@ -139,15 +138,6 @@ export async function ensurePiSettings(cwd: string): Promise<void> {
     await mkdir(path.join(cwd, ".pi"), { recursive: true });
     writeSettings(cwd, { quietStartup: true });
   }
-}
-
-export function readGedMode(cwd: string): boolean {
-  return readSettings(cwd).gedMode === true;
-}
-
-export function saveGedMode(cwd: string, enabled: boolean): void {
-  const settings = readSettings(cwd);
-  writeSettings(cwd, { ...settings, gedMode: enabled });
 }
 
 export function readRtkMode(cwd: string): RtkMode {
@@ -190,11 +180,8 @@ export function ansiColor(hex: string, text: string): string {
   return `\x1b[38;2;${r};${g};${b}m${text}${ANSI_RESET}`;
 }
 
-export function formatGedModeStatus(enabled: boolean): string {
-  const label = enabled ? "Ged mode ON" : "Ged mode OFF";
-  return enabled
-    ? `${ansiColor(activeBrand, label)}  \x1b[2mctrl+shift+t tasks\x1b[0m`
-    : `\x1b[2m${label}  ctrl+shift+t tasks\x1b[0m`;
+export function formatGedStatus(): string {
+  return `${ansiColor(activeBrand, "GedPi")}  \x1b[2mctrl+shift+t tasks\x1b[0m`;
 }
 
 /** Wrap text in true-color ANSI foreground using the active brand color. */

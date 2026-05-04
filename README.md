@@ -1,6 +1,6 @@
 # GedPi
 
-A batteries-included [Pi](https://github.com/badlogic/pi-mono) package with an opt-in Ged workflow for interviewing, documenting the spec, and implementing work in bounded slices.
+A batteries-included [Pi](https://github.com/badlogic/pi-mono) package with an always-on Ged workflow for interviewing, documenting the spec, and implementing work in bounded slices.
 
 Requires Node.js 22 or newer.
 
@@ -10,10 +10,9 @@ Requires Node.js 22 or newer.
 
 ## What It Does
 
-- Starts in normal Pi behavior with an opinionated setup.
-- `/ged-mode` turns on Ged's specialized interview, plan, build, and verify workflow for the current project.
-- Keeps durable standards and project context in `.ged/`, even when Ged mode is off.
-- Writes specs, tasks, and progress into `.ged/` once Ged mode is enabled.
+- Starts with the full Ged workflow always active — the agent interviews, plans, implements, and verifies in bounded slices.
+- Keeps durable standards and project context in `.ged/`.
+- Writes specs, tasks, and progress into `.ged/` and tracks workflow state across sessions.
 - Adds a repo map that indexes supported source files, ranks them by structure plus recent activity, and injects a compact codebase-awareness block into Ged prompts.
 - Bundles web search, guided interviews, themed UI, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, a task viewer, a powerbar, and automatic updates out of the box.
 - Documents a future [single-writer intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as the default writer while using scouts, smart friends, and clean-context reviewers for additional intelligence.
@@ -43,7 +42,7 @@ GedPi now ships the essential skill-discovery stack in the package itself:
 
 ### Repo Map
 
-GedPi now includes a SoulForge-style repo map for codebase awareness while Ged mode is on.
+GedPi now includes a SoulForge-style repo map for codebase awareness.
 
 The first shipped version includes:
 
@@ -86,7 +85,6 @@ GedPi now bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-U
 
 | Command | Description |
 |---------|-------------|
-| `/ged-mode` | Toggle persistent Ged mode on or off for this project |
 | `/companion` | Toggle the Glimpse floating companion widget |
 | `/diff-review` | Open a native git diff review window and insert feedback into the editor |
 | `/commit` | Review local changes and create a descriptive conventional commit |
@@ -104,16 +102,15 @@ GedPi now bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-U
 
 GedPi checks for new versions on startup (cached, re-checks every 4 hours). When an update is available, it prompts to install and restart. Pi's own update notification is suppressed to avoid duplication.
 
-## Ged Mode
+## Ged Workflow
 
-GedPi keeps its current branding and shell at all times, but the specialized workflow is opt-in.
+GedPi always runs the full Ged workflow. There is no toggle — the agent classifies tasks as trivial or non-trivial and adjusts its behavior automatically.
 
-- When Ged mode is off, Ged behaves like normal Pi and only uses `.ged/` as passive standards/context when those files already exist.
-- When Ged mode is on, Ged lazily initializes or migrates `.ged/` on the first real turn, then uses the full interview, planning, task, and verification workflow.
-- While Ged mode is on, Ged also maintains a runtime repo map in `.pi/repo-map/` so prompts can include a compact ranked view of important files and symbols.
-- During Ged init, Ged can discover standards from files like `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Copilot instructions, Cursor rules, Windsurf rules, and Continue rules, then ask whether to keep those standards in Ged's durable memory.
+- On the first agent turn, Ged lazily initializes or migrates `.ged/`.
+- Ged discovers standards from files like `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Copilot instructions, Cursor rules, Windsurf rules, and Continue rules, then asks whether to keep those standards in Ged's durable memory.
+- Ged maintains a runtime repo map in `.pi/repo-map/` so prompts include a compact ranked view of important files and symbols.
 - In Git repos, Ged ensures `.pi/` is ignored because that directory is only runtime-local Pi state.
-- While Ged mode is on, every planned or executed task checks for required skills, auto-installs matching skills into `.ged/project-skills/`, creates a project skill when none exists, records task-to-skill dependencies, and removes project skills once no open task still needs them.
+- Every planned or executed task checks for required skills, auto-installs matching skills into `.ged/project-skills/`, creates a project skill when none exists, records task-to-skill dependencies, and removes project skills once no open task still needs them.
 
 ## Durable Memory
 

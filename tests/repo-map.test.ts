@@ -11,7 +11,6 @@ import {
   warmRepoMap,
 } from "../src/repo-map-runtime.js";
 import { repoMapStatePath } from "../src/repo-map-store.js";
-import { saveGedMode } from "../src/theme.js";
 
 async function createTempProject(prefix: string): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), prefix));
@@ -136,7 +135,6 @@ describe("repo map", () => {
       "import { brain } from './brain';\nexport const workflow = brain;\n",
       "utf8",
     );
-    saveGedMode(rootDir, true);
     const handlers = new Map<string, (...args: unknown[]) => unknown>();
 
     gedCoreExtension({
@@ -195,8 +193,8 @@ describe("repo map", () => {
     );
   });
 
-  test("normal mode also includes a compact repo-map block", async () => {
-    const rootDir = await createTempProject("repo-map-normal-mode-");
+  test("prompt integration always includes the full workflow alongside the repo map", async () => {
+    const rootDir = await createTempProject("repo-map-always-on-");
     await mkdir(path.join(rootDir, "src"), { recursive: true });
     await writeFile(
       path.join(rootDir, "src", "brain.ts"),
@@ -248,9 +246,7 @@ describe("repo map", () => {
     expect(beforeStart.systemPrompt).toContain("BASE");
     expect(beforeStart.systemPrompt).toContain("## Repo Map");
     expect(beforeStart.systemPrompt).toContain("src/workflow.ts");
-    expect(beforeStart.systemPrompt).not.toContain(
-      "## Current Ged Workflow Files",
-    );
+    expect(beforeStart.systemPrompt).toContain("## Current Ged Workflow Files");
   });
 
   test("parser/index fallback on one file does not collapse repo-map output", async () => {
