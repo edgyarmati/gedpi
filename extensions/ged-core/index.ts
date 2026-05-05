@@ -26,6 +26,7 @@ import {
   readCheckpointState,
   recordCheckpoint,
   validateAllVerifierCheckpoints,
+  validateCommitCheckpoints,
   validatePlannerCheckpoint,
   verifierGuardMessage,
   writeCheckpointState,
@@ -232,7 +233,7 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
         }
 
         const state = await readCheckpointState(ctx.cwd);
-        const validation = validateAllVerifierCheckpoints(state);
+        const validation = validateCommitCheckpoints(state);
         if (!validation.valid) {
           api.sendMessage({
             customType: "ged-checkpoint-blocked",

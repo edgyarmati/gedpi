@@ -15,6 +15,7 @@ import {
   initCheckpointState,
   readCheckpointState,
   recordCheckpoint,
+  validateCommitCheckpoints,
   validatePlannerCheckpoint,
   validateVerifierCheckpoint,
   writeCheckpointState,
@@ -238,6 +239,75 @@ describe("checkpoint validation", () => {
     expect(result.valid).toBe(false);
     expect(result.missing).toContain("classification");
     expect(result.warning).toContain("classify the task");
+  });
+
+  it("commit validation blocks non-trivial work without planner or verifier", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const result = validateCommitCheckpoints(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-planner");
+    expect(result.missing).toContain("ged-verifier");
+  });
+
+  it("commit validation blocks planner-only non-trivial work without verifier", () => {
+    const state = recordCheckpoint(
+      initCheckpointState("non-trivial", "Feature work"),
+      {
+        agent: "ged-planner",
+        timestamp: "2026-05-04T10:00:00Z",
+        status: "completed",
+      },
+    );
+    const result = validateCommitCheckpoints(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toEqual(["ged-verifier"]);
+  });
+
+  it("commit validation allows non-trivial work with planner and verifier", () => {
+    const withPlanner = recordCheckpoint(
+      initCheckpointState("non-trivial", "Feature work"),
+      {
+        agent: "ged-planner",
+        timestamp: "2026-05-04T10:00:00Z",
+        status: "completed",
+      },
+    );
+    const withVerifier = recordCheckpoint(
+      withPlanner,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T11:00:00Z",
+        status: "completed",
+        blocksCommit: false,
+      },
+      "T01",
+    );
+    const result = validateCommitCheckpoints(withVerifier);
+    expect(result.valid).toBe(true);
+  });
+
+  it("commit validation blocks verifier checkpoints that report blockers", () => {
+    const withPlanner = recordCheckpoint(
+      initCheckpointState("non-trivial", "Feature work"),
+      {
+        agent: "ged-planner",
+        timestamp: "2026-05-04T10:00:00Z",
+        status: "completed",
+      },
+    );
+    const withBlockingVerifier = recordCheckpoint(
+      withPlanner,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T11:00:00Z",
+        status: "completed",
+        blocksCommit: true,
+      },
+      "T01",
+    );
+    const result = validateCommitCheckpoints(withBlockingVerifier);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-verifier blocked commit (task T01)");
   });
 });
 
