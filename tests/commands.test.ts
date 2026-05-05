@@ -136,7 +136,7 @@ describe("Ged command surface", () => {
     expect(result).toContain("ged-verifier");
     expect(result).toContain("openai/gpt-5.5");
     expect(result).toContain("anthropic/claude-sonnet-4");
-    expect(result).toContain("Set a model");
+    expect(result).toContain("Change:");
   });
 
   test("ged-agents model sets per-role model", async () => {
@@ -200,5 +200,19 @@ describe("Ged command surface", () => {
     });
 
     expect(result).toContain("Unknown role");
+  });
+
+  test("ged-agents setup returns compact commands in non-UI mode", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    const result = await command?.execute({ cwd, args: ["setup"] });
+
+    expect(result).toContain("/ged-agents on");
+    expect(result).toContain("ged-explorer");
+    expect(result).toContain("ged-planner");
+    expect(result).toContain("ged-verifier");
   });
 });
