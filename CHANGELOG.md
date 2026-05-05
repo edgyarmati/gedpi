@@ -13,6 +13,7 @@
 ### Fixes
 
 - Removed dead `ctrl+shift+t tasks` text from the header status line.
+- Removed "GedPi Brain" dashboard widget from above the editor.
 
 ### Documentation
 
