@@ -13,6 +13,7 @@ import {
   buildOrchestrationPrompt,
   detectRecentCommits,
   initCheckpointState,
+  invalidateVerifierCheckpoints,
   readCheckpointState,
   recordCheckpoint,
   validateCommitCheckpoints,
@@ -306,6 +307,85 @@ describe("checkpoint validation", () => {
       "T01",
     );
     const result = validateCommitCheckpoints(withBlockingVerifier);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-verifier blocked commit (task T01)");
+  });
+});
+
+describe("invalidateVerifierCheckpoints", () => {
+  it("sets blocksCommit: true on all existing verifier checkpoints", () => {
+    const state = recordCheckpoint(
+      initCheckpointState("non-trivial", "Feature work"),
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T10:00:00Z",
+        status: "completed",
+        blocksCommit: false,
+        findingCount: 0,
+      },
+      "T01",
+    );
+    const state2 = recordCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T11:00:00Z",
+        status: "completed",
+        blocksCommit: false,
+        findingCount: 0,
+      },
+      "T02",
+    );
+
+    const invalidated = invalidateVerifierCheckpoints(state2);
+
+    expect(invalidated.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit).toBe(true);
+    expect(invalidated.taskCheckpoints.T02?.["ged-verifier"]?.blocksCommit).toBe(true);
+    // Original not mutated
+    expect(state2.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit).toBe(false);
+  });
+
+  it("leaves non-verifier checkpoints untouched", () => {
+    const state = recordCheckpoint(
+      initCheckpointState("non-trivial", "Feature work"),
+      {
+        agent: "ged-explorer",
+        timestamp: "2026-05-04T10:00:00Z",
+        status: "completed",
+      },
+      "T01",
+    );
+
+    const invalidated = invalidateVerifierCheckpoints(state);
+
+    expect(invalidated.taskCheckpoints.T01?.["ged-explorer"]?.blocksCommit).toBeUndefined();
+  });
+
+  it("blocks commit after invalidation", () => {
+    const withPlanner = recordCheckpoint(
+      initCheckpointState("non-trivial", "Feature work"),
+      {
+        agent: "ged-planner",
+        timestamp: "2026-05-04T10:00:00Z",
+        status: "completed",
+      },
+    );
+    const withVerifier = recordCheckpoint(
+      withPlanner,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-04T11:00:00Z",
+        status: "completed",
+        blocksCommit: false,
+        findingCount: 0,
+      },
+      "T01",
+    );
+
+    expect(validateCommitCheckpoints(withVerifier).valid).toBe(true);
+
+    const invalidated = invalidateVerifierCheckpoints(withVerifier);
+    const result = validateCommitCheckpoints(invalidated);
     expect(result.valid).toBe(false);
     expect(result.missing).toContain("ged-verifier blocked commit (task T01)");
   });

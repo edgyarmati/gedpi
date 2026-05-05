@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import type { CheckpointAgent } from "@ged/shared-checkpoints";
 import {
   hasSkipCheckpointMarker,
+  invalidateVerifierCheckpoints,
   isGitCommitCommand,
   shouldAutoEscalate,
 } from "@ged/shared-checkpoints";
@@ -162,6 +163,8 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
             agent: subagentName as CheckpointAgent,
             timestamp: now,
             status: "completed",
+            blocksCommit:
+              subagentName === "ged-verifier" ? true : undefined,
           },
           isTaskAgent ? "auto" : undefined,
         );
@@ -215,6 +218,15 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
           details: { title: "planner-guard", missing: validation.missing },
         });
         return { block: true, reason: message };
+      }
+
+      // Invalidate verifier checkpoints: any source edit makes prior
+      // verifier reviews stale. Forces re-verification before commit.
+      if (state) {
+        const invalidated = invalidateVerifierCheckpoints(state);
+        if (invalidated !== state) {
+          await writeCheckpointState(ctx.cwd, invalidated);
+        }
       }
     }
 

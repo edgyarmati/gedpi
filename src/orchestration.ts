@@ -16,6 +16,7 @@ import { writeFileAtomic } from "./atomic.js";
 export {
   hasSkipCheckpointMarker,
   initCheckpointState,
+  invalidateVerifierCheckpoints,
   isGitCommitCommand,
   parseCheckpointState,
   recordCheckpoint,
@@ -66,7 +67,7 @@ export function verifierGuardMessage(validation: CheckpointValidation): string {
     return `GedPi verifier guard: non-trivial work requires dispatching ged-planner and ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch the missing subagents before running git commit.`;
   }
   if (validation.missing.some((item) => item.includes("blocked commit"))) {
-    return `GedPi verifier guard: the verifier checkpoint reports commit-blocking findings. Missing/blocking checkpoints: ${validation.missing.join(", ")}. Resolve and adjudicate verifier findings before committing.`;
+    return `GedPi verifier guard: the verifier checkpoint reports commit-blocking findings. Missing/blocking checkpoints: ${validation.missing.join(", ")}. Resolve and adjudicate verifier findings, then update .ged/runtime/checkpoints.json to set blocksCommit: false on the verifier checkpoint before committing.`;
   }
   return `GedPi verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier via the subagent tool for clean-context review.`;
 }
@@ -122,7 +123,7 @@ All source file edits and git commits are **structurally guarded**:
 1. **Classification is required** — If \`.ged/runtime/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
 2. **Trivial classification** allows immediate edits and commits — no subagent dispatches needed.
 3. **Non-trivial classification** requires dispatching \`ged-planner\` before edits and both \`ged-planner\` + \`ged-verifier\` before \`git commit\` or \`git commit --amend\`.
-4. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated.
+4. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
 5. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
 
 These guards are implemented in the tool-call interception layer — they cannot be bypassed by instruction alone. The only way to commit without verification is to set \`agents.allowCheckpointBypass: true\` in Ged settings and include \`[skip-checkpoint]\` in the commit command.
@@ -145,7 +146,8 @@ After each subagent completes, the checkpoint is automatically recorded when you
 2. Dispatch ged-verifier for clean-context review of the diff and tests
 3. Adjudicate each finding: accept (fix before commit), reject (record reason), or needs-user (ask)
 4. Fix accepted issues and rerun verification
-5. Commit — the verifier guard will allow it through
+5. Update the verifier checkpoint in \`.ged/runtime/checkpoints.json\` to set \`blocksCommit: false\`
+6. Commit — the verifier guard will allow it through
 
 ### Intercom usage
 
