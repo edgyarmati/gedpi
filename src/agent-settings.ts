@@ -15,7 +15,7 @@ export type GedAgentRole = (typeof GED_AGENT_ROLES)[number];
 
 export type AgentModelConfig =
   | string
-  | ({ model: string } & Record<string, unknown>);
+  | ({ model: string; fallback?: string[] } & Record<string, unknown>);
 
 export interface GedAgentsSettings {
   enabled?: boolean;
@@ -52,7 +52,13 @@ function parseModelConfig(value: unknown): AgentModelConfig | undefined {
     return value.trim();
   }
   if (isRecord(value) && typeof value.model === "string") {
-    return { ...value, model: value.model } as AgentModelConfig;
+    const config: Record<string, unknown> = { ...value, model: value.model };
+    if (Array.isArray(value.fallback)) {
+      config.fallback = value.fallback
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((item) => item.trim());
+    }
+    return config as AgentModelConfig;
   }
   return undefined;
 }
@@ -152,14 +158,14 @@ export function formatGedAgentsStatus(
   const modelLines = GED_AGENT_ROLES.map((role) => {
     const config =
       effective.models[role] ?? effective.defaultModel ?? "inherit";
-    const modelLabel = typeof config === "string" ? config : config.model;
-    const thinking = thinkingLevel(config);
-    const thinkingTag = thinking ? ` [${thinking}]` : "";
+    const modelLabel = formatModelConfig(config === "inherit" ? undefined : config);
+    const thinking = thinkingLevel(config === "inherit" ? undefined : config);
+    const thinkingTag = thinking ? ` [thinking: ${thinking}]` : "";
     return `- ${role}: ${modelLabel}${thinkingTag}`;
   });
   return [
     `Subagents: ${effective.enabled ? "enabled" : "disabled"}`,
-    `Default model: ${effective.defaultModel ? (typeof effective.defaultModel === "string" ? effective.defaultModel : JSON.stringify(effective.defaultModel)) : "inherit orchestrator"}`,
+    `Default model: ${formatModelConfig(effective.defaultModel)}`,
     "Role models:",
     ...modelLines,
     "Allowed roles: ged-explorer, ged-planner, ged-verifier",
@@ -172,6 +178,12 @@ function modelId(value: AgentModelConfig | undefined): string | undefined {
   return typeof value === "string" ? value : value.model;
 }
 
+function fallbackChain(value: AgentModelConfig | undefined): string[] {
+  if (!value || typeof value === "string") return [];
+  const fb = value.fallback;
+  return Array.isArray(fb) ? fb.filter((item): item is string => typeof item === "string") : [];
+}
+
 function thinkingLevel(
   value: AgentModelConfig | undefined,
 ): string | undefined {
@@ -179,6 +191,15 @@ function thinkingLevel(
   const thinking = value.thinking;
   if (typeof thinking === "string" && thinking !== "off") return thinking;
   return undefined;
+}
+
+function formatModelConfig(value: AgentModelConfig | undefined): string {
+  if (!value) return "inherit orchestrator";
+  if (typeof value === "string") return value;
+  const primary = value.model;
+  const fb = fallbackChain(value);
+  if (fb.length === 0) return primary;
+  return `${primary} → ${fb.join(" → ")}`;
 }
 
 function bundledRolePrompt(

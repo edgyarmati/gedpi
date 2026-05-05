@@ -1,3 +1,6 @@
+import type { Model, Api } from "@mariozechner/pi-ai";
+import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+
 import {
   formatGedAgentsStatus,
   GED_AGENT_ROLES,
@@ -85,13 +88,19 @@ function formatModelsList(effective: Awaited<ReturnType<typeof readEffectiveGedA
 
   for (const role of GED_AGENT_ROLES) {
     const config = effective.models[role];
-    const label = config ? (typeof config === "string" ? config : JSON.stringify(config)) : (effective.defaultModel ? `inherit (${typeof effective.defaultModel === "string" ? effective.defaultModel : JSON.stringify(effective.defaultModel)})` : "inherit (orchestrator)");
-    const source = config ? "project/global" : effective.defaultModel ? "default" : "orchestrator";
+    const label = config
+      ? typeof config === "string"
+        ? config
+        : `${config.model}${config.fallback && config.fallback.length > 0 ? ` → ${config.fallback.join(" → ")}` : ""}`
+      : effective.defaultModel
+        ? `inherit (${typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model})`
+        : "inherit (orchestrator)";
+    const source = config ? "role override" : effective.defaultModel ? "default" : "orchestrator";
     lines.push(`- **${role}**: ${label} _(source: ${source})_`);
   }
 
   lines.push("");
-  lines.push(`**Default model**: ${effective.defaultModel ? (typeof effective.defaultModel === "string" ? effective.defaultModel : JSON.stringify(effective.defaultModel)) : "none (inherits orchestrator model)"}`);
+  lines.push(`**Default model**: ${effective.defaultModel ? (typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model) : "none (inherits orchestrator model)"}`);
   lines.push("");
   lines.push("### Set a model");
   lines.push("`/ged-agents model <role> <model-id> [--project]`");
@@ -110,9 +119,121 @@ function formatModelsList(effective: Awaited<ReturnType<typeof readEffectiveGedA
   return lines.join("\n");
 }
 
+function formatAvailableModels(registry: ModelRegistry): string {
+  const available = registry.getAvailable();
+  if (available.length === 0) {
+    return "No models with configured API keys found. Set up API keys in Pi settings first.";
+  }
+
+  const lines: string[] = [];
+
+  // Group by provider
+  const byProvider = new Map<string, Model<Api>[]>();
+  for (const model of available) {
+    const list = byProvider.get(model.provider) ?? [];
+    list.push(model);
+    byProvider.set(model.provider, list);
+  }
+
+  for (const [provider, models] of byProvider) {
+    lines.push(`### ${registry.getProviderDisplayName(provider) || provider}`);
+    lines.push("");
+    for (const model of models) {
+      const thinkingLevels = model.thinkingLevelMap
+        ? Object.entries(model.thinkingLevelMap)
+            .filter(([, v]) => v !== null)
+            .map(([k]) => k)
+            .join(", ")
+        : model.reasoning ? "minimal, low, medium, high" : "none";
+      lines.push(`- \`${model.provider}/${model.id}\` — ${model.name}`);
+      lines.push(`  Context: ${(model.contextWindow / 1000).toFixed(0)}k tokens | Reasoning: ${thinkingLevels}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function formatSetupWizard(
+  effective: Awaited<ReturnType<typeof readEffectiveGedAgentsSettings>>,
+  registry: ModelRegistry,
+): string {
+  const lines: string[] = [
+    "# Ged Subagent Setup",
+    "",
+    "Subagents are **read-only intelligence contributors** — the primary Ged brain remains the sole writer.",
+    "",
+  ];
+
+  if (!effective.enabled) {
+    lines.push("⚠️ Subagents are currently **disabled**.");
+    lines.push("");
+    lines.push("**Enable them first:**");
+    lines.push("```");
+    lines.push("/ged-agents on              # globally");
+    lines.push("/ged-agents on --project   # this project only");
+    lines.push("```");
+    lines.push("");
+  } else {
+    lines.push("✅ Subagents are **enabled**.");
+    lines.push("");
+  }
+
+  lines.push("## Available models (with API keys)");
+  lines.push("");
+  lines.push(formatAvailableModels(registry));
+  lines.push("");
+
+  lines.push("## Current assignments");
+  lines.push("");
+  for (const role of GED_AGENT_ROLES) {
+    const config = effective.models[role];
+    const label = config
+      ? typeof config === "string"
+        ? config
+        : `${config.model}${config.fallback && config.fallback.length > 0 ? ` → ${config.fallback.join(" → ")}` : ""}`
+      : effective.defaultModel
+        ? `inherit (${typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model})`
+        : "inherit (orchestrator)";
+    lines.push(`- **${role}**: ${label}`);
+  }
+  lines.push(`- **default**: ${effective.defaultModel ? (typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model) : "inherit orchestrator"}`);
+  lines.push("");
+
+  lines.push("## Quick commands");
+  lines.push("");
+  lines.push("Set a role model:");
+  lines.push("```");
+  lines.push("/ged-agents model ged-planner anthropic/claude-opus-4");
+  lines.push("/ged-agents model ged-explorer google/gemini-2.5-flash --project");
+  lines.push("/ged-agents model default anthropic/claude-sonnet-4");
+  lines.push("```");
+  lines.push("");
+  lines.push("Set with fallback chain (edit JSON directly):");
+  lines.push("```json");
+  lines.push("// ~/.gedcode/settings.json");
+  lines.push('{');
+  lines.push('  "agents": {');
+  lines.push('    "models": {');
+  lines.push('      "ged-planner": {');
+  lines.push('        "model": "anthropic/claude-opus-4",');
+  lines.push('        "fallback": ["openai/gpt-5.5", "google/gemini-2.5-pro"]');
+  lines.push('      }');
+  lines.push('    }');
+  lines.push('  }');
+  lines.push('}');
+  lines.push("```");
+  lines.push("");
+  lines.push("View all assignments: `/ged-agents models`");
+  lines.push("Clear an override: `/ged-agents model <role> --clear`");
+
+  return lines.join("\n");
+}
+
 async function executeGedAgentsCommand(
   cwd: string,
   args: string[] = [],
+  registry?: ModelRegistry,
 ): Promise<string> {
   const [action = "status", ...rest] = args;
 
@@ -156,11 +277,19 @@ async function executeGedAgentsCommand(
   }
 
   if (action === "setup") {
-    return [
-      "Ged optional subagents follow the single-writer invariant: the primary Ged brain writes code, decides scope, adjudicates reviews, commits, pushes, and opens PRs.",
-      "Use `/ged-agents on` for global enablement or `/ged-agents on --project` for this project only.",
-      "Configure models with `/ged-agents model <role> <model-id>` or view assignments with `/ged-agents models`.",
-    ].join("\n");
+    const effective = await readEffectiveGedAgentsSettings(cwd);
+    if (!registry) {
+      return [
+        "Ged optional subagents follow the single-writer invariant: the primary Ged brain writes code, decides scope, adjudicates reviews, commits, pushes, and opens PRs.",
+        "",
+        "Use `/ged-agents on` for global enablement or `/ged-agents on --project` for this project only.",
+        "Configure models with `/ged-agents model <role> <model-id>` or view assignments with `/ged-agents models`.",
+        "",
+        "Fallback chains can be set in JSON directly:",
+        '{ "agents": { "models": { "ged-planner": { "model": "claude-opus-4", "fallback": ["gpt-5.5"] } } } }',
+      ].join("\n");
+    }
+    return formatSetupWizard(effective, registry);
   }
 
   return "Usage: /ged-agents [status|models|on|off|model|setup] [--project|--global]";
@@ -184,7 +313,8 @@ export function createGedCommands(): AppCommandDefinition[] {
       description:
         "Configure optional read-only Ged subagents (status, setup, on, off)",
       async execute(context) {
-        return await executeGedAgentsCommand(context.cwd, context.args);
+        const registry = context.runtime?.ctx.modelRegistry;
+        return await executeGedAgentsCommand(context.cwd, context.args, registry);
       },
     },
   ];
