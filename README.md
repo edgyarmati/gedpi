@@ -34,11 +34,16 @@ gedpi
 
 ### Bundled Skills
 
-GedPi now ships the essential skill-discovery stack in the package itself:
+GedPi ships skills that power the Ged workflow and skill-discovery stack:
 
-- `find-skills` is bundled for discovering relevant skills
-- `skill-creator` is bundled for creating project-specific skills when nothing suitable exists
-- `brainstorming` is bundled and used for Ged planning and task creation flows
+- `ged-init` — first-turn `.ged/` initialization and migration
+- `ged-planning` — spec writing and task decomposition into bounded slices
+- `ged-execution` — implementation of individual task slices
+- `ged-verification` — post-implementation checks and state updates
+- `ged-escalation` — automatic escalation when a slice repeatedly fails
+- `find-skills` — discovering relevant skills from registries and repos
+- `skill-creator` — creating project-specific skills when nothing suitable exists
+- `brainstorming` — structured planning and task creation flows
 
 ### Repo Map
 
@@ -72,33 +77,24 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **pi-interview** | Guided Q&A when the agent needs clarification |
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
-| **pi-powerbar** | Powerline-style status bar with segments |
+| **pi-powerline-footer** | Powerline-style status bar with git, context, cost, model, and thinking segments |
 | **pi-extension-settings** | Settings persistence for extensions |
 
 ### Native Micro-UI
 
-GedPi now bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI windows:
-
-- the bundled `glimpse` skill lets the agent open native dialogs, forms, previews, and other rich UI when a task benefits from it
-- the `/companion` command toggles an optional floating status pill that follows the cursor and reflects live agent activity
-- the companion is optional; Glimpse-backed windows remain available even when the floating widget is disabled
+GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI windows. The bundled `glimpse` skill lets the agent open native dialogs, forms, previews, and other rich UI when a task benefits from it.
 
 ### Commands
 
 | Command | Description |
 |---------|-------------|
-| `/companion` | Toggle the Glimpse floating companion widget |
 | `/diff-review` | Open a native git diff review window and insert feedback into the editor |
 | `/commit` | Review local changes and create a descriptive conventional commit |
 | `/push` | Push the current branch, with automatic recovery flow if the first push fails |
 | `/theme` | Switch between color presets (lavender, ember, ocean, mint, rose, gold, arctic, neon, copper, slate) |
 | `/update` | Check for GedPi updates |
-
-### Keyboard Shortcuts
-
-| Shortcut | Description |
-|----------|-------------|
-| `Ctrl+Shift+T` | Toggle the task list widget (`.ged/TASKS.md` + `.ged/STATE.md`) |
+| `/ged-rtk` | Install RTK and control Ged's bash-side RTK routing (status, install, on, off) |
+| `/ged-agents` | Configure optional read-only Ged subagents (status, setup, on, off) |
 
 ### Auto-Updater
 
@@ -120,16 +116,24 @@ GedPi keeps its working notes in `.ged/`:
 
 | File | Purpose |
 |------|---------|
+| `VERSION` | Current `.ged/` standard version |
 | `PROJECT.md` | Problem, users, constraints, success criteria |
-| `STANDARDS.md` | Imported standards accepted from other harness instruction files |
-| `project-skills/` | Project-scoped skills auto-installed or created for active tasks |
 | `SPEC.md` | Exact requested behavior and implementation shape |
+| `STANDARDS.md` | Imported standards accepted from other harness instruction files |
 | `TASKS.md` | Work broken into bounded slices |
 | `TESTS.md` | Checks for the current slice |
 | `STATE.md` | Current phase, active task, blockers |
 | `SESSION-SUMMARY.md` | Progress notes across sessions |
+| `PROGRESS.md` | Ongoing log of project progress |
 | `DECISIONS.md` | Rationale for key choices |
-| `VERSION` | Current `.ged/` standard version |
+| `IDEAS.md` | Active, future, and parking-lot ideas |
+| `SKILLS.md` | Installed, recommended, deferred, and rejected skills |
+| `SKILLS-STATE.json` | Machine-readable managed-skills state |
+| `project-skills/` | Project-scoped skills auto-installed or created for active tasks |
+| `plans/` | Plan index and per-plan documents |
+| `specs/` | Versioned detailed specs |
+| `research/` | External research summaries and package notes |
+| `tasks/` | Per-task briefs, outputs, and failure histories |
 
 ## Development
 

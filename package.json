@@ -1,6 +1,6 @@
 {
   "name": "gedpi",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "Single-agent Pi package that interviews the user, documents the spec, and implements work in bounded slices.",
   "type": "module",
   "license": "MIT",
@@ -37,6 +37,7 @@
     "src",
     "templates",
     "vendor/pi-diff-review",
+    "vendor/pi-powerline-footer",
     "README.md",
     "CREDITS.md"
   ],
@@ -68,7 +69,7 @@
       "./node_modules/pi-diff-review/src/index.ts",
       "./node_modules/pi-prompt-template-model/index.ts",
       "./node_modules/@juanibiapina/pi-extension-settings/dist/index.js",
-      "./node_modules/@juanibiapina/pi-powerbar/dist"
+      "./vendor/pi-powerline-footer/index.ts"
     ],
     "skills": [
       "./skills",
@@ -86,7 +87,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.2.119",
     "@ged/shared-checkpoints": "file:../shared",
     "@juanibiapina/pi-extension-settings": "^0.6.1",
-    "@juanibiapina/pi-powerbar": "^0.9.1",
+    "pi-powerline-footer": "file:./vendor/pi-powerline-footer",
     "@mariozechner/pi-coding-agent": "^0.73.0",
     "glimpseui": "^0.8.0",
     "pi-diff-review": "file:./vendor/pi-diff-review",

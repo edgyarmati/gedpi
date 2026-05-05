@@ -141,7 +141,8 @@ export async function ensurePiSettings(cwd: string): Promise<void> {
 }
 
 export function readRtkMode(cwd: string): RtkMode {
-  return readSettings(cwd).rtkMode === "auto" ? "auto" : "off";
+  const saved = readSettings(cwd).rtkMode;
+  return saved === "off" ? "off" : "auto";
 }
 
 export function saveRtkMode(cwd: string, mode: RtkMode): void {
@@ -181,7 +182,7 @@ export function ansiColor(hex: string, text: string): string {
 }
 
 export function formatGedStatus(): string {
-  return `${ansiColor(activeBrand, "GedPi")}  \x1b[2mctrl+shift+t tasks\x1b[0m`;
+  return ansiColor(activeBrand, "GedPi");
 }
 
 /** Wrap text in true-color ANSI foreground using the active brand color. */

@@ -10,7 +10,7 @@ import {
   executeRtkCommand,
   registerRtkBashRouting,
 } from "../src/rtk.js";
-import { readRtkMode } from "../src/theme.js";
+import { readRtkMode, saveRtkMode } from "../src/theme.js";
 
 describe("RTK integration", () => {
   test("detectRtk reports installed version and path", async () => {
@@ -102,6 +102,7 @@ describe("RTK integration", () => {
       input: { command: "git status" },
     };
 
+    saveRtkMode(cwd, "off");
     await handler?.(bashEvent, { cwd });
     expect(bashEvent.input.command).toBe("git status");
 

@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 0.14.0 - 2026-05-05
+
+### Features
+
+- **GedPi-branded welcome screen** — vendored pi-powerline-footer with a GED block-letter logo and "gedpi" title replacing the default Pi branding.
+- **Replaced pi-powerbar with pi-powerline-footer** — powerline status bar now shows git branch/status, context usage, cost, model, and thinking level out of the box.
+- **RTK defaults to auto** — RTK routing is now enabled by default when `rtk` is installed on the system; no longer requires `/ged-rtk on` to activate.
+
+### Fixes
+
+- Removed dead `ctrl+shift+t tasks` text from the header status line.
+
+### Documentation
+
+- Fixed README launch command (`ged` → `gedpi`), GitHub URLs (`EdGy2k/GedPi` → `edgyarmati/ged-mono`), dev clone instructions for monorepo layout, and tag format (`v*` → `gedpi-v*`).
+- Updated bundled extensions table: added pi-intercom, pi-subagents, pi-powerline-footer; removed pi-powerbar.
+- Updated bundled skills list with all 8 shipped skills.
+- Expanded durable memory table from 10 to 18 entries to match actual `.ged/` contents.
+- Updated commands table: removed non-existent `/companion`, added `/ged-rtk` and `/ged-agents`.
+
 ## 0.13.0 - 2026-05-05
 
 ### Breaking changes
