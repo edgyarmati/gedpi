@@ -163,8 +163,7 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
             agent: subagentName as CheckpointAgent,
             timestamp: now,
             status: "completed",
-            blocksCommit:
-              subagentName === "ged-verifier" ? true : undefined,
+            blocksCommit: subagentName === "ged-verifier" ? true : undefined,
           },
           isTaskAgent ? "auto" : undefined,
         );

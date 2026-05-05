@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 0.15.0 - 2026-05-05
+
+### Features
+
+- **Interactive `/ged-agents setup` wizard** — Pi-native menu-driven setup for subagent models. Uses `ctx.ui.select`, `ctx.ui.input`, and `ctx.ui.confirm` for a step-by-step flow: pick scope, search for models per role, confirm, apply. Non-UI sessions get compact copy-paste commands.
+- **Searchable model picker** — type any part of a model name, ID, or provider to filter available models. Single match auto-selects; multiple matches show a pick list; no matches retry with a warning.
+- **Keep current option** — each role picker starts with "Keep current: <model>" so you can change only the roles you want without touching others.
+- **Fallback chain support** — settings JSON accepts `{ "model": "...", "fallback": ["...", "..."] }`. Cross-provider fallbacks are auto-generated based on the primary model's provider. Status output renders chains as `primary → fallback1 → fallback2`.
+- **`/ged-agents model` command** — one-liner to set/clear per-role models with `--project` or `--global` scope. Supports `default` as a pseudo-role for the shared defaultModel.
+- **`/ged-agents models` command** — shows current effective model assignments with source tracing (role override, default, or orchestrator inherit).
+
+### Fixes
+
+- **Verifier commit guard enforcement** — auto-recorded verifier checkpoints now default to `blocksCommit: true`, and source file edits automatically invalidate existing verifier checkpoints. This closes the gap that allowed commits to slip through after verifier findings.
+
+### Dependencies
+
+- Extracted `@ged/shared-checkpoints` into a shared package used by both GedPi and GedCode for interchangeable checkpoint state.
+
 ## 0.14.0 - 2026-05-05
 
 ### Features

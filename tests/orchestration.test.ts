@@ -339,10 +339,16 @@ describe("invalidateVerifierCheckpoints", () => {
 
     const invalidated = invalidateVerifierCheckpoints(state2);
 
-    expect(invalidated.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit).toBe(true);
-    expect(invalidated.taskCheckpoints.T02?.["ged-verifier"]?.blocksCommit).toBe(true);
+    expect(
+      invalidated.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit,
+    ).toBe(true);
+    expect(
+      invalidated.taskCheckpoints.T02?.["ged-verifier"]?.blocksCommit,
+    ).toBe(true);
     // Original not mutated
-    expect(state2.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit).toBe(false);
+    expect(state2.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit).toBe(
+      false,
+    );
   });
 
   it("leaves non-verifier checkpoints untouched", () => {
@@ -358,7 +364,9 @@ describe("invalidateVerifierCheckpoints", () => {
 
     const invalidated = invalidateVerifierCheckpoints(state);
 
-    expect(invalidated.taskCheckpoints.T01?.["ged-explorer"]?.blocksCommit).toBeUndefined();
+    expect(
+      invalidated.taskCheckpoints.T01?.["ged-explorer"]?.blocksCommit,
+    ).toBeUndefined();
   });
 
   it("blocks commit after invalidation", () => {

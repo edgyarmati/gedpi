@@ -55,7 +55,10 @@ function parseModelConfig(value: unknown): AgentModelConfig | undefined {
     const config: Record<string, unknown> = { ...value, model: value.model };
     if (Array.isArray(value.fallback)) {
       config.fallback = value.fallback
-        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0,
+        )
         .map((item) => item.trim());
     }
     return config as AgentModelConfig;
@@ -158,7 +161,9 @@ export function formatGedAgentsStatus(
   const modelLines = GED_AGENT_ROLES.map((role) => {
     const config =
       effective.models[role] ?? effective.defaultModel ?? "inherit";
-    const modelLabel = formatModelConfig(config === "inherit" ? undefined : config);
+    const modelLabel = formatModelConfig(
+      config === "inherit" ? undefined : config,
+    );
     const thinking = thinkingLevel(config === "inherit" ? undefined : config);
     const thinkingTag = thinking ? ` [thinking: ${thinking}]` : "";
     return `- ${role}: ${modelLabel}${thinkingTag}`;
@@ -181,7 +186,9 @@ function modelId(value: AgentModelConfig | undefined): string | undefined {
 function fallbackChain(value: AgentModelConfig | undefined): string[] {
   if (!value || typeof value === "string") return [];
   const fb = value.fallback;
-  return Array.isArray(fb) ? fb.filter((item): item is string => typeof item === "string") : [];
+  return Array.isArray(fb)
+    ? fb.filter((item): item is string => typeof item === "string")
+    : [];
 }
 
 function thinkingLevel(
