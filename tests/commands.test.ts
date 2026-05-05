@@ -136,7 +136,7 @@ describe("Ged command surface", () => {
     expect(result).toContain("ged-verifier");
     expect(result).toContain("openai/gpt-5.5");
     expect(result).toContain("anthropic/claude-sonnet-4");
-    expect(result).toContain("Set a model");
+    expect(result).toContain("Quick: set one role");
   });
 
   test("ged-agents model sets per-role model", async () => {
@@ -200,5 +200,54 @@ describe("Ged command surface", () => {
     });
 
     expect(result).toContain("Unknown role");
+  });
+
+  test("ged-agents preset applies a preset", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    const result = await command?.execute({
+      cwd,
+      args: ["preset", "balanced", "--project"],
+    });
+
+    expect(result).toContain("Balanced");
+    expect(result).toContain("project");
+    expect(result).toContain("ged-planner");
+    expect(result).toContain("anthropic/claude-opus-4");
+  });
+
+  test("ged-agents preset rejects unknown preset", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    const result = await command?.execute({
+      cwd,
+      args: ["preset", "unknown"],
+    });
+
+    expect(result).toContain("Usage:");
+  });
+
+  test("ged-agents setup shows interactive wizard", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    const result = await command?.execute({
+      cwd,
+      args: ["setup"],
+    });
+
+    expect(result).toContain("Ged Subagent Setup");
+    expect(result).toContain("Step 1");
+    expect(result).toContain("Step 2");
+    expect(result).toContain("preset");
+    expect(result).toContain("/ged-agents on");
   });
 });
