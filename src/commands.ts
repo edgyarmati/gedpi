@@ -16,19 +16,14 @@ import {
 import type { AppCommandContext, AppCommandDefinition } from "./pi.js";
 import { executeRtkCommand } from "./rtk.js";
 
-// ─── Curated model recommendations ─────────────────────────────────────
+// Pi UI context type alias for the command handler
+import type { ExtensionUIContext } from "@mariozechner/pi-coding-agent";
 
-const EXPLORER_PREFERENCES = [
-  "deepseek/deepseek-v4-flash",
-  "openai/gpt-5.4-mini",
-  "anthropic/claude-haiku-4.5",
-];
+// ─── Curated defaults for non-UI fallback ──────────────────────────────
 
-const PLANNER_PREFERENCES = [
-  "openai/gpt-5.5",
-  "anthropic/claude-opus-4.7",
-  "deepseek/deepseek-v4-pro",
-];
+const DEFAULT_EXPLORER = "deepseek/deepseek-v4-flash";
+const DEFAULT_PLANNER = "openai/gpt-5.5";
+const DEFAULT_VERIFIER = "anthropic/claude-opus-4.7";
 
 // ─── Scope helpers ─────────────────────────────────────────────────────
 
@@ -50,31 +45,57 @@ function resolveTargetPath(cwd: string, targetPath: string): string {
   return targetPath === "PROJECT" ? projectGedSettingsPath(cwd) : globalGedSettingsPath();
 }
 
-// ─── Model resolution ──────────────────────────────────────────────────
-
-function findPreferredModel(registry: ModelRegistry, preferences: string[]): Model<Api> | undefined {
-  for (const pref of preferences) {
-    const [provider, id] = pref.split("/");
-    if (provider && id) {
-      const found = registry.find(provider, id);
-      if (found) return found;
-    }
-  }
-  // Fall back: search by partial name match among available models
-  const available = registry.getAvailable();
-  for (const pref of preferences) {
-    const parts = pref.toLowerCase().split("/");
-    const namePart = parts[parts.length - 1];
-    const match = available.find((m) =>
-      m.id.toLowerCase().includes(namePart) || m.name.toLowerCase().includes(namePart),
-    );
-    if (match) return match;
-  }
-  return undefined;
-}
+// ─── Model helpers ─────────────────────────────────────────────────────
 
 function formatModelRef(model: Model<Api>): string {
   return `${model.provider}/${model.id}`;
+}
+
+function modelFromRef(registry: ModelRegistry, ref: string): Model<Api> | undefined {
+  const [provider, id] = ref.split("/");
+  if (provider && id) return registry.find(provider, id);
+  return undefined;
+}
+
+// ─── Searchable model picker ───────────────────────────────────────────
+
+async function pickModel(
+  ui: ExtensionUIContext,
+  registry: ModelRegistry,
+  title: string,
+  hint: string,
+): Promise<Model<Api> | null> {
+  const available = registry.getAvailable();
+
+  // Step 1: type a search query
+  const query = await ui.input(title, `Type to search (e.g. ${hint})`);
+  if (query === undefined) return null; // cancelled
+
+  // Step 2: filter
+  const q = query.toLowerCase().trim();
+  const matches = available.filter((m) =>
+    m.id.toLowerCase().includes(q) ||
+    m.name.toLowerCase().includes(q) ||
+    m.provider.toLowerCase().includes(q),
+  );
+
+  if (matches.length === 0) {
+    ui.notify(`No models matched "${query}". Try a different search.`, "warning");
+    return pickModel(ui, registry, title, hint);
+  }
+
+  if (matches.length === 1) {
+    return matches[0];
+  }
+
+  // Step 3: pick from matches
+  const options = matches.map((m) => `${m.provider}/${m.id} — ${m.name}`);
+  const choice = await ui.select(`Pick ${title}`, options);
+  if (choice === undefined) return null; // cancelled
+
+  const ref = choice.split(" — ")[0];
+  const found = modelFromRef(registry, ref);
+  return found ?? null;
 }
 
 // ─── Settings I/O ──────────────────────────────────────────────────────
@@ -126,23 +147,16 @@ async function applyAgentConfig(
     explorer?: string;
     planner?: string;
     verifier?: string;
-    defaultModel?: string;
-    fallbacks?: boolean;
   },
-): Promise<{ text: string; applied: boolean }> {
+): Promise<string> {
   const filePath = resolveTargetPath(cwd, targetPath);
   const existing = await readGedRuntimeSettings(filePath);
   const next: GedAgentsSettings = { ...(existing.agents ?? {}), enabled: true };
 
-  if (config.defaultModel) {
-    next.defaultModel = config.defaultModel;
-  }
-
-  const models: Partial<Record<GedAgentRole, string | { model: string; fallback?: string[] }>> = {};
+  const models: Partial<Record<GedAgentRole, string | { model: string; fallback: string[] }>> = {};
 
   function buildConfig(primary: string | undefined): string | { model: string; fallback: string[] } | undefined {
     if (!primary) return undefined;
-    if (!config.fallbacks) return primary;
     const provider = primary.split("/")[0];
     if (provider === "openai") {
       return { model: primary, fallback: ["anthropic/claude-opus-4.7", "deepseek/deepseek-v4-pro"] };
@@ -183,12 +197,12 @@ async function applyAgentConfig(
     config.explorer ? `- Explorer: ${config.explorer}` : "",
     config.planner ? `- Planner: ${config.planner}` : "",
     config.verifier ? `- Verifier: ${config.verifier}` : "",
-    config.fallbacks ? "- Fallback chains: enabled" : "",
+    "- Fallback chains: enabled",
     "",
     "Run `/ged-agents status` to review.",
   ].filter(Boolean);
 
-  return { text: lines.join("\n"), applied: true };
+  return lines.join("\n");
 }
 
 // ─── Formatters ────────────────────────────────────────────────────────
@@ -217,18 +231,18 @@ function formatModelsList(effective: Awaited<ReturnType<typeof readEffectiveGedA
   return lines.join("\n");
 }
 
-function formatCompactSetup(cwd: string): string {
+function formatCompactSetup(): string {
   return [
     "## Quick setup (copy & run)",
     "",
     "```",
     "/ged-agents on --project",
-    "/ged-agents model ged-explorer deepseek/deepseek-v4-flash --project",
-    "/ged-agents model ged-planner openai/gpt-5.5 --project",
-    "/ged-agents model ged-verifier anthropic/claude-opus-4.7 --project",
+    `/ged-agents model ged-explorer ${DEFAULT_EXPLORER} --project`,
+    `/ged-agents model ged-planner ${DEFAULT_PLANNER} --project`,
+    `/ged-agents model ged-verifier ${DEFAULT_VERIFIER} --project`,
     "```",
     "",
-    "Or run `/ged-agents setup` in an interactive Pi session for a guided wizard.",
+    "Or run `/ged-agents setup` in an interactive Pi session for a searchable model picker.",
   ].join("\n");
 }
 
@@ -238,7 +252,7 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const ui = ctx.runtime?.ctx.ui;
   const registry = ctx.runtime?.ctx.modelRegistry;
   if (!ui || !registry) {
-    return formatCompactSetup(ctx.cwd);
+    return formatCompactSetup();
   }
 
   // Step 1: Scope
@@ -252,61 +266,17 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const targetPath = scopeChoice === "This project only" ? "PROJECT" : "GLOBAL";
   const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
 
-  // Step 2: Preset
-  const presetChoice = await ui.select(
-    "Choose model setup",
-    ["Recommended balanced", "Budget / fast", "Max quality", "Customize each role", "Cancel"],
-  );
-  if (!presetChoice || presetChoice === "Cancel") {
-    return "Setup cancelled.";
-  }
+  // Step 2–4: Searchable model pickers
+  const explorerModel = await pickModel(ui, registry, "Explorer model", "claude, gpt, deepseek");
+  if (explorerModel === null) return "Setup cancelled.";
 
-  // Resolve models based on preset
-  let explorerModel: Model<Api> | undefined;
-  let plannerModel: Model<Api> | undefined;
-  let verifierModel: Model<Api> | undefined;
+  const plannerModel = await pickModel(ui, registry, "Planner model", "opus, gpt-5.5, deepseek-pro");
+  if (plannerModel === null) return "Setup cancelled.";
 
-  if (presetChoice === "Recommended balanced") {
-    explorerModel = findPreferredModel(registry, EXPLORER_PREFERENCES);
-    plannerModel = findPreferredModel(registry, PLANNER_PREFERENCES);
-    verifierModel = plannerModel; // Same as planner for balanced
-  } else if (presetChoice === "Budget / fast") {
-    explorerModel = findPreferredModel(registry, EXPLORER_PREFERENCES);
-    plannerModel = findPreferredModel(registry, ["openai/gpt-5.4-mini", "anthropic/claude-haiku-4.5"]);
-    verifierModel = plannerModel;
-  } else if (presetChoice === "Max quality") {
-    explorerModel = findPreferredModel(registry, ["anthropic/claude-sonnet-4", "openai/gpt-5.5"]);
-    plannerModel = findPreferredModel(registry, PLANNER_PREFERENCES);
-    verifierModel = findPreferredModel(registry, ["anthropic/claude-opus-4.7", "openai/gpt-5.5"]);
-  }
+  const verifierModel = await pickModel(ui, registry, "Verifier model", "opus, gpt-5.5, deepseek-pro");
+  if (verifierModel === null) return "Setup cancelled.";
 
-  // Step 3: Customize (if chosen)
-  if (presetChoice === "Customize each role") {
-    const allAvailable = registry.getAvailable();
-    const modelOptions = allAvailable.map((m) => `${m.provider}/${m.id}`);
-
-    const explorerChoice = await ui.select("Explorer model (fast, cheap)", modelOptions);
-    if (!explorerChoice) return "Setup cancelled.";
-
-    const plannerChoice = await ui.select("Planner model (strong reasoning)", modelOptions);
-    if (!plannerChoice) return "Setup cancelled.";
-
-    const verifierChoice = await ui.select("Verifier model (thorough checks)", modelOptions);
-    if (!verifierChoice) return "Setup cancelled.";
-
-    const [eProvider, eId] = explorerChoice.split("/");
-    const [pProvider, pId] = plannerChoice.split("/");
-    const [vProvider, vId] = verifierChoice.split("/");
-    explorerModel = registry.find(eProvider, eId);
-    plannerModel = registry.find(pProvider, pId);
-    verifierModel = registry.find(vProvider, vId);
-  }
-
-  if (!explorerModel || !plannerModel || !verifierModel) {
-    return "Could not resolve one or more models. Check your API key configuration and try again.";
-  }
-
-  // Step 4: Confirmation
+  // Step 5: Confirmation
   const summary = [
     `Scope: ${scopeLabel}`,
     "",
@@ -322,17 +292,16 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
     return "Setup cancelled.";
   }
 
-  // Step 5: Apply
+  // Step 6: Apply
   const result = await applyAgentConfig(ctx.cwd, targetPath, {
     explorer: formatModelRef(explorerModel),
     planner: formatModelRef(plannerModel),
     verifier: formatModelRef(verifierModel),
-    fallbacks: true,
   });
 
   ui.notify("Ged subagents configured", "info");
 
-  return result.text;
+  return result;
 }
 
 // ─── Main command handler ──────────────────────────────────────────────
@@ -356,7 +325,7 @@ async function executeGedAgentsCommand(
     if (ctx?.runtime?.ctx.hasUI) {
       return await runInteractiveSetup(ctx);
     }
-    return formatCompactSetup(cwd);
+    return formatCompactSetup();
   }
 
   if (action === "on" || action === "off") {
