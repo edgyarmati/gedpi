@@ -6,7 +6,7 @@ Requires Node.js 22 or newer.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/gedpi.svg)](https://www.npmjs.com/package/gedpi)
-[![CI](https://github.com/EdGy2k/GedPi/actions/workflows/ci.yml/badge.svg)](https://github.com/EdGy2k/GedPi/actions/workflows/ci.yml)
+[![CI](https://github.com/edgyarmati/ged-mono/actions/workflows/ci.yml/badge.svg)](https://github.com/edgyarmati/ged-mono/actions/workflows/ci.yml)
 
 ## What It Does
 
@@ -27,7 +27,7 @@ Then run it in any project:
 
 ```bash
 cd your-project
-ged
+gedpi
 ```
 
 ## Features
@@ -67,6 +67,8 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **ged-memory** | `.ged/` durable memory bootstrap |
 | **glimpseui** | Native micro-UI windows and the optional floating companion widget |
 | **pi-web-access** | Web search and fetch tools for the agent |
+| **pi-intercom** | Inter-agent communication and messaging |
+| **pi-subagents** | Subagent orchestration for parallel and delegated work |
 | **pi-interview** | Guided Q&A when the agent needs clarification |
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
@@ -132,10 +134,10 @@ GedPi keeps its working notes in `.ged/`:
 ## Development
 
 ```bash
-git clone https://github.com/EdGy2k/GedPi.git
-cd GedPi
+git clone https://github.com/edgyarmati/ged-mono.git
+cd ged-mono
 npm install
-npm run chat    # launch locally in dev mode
+npm --prefix packages/gedpi run chat    # launch locally in dev mode
 ```
 
 | Command | Purpose |
@@ -152,7 +154,7 @@ npm run chat    # launch locally in dev mode
 
 - Pull requests and pushes to `main` run `npm run verify`.
 - The docs are part of the test contract.
-- Pushing a `v*` tag runs the release workflow, verifies the repo again, publishes to npm through GitHub Actions trusted publishing with provenance, and then creates the GitHub release.
+- Pushing a `gedpi-v*` tag runs the release workflow, verifies the repo again, publishes to npm through GitHub Actions trusted publishing with provenance, and then creates the GitHub release.
 - Trusted publishing still requires npm-side setup for this repository/workflow in the npm package settings.
 
 ## Attribution
