@@ -1,6 +1,6 @@
 {
   "name": "gedpi",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Single-agent Pi package that interviews the user, documents the spec, and implements work in bounded slices.",
   "type": "module",
   "license": "MIT",

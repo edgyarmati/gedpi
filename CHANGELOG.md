@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.13.0 - 2026-05-05
+
 ### Breaking changes
 
 - **Removed `/ged-mode` toggle** — the full Ged workflow is now always active. There is no passive/off mode. The agent classifies tasks as trivial or non-trivial internally.
