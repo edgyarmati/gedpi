@@ -2,9 +2,13 @@
 
 ## Unreleased
 
-## 0.15.0 - 2026-05-05
+## 0.15.1 - 2026-05-05
 
-### Features
+### Fixes
+
+- **Vendored `@ged/shared-checkpoints` into gedpi** — the shared checkpoint package was referenced via `file:../shared` which npm excludes from published tarballs, causing `Cannot find module '@ged/shared-checkpoints'` at runtime. The code is now bundled directly at `src/vendor/shared-checkpoints.{js,d.ts}`.
+
+## 0.15.0 - 2026-05-05
 
 - **Interactive `/ged-agents setup` wizard** — Pi-native menu-driven setup for subagent models. Uses `ctx.ui.select`, `ctx.ui.input`, and `ctx.ui.confirm` for a step-by-step flow: pick scope, search for models per role, confirm, apply. Non-UI sessions get compact copy-paste commands.
 - **Searchable model picker** — type any part of a model name, ID, or provider to filter available models. Single match auto-selects; multiple matches show a pick list; no matches retry with a warning.

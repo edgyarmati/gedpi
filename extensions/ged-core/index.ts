@@ -1,14 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { CheckpointAgent } from "@ged/shared-checkpoints";
-import {
-  hasSkipCheckpointMarker,
-  invalidateVerifierCheckpoints,
-  isGitCommitCommand,
-  shouldAutoEscalate,
-} from "@ged/shared-checkpoints";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-
 import {
   readEffectiveGedAgentsSettings,
   syncGedSubagentRuntimeConfig,
@@ -56,6 +48,13 @@ import {
 } from "../../src/theme.js";
 import { registerThemeCommand } from "../../src/theme-command.js";
 import { registerUpdater } from "../../src/updater.js";
+import type { CheckpointAgent } from "../../src/vendor/shared-checkpoints.js";
+import {
+  hasSkipCheckpointMarker,
+  invalidateVerifierCheckpoints,
+  isGitCommitCommand,
+  shouldAutoEscalate,
+} from "../../src/vendor/shared-checkpoints.js";
 import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
 
 // ─── Session-level touched-files tracking ──────────────────────────

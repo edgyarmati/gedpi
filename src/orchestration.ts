@@ -2,17 +2,13 @@ import { execFile } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-
+import { writeFileAtomic } from "./atomic.js";
 import type {
   CheckpointState,
   CheckpointValidation,
-} from "@ged/shared-checkpoints";
+} from "./vendor/shared-checkpoints.js";
+import { parseCheckpointState } from "./vendor/shared-checkpoints.js";
 
-import { parseCheckpointState } from "@ged/shared-checkpoints";
-
-import { writeFileAtomic } from "./atomic.js";
-
-// Re-export shared functions for backward compatibility
 export {
   hasSkipCheckpointMarker,
   initCheckpointState,
@@ -24,7 +20,7 @@ export {
   validateCommitCheckpoints,
   validatePlannerCheckpoint,
   validateVerifierCheckpoint,
-} from "@ged/shared-checkpoints";
+} from "./vendor/shared-checkpoints.js";
 
 const CHECKPOINT_FILE = ".ged/runtime/checkpoints.json";
 

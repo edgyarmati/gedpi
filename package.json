@@ -1,6 +1,6 @@
 {
   "name": "gedpi",
-  "version": "0.15.0",
+  "version": "0.15.1",
   "description": "Single-agent Pi package that interviews the user, documents the spec, and implements work in bounded slices.",
   "type": "module",
   "license": "MIT",
@@ -85,7 +85,6 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.119",
-    "@ged/shared-checkpoints": "file:../shared",
     "@juanibiapina/pi-extension-settings": "^0.6.1",
     "pi-powerline-footer": "file:./vendor/pi-powerline-footer",
     "@mariozechner/pi-coding-agent": "^0.73.0",

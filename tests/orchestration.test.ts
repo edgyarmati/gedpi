@@ -1,11 +1,6 @@
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-
-import type {
-  CheckpointRecord,
-  CheckpointState,
-} from "@ged/shared-checkpoints";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "../src/atomic.js";
 import { buildWorkflowPromptSuffix } from "../src/brain.js";
@@ -21,6 +16,10 @@ import {
   validateVerifierCheckpoint,
   writeCheckpointState,
 } from "../src/orchestration.js";
+import type {
+  CheckpointRecord,
+  CheckpointState,
+} from "../src/vendor/shared-checkpoints.js";
 
 describe("checkpoint types", () => {
   it("CheckpointState has expected shape", () => {
