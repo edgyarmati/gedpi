@@ -64,11 +64,23 @@ async function pickModel(
   registry: ModelRegistry,
   title: string,
   hint: string,
+  currentRef?: string,
 ): Promise<Model<Api> | null> {
   const available = registry.getAvailable();
 
+  // Step 0: offer to keep current
+  const keepLabel = currentRef ? `Keep current: ${currentRef}` : undefined;
+  const initialOptions = keepLabel ? [keepLabel, "Search for a different model…", "Cancel"] : ["Search for a model…", "Cancel"];
+
+  const initialChoice = await ui.select(title, initialOptions);
+  if (initialChoice === undefined || initialChoice === "Cancel") return null;
+  if (initialChoice === keepLabel) {
+    const found = currentRef ? modelFromRef(registry, currentRef) : undefined;
+    return found ?? null;
+  }
+
   // Step 1: type a search query
-  const query = await ui.input(title, `Type to search (e.g. ${hint})`);
+  const query = await ui.input(`Search ${title}`, `Type to search (e.g. ${hint})`);
   if (query === undefined) return null; // cancelled
 
   // Step 2: filter
@@ -81,7 +93,7 @@ async function pickModel(
 
   if (matches.length === 0) {
     ui.notify(`No models matched "${query}". Try a different search.`, "warning");
-    return pickModel(ui, registry, title, hint);
+    return pickModel(ui, registry, title, hint, currentRef);
   }
 
   if (matches.length === 1) {
@@ -248,12 +260,28 @@ function formatCompactSetup(): string {
 
 // ─── Interactive wizard ────────────────────────────────────────────────
 
+function currentModelRef(
+  effective: Awaited<ReturnType<typeof readEffectiveGedAgentsSettings>>,
+  role: GedAgentRole,
+): string | undefined {
+  const config = effective.models[role];
+  if (config) {
+    return typeof config === "string" ? config : config.model;
+  }
+  if (effective.defaultModel) {
+    return typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model;
+  }
+  return undefined;
+}
+
 async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const ui = ctx.runtime?.ctx.ui;
   const registry = ctx.runtime?.ctx.modelRegistry;
   if (!ui || !registry) {
     return formatCompactSetup();
   }
+
+  const effective = await readEffectiveGedAgentsSettings(ctx.cwd);
 
   // Step 1: Scope
   const scopeChoice = await ui.select(
@@ -266,14 +294,23 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const targetPath = scopeChoice === "This project only" ? "PROJECT" : "GLOBAL";
   const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
 
-  // Step 2–4: Searchable model pickers
-  const explorerModel = await pickModel(ui, registry, "Explorer model", "claude, gpt, deepseek");
+  // Step 2–4: Searchable model pickers (with "keep current" option)
+  const explorerModel = await pickModel(
+    ui, registry, "Explorer model", "claude, gpt, deepseek",
+    currentModelRef(effective, "ged-explorer"),
+  );
   if (explorerModel === null) return "Setup cancelled.";
 
-  const plannerModel = await pickModel(ui, registry, "Planner model", "opus, gpt-5.5, deepseek-pro");
+  const plannerModel = await pickModel(
+    ui, registry, "Planner model", "opus, gpt-5.5, deepseek-pro",
+    currentModelRef(effective, "ged-planner"),
+  );
   if (plannerModel === null) return "Setup cancelled.";
 
-  const verifierModel = await pickModel(ui, registry, "Verifier model", "opus, gpt-5.5, deepseek-pro");
+  const verifierModel = await pickModel(
+    ui, registry, "Verifier model", "opus, gpt-5.5, deepseek-pro",
+    currentModelRef(effective, "ged-verifier"),
+  );
   if (verifierModel === null) return "Setup cancelled.";
 
   // Step 5: Confirmation
