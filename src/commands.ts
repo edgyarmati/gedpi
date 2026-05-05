@@ -13,63 +13,6 @@ import {
 import type { AppCommandDefinition } from "./pi.js";
 import { executeRtkCommand } from "./rtk.js";
 
-// ─── Presets ───────────────────────────────────────────────────────────
-
-export type PresetName = "fast" | "balanced" | "strong";
-
-export interface ModelPreset {
-  name: PresetName;
-  label: string;
-  description: string;
-  config: {
-    defaultModel?: string;
-    models: Partial<Record<GedAgentRole, string>>;
-  };
-}
-
-export const PRESETS: ModelPreset[] = [
-  {
-    name: "fast",
-    label: "Fast / Cheap",
-    description: "Lightweight models for speed and low cost.",
-    config: {
-      defaultModel: "google/gemini-2.5-flash",
-      models: {
-        "ged-planner": "anthropic/claude-sonnet-4",
-        "ged-verifier": "google/gemini-2.5-flash",
-      },
-    },
-  },
-  {
-    name: "balanced",
-    label: "Balanced",
-    description: "Smart allocation: strong planner, capable explorer/verifier.",
-    config: {
-      defaultModel: "anthropic/claude-sonnet-4",
-      models: {
-        "ged-explorer": "google/gemini-2.5-flash",
-        "ged-planner": "anthropic/claude-opus-4",
-        "ged-verifier": "openai/gpt-5.5",
-      },
-    },
-  },
-  {
-    name: "strong",
-    label: "Strong / Thorough",
-    description: "Maximum capability for all roles. Higher cost and latency.",
-    config: {
-      defaultModel: "anthropic/claude-opus-4",
-      models: {
-        "ged-explorer": "anthropic/claude-sonnet-4",
-        "ged-planner": "anthropic/claude-opus-4",
-        "ged-verifier": "openai/gpt-5.5",
-      },
-    },
-  },
-];
-
-const PRESET_BY_NAME = new Map(PRESETS.map((p) => [p.name, p]));
-
 const COMMON_MODELS = [
   "anthropic/claude-sonnet-4",
   "anthropic/claude-opus-4",
@@ -78,8 +21,6 @@ const COMMON_MODELS = [
   "google/gemini-2.5-pro",
   "google/gemini-2.5-flash",
 ];
-
-// ─── Scope helpers ─────────────────────────────────────────────────────
 
 function resolveScope(args: string[]): { targetPath: string; scopeLabel: string; remaining: string[] } {
   const projectIndex = args.indexOf("--project");
@@ -98,8 +39,6 @@ function resolveScope(args: string[]): { targetPath: string; scopeLabel: string;
 function resolveTargetPath(cwd: string, targetPath: string): string {
   return targetPath === "PROJECT" ? projectGedSettingsPath(cwd) : globalGedSettingsPath();
 }
-
-// ─── Model set/clear ───────────────────────────────────────────────────
 
 async function setAgentModel(
   cwd: string,
@@ -141,135 +80,35 @@ async function setAgentModel(
   return `Set ${role === "default" ? "default model" : role + " model"} to \`${modelId}\` in ${scopeLabel} settings.`;
 }
 
-// ─── Preset apply ──────────────────────────────────────────────────────
-
-async function applyPreset(
-  cwd: string,
-  targetPath: string,
-  preset: ModelPreset,
-): Promise<string> {
-  const filePath = resolveTargetPath(cwd, targetPath);
-  const existing = await readGedRuntimeSettings(filePath);
-  const next: GedAgentsSettings = {
-    ...(existing.agents ?? {}),
-    defaultModel: preset.config.defaultModel,
-    models: { ...preset.config.models },
-  };
-  await writeGedAgentsSettings(filePath, next);
-  await syncGedSubagentRuntimeConfig(cwd);
-
-  const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
-  const lines = [
-    `Applied **${preset.label}** preset to ${scopeLabel} settings.`,
-    "",
-    "| Role | Model |",
-    "|---|---|",
-    `| default | ${preset.config.defaultModel ?? "inherit orchestrator"} |`,
-    ...GED_AGENT_ROLES.map((role) => {
-      const model = preset.config.models[role] ?? preset.config.defaultModel ?? "inherit orchestrator";
-      return `| ${role} | ${model} |`;
-    }),
-  ];
-  return lines.join("\n");
-}
-
-// ─── Formatters ────────────────────────────────────────────────────────
-
-function formatModelsList(
-  effective: Awaited<ReturnType<typeof readEffectiveGedAgentsSettings>>,
-): string {
-  const lines: string[] = ["## Current subagent models", ""];
-
-  lines.push("| Role | Effective model | Source |");
-  lines.push("|---|---|---|");
+function formatModelsList(effective: Awaited<ReturnType<typeof readEffectiveGedAgentsSettings>>): string {
+  const lines: string[] = ["## Subagent model assignments", ""];
 
   for (const role of GED_AGENT_ROLES) {
-    const own = effective.models[role];
-    const fallback = effective.defaultModel;
-    const label = own
-      ? typeof own === "string"
-        ? own
-        : JSON.stringify(own)
-      : fallback
-        ? `inherit (${typeof fallback === "string" ? fallback : JSON.stringify(fallback)})`
-        : "inherit (orchestrator)";
-    const source = own ? "role override" : fallback ? "default" : "orchestrator";
-    lines.push(`| ${role} | ${label} | ${source} |`);
+    const config = effective.models[role];
+    const label = config ? (typeof config === "string" ? config : JSON.stringify(config)) : (effective.defaultModel ? `inherit (${typeof effective.defaultModel === "string" ? effective.defaultModel : JSON.stringify(effective.defaultModel)})` : "inherit (orchestrator)");
+    const source = config ? "project/global" : effective.defaultModel ? "default" : "orchestrator";
+    lines.push(`- **${role}**: ${label} _(source: ${source})_`);
   }
 
   lines.push("");
-  lines.push("---");
+  lines.push(`**Default model**: ${effective.defaultModel ? (typeof effective.defaultModel === "string" ? effective.defaultModel : JSON.stringify(effective.defaultModel)) : "none (inherits orchestrator model)"}`);
   lines.push("");
-  lines.push("### Quick: apply a preset");
-  lines.push("");
-  for (const preset of PRESETS) {
-    lines.push(`- **${preset.name}** — ${preset.description}`);
-    lines.push(`  \`/ged-agents preset ${preset.name}\``);
-  }
-  lines.push("");
-  lines.push("### Quick: set one role");
+  lines.push("### Set a model");
   lines.push("`/ged-agents model <role> <model-id> [--project]`");
-  lines.push("- Roles: `default`, `ged-explorer`, `ged-planner`, `ged-verifier`");
-  lines.push("- Use `--project` for project-level (gitignored) override");
-  lines.push("- Use `--clear` instead of a model-id to remove an override");
+  lines.push("- Role: `default`, `ged-explorer`, `ged-planner`, `ged-verifier`");
+  lines.push("- Use `--project` to set project-level override");
+  lines.push("- Example: `/ged-agents model ged-planner anthropic/claude-sonnet-4`");
+  lines.push("");
+  lines.push("### Clear a per-role override");
+  lines.push("`/ged-agents model <role> --clear`");
   lines.push("");
   lines.push("### Common model IDs");
   for (const id of COMMON_MODELS) {
-    lines.push(`- \`${id}\``);
+    lines.push(`- ${id}`);
   }
 
   return lines.join("\n");
 }
-
-function formatSetupWizard(
-  effective: Awaited<ReturnType<typeof readEffectiveGedAgentsSettings>>,
-): string {
-  const lines: string[] = [
-    "# Ged Subagent Setup",
-    "",
-    "Subagents are **read-only intelligence contributors** — the primary Ged brain remains the sole writer.",
-    "",
-    "## Step 1 — Enable subagents",
-    "",
-    "```",
-    "/ged-agents on              # enable globally",
-    "/ged-agents on --project   # enable for this project only",
-    "```",
-    "",
-    "## Step 2 — Pick a preset (easiest)",
-    "",
-  ];
-
-  for (let i = 0; i < PRESETS.length; i++) {
-    const p = PRESETS[i];
-    lines.push(`${i + 1}. **${p.label}** — ${p.description}`);
-    lines.push(`   \`/ged-agents preset ${p.name}\``);
-    lines.push("");
-  }
-
-  lines.push("Or set per-role manually:");
-  lines.push("```");
-  lines.push("/ged-agents model ged-planner anthropic/claude-opus-4");
-  lines.push("/ged-agents model ged-explorer google/gemini-2.5-flash --project");
-  lines.push("```");
-  lines.push("");
-
-  if (effective.enabled) {
-    lines.push("✅ Subagents are **enabled**");
-  } else {
-    lines.push("⚠️ Subagents are **disabled**. Run `/ged-agents on` first.");
-  }
-  lines.push("");
-  lines.push("## Step 3 — Verify");
-  lines.push("Run `/ged-agents models` to review current assignments.");
-  lines.push("");
-  lines.push("---");
-  lines.push("**Tip**: Changes take effect immediately — the next subagent dispatch uses the new model.");
-
-  return lines.join("\n");
-}
-
-// ─── Main command handler ──────────────────────────────────────────────
 
 async function executeGedAgentsCommand(
   cwd: string,
@@ -283,19 +122,6 @@ async function executeGedAgentsCommand(
 
   if (action === "models") {
     return formatModelsList(await readEffectiveGedAgentsSettings(cwd));
-  }
-
-  if (action === "preset") {
-    const { targetPath, remaining } = resolveScope(rest);
-    const [presetName] = remaining;
-    const preset = presetName ? PRESET_BY_NAME.get(presetName as PresetName) : undefined;
-
-    if (!preset) {
-      const names = PRESETS.map((p) => p.name).join(", ");
-      return `Usage: /ged-agents preset <${names}> [--project|--global]`;
-    }
-
-    return await applyPreset(cwd, targetPath, preset);
   }
 
   if (action === "on" || action === "off") {
@@ -330,10 +156,14 @@ async function executeGedAgentsCommand(
   }
 
   if (action === "setup") {
-    return formatSetupWizard(await readEffectiveGedAgentsSettings(cwd));
+    return [
+      "Ged optional subagents follow the single-writer invariant: the primary Ged brain writes code, decides scope, adjudicates reviews, commits, pushes, and opens PRs.",
+      "Use `/ged-agents on` for global enablement or `/ged-agents on --project` for this project only.",
+      "Configure models with `/ged-agents model <role> <model-id>` or view assignments with `/ged-agents models`.",
+    ].join("\n");
   }
 
-  return "Usage: /ged-agents [status|models|preset|on|off|model|setup] [--project|--global]";
+  return "Usage: /ged-agents [status|models|on|off|model|setup] [--project|--global]";
 }
 
 export function createGedCommands(): AppCommandDefinition[] {
@@ -352,7 +182,7 @@ export function createGedCommands(): AppCommandDefinition[] {
     {
       name: "ged-agents",
       description:
-        "Configure optional read-only Ged subagents (status, setup, on, off, preset, model)",
+        "Configure optional read-only Ged subagents (status, setup, on, off)",
       async execute(context) {
         return await executeGedAgentsCommand(context.cwd, context.args);
       },
