@@ -117,4 +117,88 @@ describe("Ged command surface", () => {
     expect(status).toContain("Default model: openai/gpt-5-mini");
     expect(status).toContain("- ged-planner: openai/gpt-5.5");
   });
+
+  test("ged-agents models shows current assignments", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    await writeGedAgentsSettings(projectGedSettingsPath(cwd), {
+      enabled: true,
+      defaultModel: "anthropic/claude-sonnet-4",
+      models: { "ged-planner": "openai/gpt-5.5" },
+    });
+
+    const result = await command?.execute({ cwd, args: ["models"] });
+
+    expect(result).toContain("ged-explorer");
+    expect(result).toContain("ged-planner");
+    expect(result).toContain("ged-verifier");
+    expect(result).toContain("openai/gpt-5.5");
+    expect(result).toContain("anthropic/claude-sonnet-4");
+    expect(result).toContain("Set a model");
+  });
+
+  test("ged-agents model sets per-role model", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    const result = await command?.execute({
+      cwd,
+      args: ["model", "ged-planner", "anthropic/claude-opus-4", "--project"],
+    });
+
+    expect(result).toContain("Set ged-planner model");
+    expect(result).toContain("anthropic/claude-opus-4");
+    expect(result).toContain("project");
+  });
+
+  test("ged-agents model sets default model", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    const result = await command?.execute({
+      cwd,
+      args: ["model", "default", "openai/gpt-5", "--project"],
+    });
+
+    expect(result).toContain("Set default model");
+    expect(result).toContain("openai/gpt-5");
+  });
+
+  test("ged-agents model --clear removes per-role override", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    await writeGedAgentsSettings(projectGedSettingsPath(cwd), {
+      enabled: true,
+      models: { "ged-explorer": "anthropic/claude-sonnet-4" },
+    });
+
+    const result = await command?.execute({
+      cwd,
+      args: ["model", "ged-explorer", "--clear", "--project"],
+    });
+
+    expect(result).toContain("Cleared ged-explorer model");
+  });
+
+  test("ged-agents model rejects unknown role", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    const result = await command?.execute({
+      cwd,
+      args: ["model", "ged-writer", "anthropic/claude-sonnet-4"],
+    });
+
+    expect(result).toContain("Unknown role");
+  });
 });
