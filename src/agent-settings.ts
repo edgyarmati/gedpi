@@ -150,9 +150,12 @@ export function formatGedAgentsStatus(
   effective: EffectiveGedAgentsSettings,
 ): string {
   const modelLines = GED_AGENT_ROLES.map((role) => {
-    const model = effective.models[role] ?? effective.defaultModel ?? "inherit";
-    const label = typeof model === "string" ? model : JSON.stringify(model);
-    return `- ${role}: ${label}`;
+    const config =
+      effective.models[role] ?? effective.defaultModel ?? "inherit";
+    const modelLabel = typeof config === "string" ? config : config.model;
+    const thinking = thinkingLevel(config);
+    const thinkingTag = thinking ? ` [${thinking}]` : "";
+    return `- ${role}: ${modelLabel}${thinkingTag}`;
   });
   return [
     `Subagents: ${effective.enabled ? "enabled" : "disabled"}`,
@@ -169,17 +172,30 @@ function modelId(value: AgentModelConfig | undefined): string | undefined {
   return typeof value === "string" ? value : value.model;
 }
 
+function thinkingLevel(
+  value: AgentModelConfig | undefined,
+): string | undefined {
+  if (!value || typeof value === "string") return undefined;
+  const thinking = value.thinking;
+  if (typeof thinking === "string" && thinking !== "off") return thinking;
+  return undefined;
+}
+
 function bundledRolePrompt(
   role: GedAgentRole,
   effective: EffectiveGedAgentsSettings,
 ): string {
   const model = modelId(effective.models[role] ?? effective.defaultModel);
   const modelLine = model ? `model: ${model}\n` : "";
+  const thinking = thinkingLevel(
+    effective.models[role] ?? effective.defaultModel,
+  );
+  const thinkingLine = thinking ? `thinking: ${thinking}\n` : "";
   const prompts: Record<GedAgentRole, string> = {
     "ged-explorer": `---
 name: ged-explorer
 description: Read-only Ged codebase scout for evidence-backed discovery packets.
-${modelLine}tools: read, grep, glob, bash
+${modelLine}${thinkingLine}tools: read, grep, glob, bash
 inheritProjectContext: true
 inheritSkills: false
 systemPromptMode: replace
@@ -192,7 +208,7 @@ You are a read-only intelligence contributor for GedPi. Search and read reposito
     "ged-planner": `---
 name: ged-planner
 description: Read-only Ged smart-friend planner that critiques plans and test seams.
-${modelLine}tools: read, grep, glob, bash
+${modelLine}${thinkingLine}tools: read, grep, glob, bash
 inheritProjectContext: true
 inheritSkills: false
 systemPromptMode: replace
@@ -205,7 +221,7 @@ You are a read-only planning critic for GedPi. Identify missing questions, const
     "ged-verifier": `---
 name: ged-verifier
 description: Read-only Ged clean-context reviewer for diffs and verification evidence.
-${modelLine}tools: read, grep, glob, bash
+${modelLine}${thinkingLine}tools: read, grep, glob, bash
 inheritProjectContext: true
 inheritSkills: false
 systemPromptMode: replace

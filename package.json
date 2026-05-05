@@ -83,18 +83,18 @@
     ]
   },
   "dependencies": {
-    "@ged/shared-checkpoints": "file:../shared",
     "@anthropic-ai/claude-agent-sdk": "^0.2.119",
+    "@ged/shared-checkpoints": "file:../shared",
     "@juanibiapina/pi-extension-settings": "^0.6.1",
     "@juanibiapina/pi-powerbar": "^0.9.1",
-    "@mariozechner/pi-coding-agent": "^0.70.2",
+    "@mariozechner/pi-coding-agent": "^0.73.0",
     "glimpseui": "^0.8.0",
     "pi-diff-review": "file:./vendor/pi-diff-review",
-    "pi-interview": "^0.8.6",
     "pi-intercom": "^0.3.0",
+    "pi-interview": "^0.8.6",
     "pi-prompt-template-model": "^0.9.1",
-    "pi-subagents": "^0.21.4",
-    "pi-web-access": "^0.10.6",
+    "pi-subagents": "^0.24.0",
+    "pi-web-access": "^0.10.7",
     "zod": "^4.3.6"
   },
   "overrides": {
