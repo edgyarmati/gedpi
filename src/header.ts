@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { Theme } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 
-import { brand, welcome as welcomeColor } from "./theme.js";
+import { welcome as welcomeColor } from "./theme.js";
 
 const WELCOME_MESSAGES: readonly string[] = [
   "Ready to turn ideas into code.",
@@ -23,22 +23,6 @@ const WELCOME_MESSAGES: readonly string[] = [
   "Coffee optional. Code inevitable.",
   "Ctrl+C is always an option. But not today.",
 ];
-
-export const ASCII_LOGO = [
-  " ██████╗ ███╗   ███╗███╗   ██╗██╗",
-  "██╔═══██╗████╗ ████║████╗  ██║██║",
-  "██║   ██║██╔████╔██║██╔██╗ ██║██║",
-  "██║   ██║██║╚██╔╝██║██║╚██╗██║██║",
-  "╚██████╔╝██║ ╚═╝ ██║██║ ╚████║██║",
-  " ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝",
-];
-
-export const LOGO_WIDTH = Math.max(...ASCII_LOGO.map((l) => l.length));
-
-export function centerIn(text: string, width: number): string {
-  const pad = Math.max(0, Math.floor((width - text.length) / 2));
-  return " ".repeat(pad) + text;
-}
 
 function loadVersion(): string {
   try {
@@ -67,13 +51,10 @@ export function pickWelcome(): string {
 export function renderHeader(theme: Theme): Text {
   const welcome = pickWelcome();
 
-  const logo = ASCII_LOGO.map((line) => brand(line)).join("\n");
-  const subtitleText = `— P I  v${VERSION} —`;
-  const subtitle = theme.fg("muted", centerIn(subtitleText, LOGO_WIDTH));
-  const taglineText = "plan · build · verify";
-  const tagline = theme.fg("muted", centerIn(taglineText, LOGO_WIDTH));
-  const greeting = welcomeColor(centerIn(welcome, LOGO_WIDTH));
+  const subtitle = theme.fg("muted", `— GedPi v${VERSION} —`);
+  const tagline = theme.fg("muted", "plan · build · verify");
+  const greeting = welcomeColor(welcome);
 
-  const lines = [logo, subtitle, "", tagline, greeting, ""];
+  const lines = [subtitle, tagline, greeting, ""];
   return new Text(lines.join("\n"), 1, 0);
 }

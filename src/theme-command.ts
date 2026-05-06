@@ -3,13 +3,7 @@ import type {
   ExtensionCommandContext,
 } from "@mariozechner/pi-coding-agent";
 import type { Component, KeybindingsManager, TUI } from "@mariozechner/pi-tui";
-import {
-  ASCII_LOGO,
-  centerIn,
-  LOGO_WIDTH,
-  pickWelcome,
-  renderHeader,
-} from "./header.js";
+import { pickWelcome, renderHeader } from "./header.js";
 import {
   ansiColor,
   applyPreset,
@@ -22,13 +16,10 @@ import {
 const PRESET_KEYS = Object.keys(PRESETS);
 
 function renderMiniPreview(brandHex: string, welcomeHex: string): string[] {
-  const logo = ASCII_LOGO.map((line) => ansiColor(brandHex, line));
-  const tagline = ansiColor(
-    "#808080",
-    centerIn("plan · build · verify", LOGO_WIDTH),
-  );
-  const greeting = ansiColor(welcomeHex, centerIn(pickWelcome(), LOGO_WIDTH));
-  return [...logo, "", tagline, greeting];
+  const brandText = ansiColor(brandHex, "GedPi");
+  const tagline = ansiColor("#808080", "plan · build · verify");
+  const greeting = ansiColor(welcomeHex, pickWelcome());
+  return [brandText, tagline, greeting];
 }
 
 type PickerResult = { key: string } | "cancelled";
@@ -100,7 +91,7 @@ class ThemePickerComponent implements Component {
       return i === this.selectedIndex ? ` > ${label}` : `   ${label}`;
     });
 
-    const separator = "─".repeat(Math.min(width, LOGO_WIDTH + 4));
+    const separator = "─".repeat(Math.min(width, 40));
     const hint = "\x1b[2m↑/↓ navigate · enter select · esc cancel\x1b[0m";
 
     return ["", ...preview, "", separator, ...listLines, "", hint, ""];

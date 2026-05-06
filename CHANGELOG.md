@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Removed OMNI ASCII art header** — the 6-line block-letter "OMNI" ASCII art that flashed briefly on `/new` and `gedpi --continue` has been removed. The session header now shows a compact `GedPi vX.Y.Z` subtitle, the `plan · build · verify` tagline, and a random welcome message. The theme picker preview mirrors the new compact style.
+
 ## 0.15.2 - 2026-05-06
 
 ### Fixes
