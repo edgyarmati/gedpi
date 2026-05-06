@@ -5,7 +5,7 @@ import path from "node:path";
 import { writeFileAtomic } from "./atomic.js";
 import { GED_DIR } from "./contracts.js";
 
-export const GED_STANDARD_VERSION = 1;
+export const GED_STANDARD_VERSION = 2;
 const VERSION_PATH = path.join(GED_DIR, "VERSION");
 const IMPORT_STATE_PATH = path.join(GED_DIR, "IMPORT-STATE.json");
 const STANDARDS_PATH = path.join(GED_DIR, "STANDARDS.md");

@@ -69,7 +69,7 @@ describe("Ged workflow", () => {
 
     expect(result.created).toContain(".ged/VERSION");
     expect(result.created).toContain(".ged/PROJECT.md");
-    expect(result.created).toContain(".ged/STATE.md");
+    expect(result.created).toContain(".ged/runtime/root/STATE.md");
     expect(result.created).toContain(".pi/agents/ged-brain.md");
     expect(
       result.skillCandidates.some(
@@ -347,7 +347,7 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
 
     const result = await workOnGedProject(rootDir, engine);
     const tasks = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
+      path.join(rootDir, ".ged", "work", "root", "TASKS.md"),
       "utf8",
     );
 
@@ -425,7 +425,7 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
     const firstResult = await workOnGedProject(rootDir, engine);
     const secondResult = await workOnGedProject(rootDir, engine);
     const tasks = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
+      path.join(rootDir, ".ged", "work", "root", "TASKS.md"),
       "utf8",
     );
     const recovery = await readFile(
@@ -524,7 +524,10 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
       userSignals: [],
     });
 
-    const spec = await readFile(path.join(rootDir, ".ged", "SPEC.md"), "utf8");
+    const spec = await readFile(
+      path.join(rootDir, ".ged", "work", "root", "SPEC.md"),
+      "utf8",
+    );
     expect(spec).toContain("Use server components");
   });
 
@@ -561,13 +564,16 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
       userSignals: [],
     });
 
-    const spec = await readFile(path.join(rootDir, ".ged", "SPEC.md"), "utf8");
+    const spec = await readFile(
+      path.join(rootDir, ".ged", "work", "root", "SPEC.md"),
+      "utf8",
+    );
     const tasks = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
+      path.join(rootDir, ".ged", "work", "root", "TASKS.md"),
       "utf8",
     );
     const sessionSummary = await readFile(
-      path.join(rootDir, ".ged", "SESSION-SUMMARY.md"),
+      path.join(rootDir, ".ged", "runtime", "root", "SESSION-SUMMARY.md"),
       "utf8",
     );
     const plans = await readPlanIndex(rootDir);
@@ -619,11 +625,11 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
     });
 
     const tasks = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
+      path.join(rootDir, ".ged", "work", "root", "TASKS.md"),
       "utf8",
     );
     const sessionSummary = await readFile(
-      path.join(rootDir, ".ged", "SESSION-SUMMARY.md"),
+      path.join(rootDir, ".ged", "runtime", "root", "SESSION-SUMMARY.md"),
       "utf8",
     );
 
@@ -658,7 +664,7 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
       id: "T01",
       title: "Lock requirements",
       objective: "Refine the implementation-ready spec.",
-      contextFiles: [".ged/SPEC.md"],
+      contextFiles: [".ged/work/root/SPEC.md"],
       skills: ["ged-planning"],
       doneCriteria: ["Requirements are explicit."],
       status: "todo",
@@ -913,7 +919,10 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
       userSignals: ["Primary users: developers"],
     });
 
-    const spec = await readFile(path.join(rootDir, ".ged", "SPEC.md"), "utf8");
+    const spec = await readFile(
+      path.join(rootDir, ".ged", "work", "root", "SPEC.md"),
+      "utf8",
+    );
     expect(spec).toContain("Primary users: developers");
   });
 
@@ -939,9 +948,12 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
       preset: "bugfix",
     });
 
-    const spec = await readFile(path.join(rootDir, ".ged", "SPEC.md"), "utf8");
+    const spec = await readFile(
+      path.join(rootDir, ".ged", "work", "root", "SPEC.md"),
+      "utf8",
+    );
     const tasks = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
+      path.join(rootDir, ".ged", "work", "root", "TASKS.md"),
       "utf8",
     );
 
@@ -1144,10 +1156,10 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
     const buildFiles = getPhaseFiles("build");
     const planFiles = getPhaseFiles("plan");
 
-    expect(buildFiles).toContain("TESTS.md");
-    expect(planFiles).toContain("DECISIONS.md");
-    expect(planFiles).not.toContain("PROGRESS.md");
-    expect(buildFiles).toContain("PROGRESS.md");
+    expect(buildFiles).toContain(".ged/work/<work-id>/TESTS.md");
+    expect(planFiles).toContain(".ged/DECISIONS.md");
+    expect(planFiles).not.toContain(".ged/PROGRESS.md");
+    expect(buildFiles).toContain(".ged/PROGRESS.md");
   });
 
   test("gatherPhaseContext reads files within token budget", async () => {
@@ -1156,7 +1168,7 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
 
     const blocks = await gatherPhaseContext(rootDir, "build", 10000);
     expect(blocks.length).toBeGreaterThan(0);
-    expect(blocks.some((b) => b.file === "SPEC.md")).toBe(true);
+    expect(blocks.some((b) => b.file === ".ged/work/root/SPEC.md")).toBe(true);
 
     const totalTokens = blocks.reduce((sum, b) => sum + b.tokens, 0);
     expect(totalTokens).toBeLessThanOrEqual(10000);
@@ -1188,7 +1200,7 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
     };
 
     const blocks = await gatherTaskContext(rootDir, task, 10000);
-    expect(blocks.some((b) => b.file === "SPEC.md")).toBe(true);
+    expect(blocks.some((b) => b.file === ".ged/work/root/SPEC.md")).toBe(true);
     expect(blocks.some((b) => b.file === ".ged/PROJECT.md")).toBe(true);
   });
 
@@ -1554,7 +1566,7 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
     const rootDir = await createTempProject("ged-commit-plan-pipes-");
     await initializeGedProject(rootDir);
     await writeFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
+      path.join(rootDir, ".ged", "work", "root", "TASKS.md"),
       `# Tasks
 
 ## Task slices

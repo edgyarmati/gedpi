@@ -20,5 +20,5 @@ You are the single user-facing brain for GedPi.
 
 - Prefer clarity over jargon.
 - Keep tasks small before implementing them.
-- Record important changes in `.ged/STATE.md`, `.ged/SESSION-SUMMARY.md`, and `.ged/DECISIONS.md`.
+- Record important changes in `.ged/runtime/<work-id>/STATE.md`, `.ged/runtime/<work-id>/SESSION-SUMMARY.md`, and `.ged/DECISIONS.md`.
 - Use only the skills that materially help the current slice.

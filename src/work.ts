@@ -8,6 +8,7 @@ import {
   renderContextSummary,
 } from "./context.js";
 import type { TaskAttemptResult, TaskBrief } from "./contracts.js";
+import { activeGedPaths, relativeGedPath } from "./ged-paths.js";
 import {
   cleanupUnusedProjectSkills,
   ensureTaskSkillDependencies,
@@ -113,7 +114,8 @@ ${task.contextFiles.map((item) => `- ${item}`).join("\n") || "- None"}
 export async function prepareNextTaskDispatch(
   rootDir: string,
 ): Promise<WorkDispatchResult> {
-  const tasksPath = path.join(rootDir, ".ged", "TASKS.md");
+  const paths = await activeGedPaths(rootDir);
+  const tasksPath = paths.tasksPath;
   const tasks = await readTasks(tasksPath);
   const nextTask = findNextExecutableTask(tasks);
 
@@ -155,8 +157,8 @@ export async function prepareNextTaskDispatch(
     "",
     "Read these files first:",
     "- .ged/PROJECT.md",
-    "- .ged/SPEC.md",
-    "- .ged/TESTS.md",
+    `- ${relativeGedPath(rootDir, paths.specPath)}`,
+    `- ${relativeGedPath(rootDir, paths.testsPath)}`,
     `- ${path.relative(rootDir, briefPath)}`,
     ...preparedTask.contextFiles.map((file) => `- ${file}`),
     "",
@@ -256,8 +258,9 @@ export async function executeNextTask(
   rootDir: string,
   engine: WorkEngine,
 ): Promise<WorkResult> {
-  const tasksPath = path.join(rootDir, ".ged", "TASKS.md");
-  const testsPath = path.join(rootDir, ".ged", "TESTS.md");
+  const paths = await activeGedPaths(rootDir);
+  const tasksPath = paths.tasksPath;
+  const testsPath = paths.testsPath;
   const tasks = await readTasks(tasksPath);
   const nextTask = findNextExecutableTask(tasks);
 
@@ -327,7 +330,7 @@ export async function executeNextTask(
       "Review the recovery notes in `.ged/tasks/` and refine the task inputs.",
       "Restructure the task into smaller slices.",
       "Sync the latest learnings into `.ged/` before attempting a different approach.",
-      "Manually inspect and fix the failing checks listed in `.ged/TESTS.md`.",
+      "Manually inspect and fix the failing checks listed in the active work `TESTS.md`.",
     ],
   };
 }

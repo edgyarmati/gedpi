@@ -20,7 +20,7 @@ describe("Ged brain runtime", () => {
 
     const result = await ensureGedReady(rootDir);
     const state = await readFile(
-      path.join(rootDir, ".ged", "STATE.md"),
+      path.join(rootDir, ".ged", "runtime", "root", "STATE.md"),
       "utf8",
     );
 
@@ -42,7 +42,7 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain(
       "treat direct user instructions as requested Ged app/product behavior by default",
     );
-    expect(prompt).toContain(".ged/TASKS.md");
+    expect(prompt).toContain(".ged/work/root/TASKS.md");
     expect(prompt).toContain("Run onboarding interview");
   });
 

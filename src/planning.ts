@@ -8,6 +8,7 @@ import type {
   TaskBrief,
 } from "./contracts.js";
 import { WORKFLOW_PRESETS } from "./contracts.js";
+import { activeGedPaths } from "./ged-paths.js";
 import type { RepoSignals } from "./repo.js";
 import { escapeTaskTableCell } from "./tasks.js";
 
@@ -46,11 +47,10 @@ export async function gatherPlanningContext(
     /* no decisions file yet */
   }
 
+  const paths = await activeGedPaths(rootDir);
+
   try {
-    const session = await readFile(
-      path.join(rootDir, ".ged", "SESSION-SUMMARY.md"),
-      "utf8",
-    );
+    const session = await readFile(paths.sessionSummaryPath, "utf8");
     const progressMatch = session.match(
       /## Recent progress\n\n([\s\S]*?)(?=\n## |$)/u,
     );
@@ -65,7 +65,7 @@ export async function gatherPlanningContext(
   }
 
   try {
-    const spec = await readFile(path.join(rootDir, ".ged", "SPEC.md"), "utf8");
+    const spec = await readFile(paths.specPath, "utf8");
     const titleMatch = spec.match(/## Title\n\n([\s\S]*?)(?=\n## |$)/u);
     ctx.priorTitle = titleMatch?.[1]?.trim() ?? "";
     const scopeMatch = spec.match(/## Scope\n\n([\s\S]*?)(?=\n## |$)/u);
@@ -80,10 +80,7 @@ export async function gatherPlanningContext(
   }
 
   try {
-    const tasks = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
-      "utf8",
-    );
+    const tasks = await readFile(paths.tasksPath, "utf8");
     const taskRows = tasks.split("\n").filter((line) => line.startsWith("| T"));
     ctx.completedTaskIds = taskRows
       .filter((line) => line.includes("| done |"))
@@ -112,7 +109,11 @@ function buildBootstrapTasks(repoSignals: RepoSignals): TaskBrief[] {
       title: "Lock the exact user requirements",
       objective:
         "Refine the requested behavior, constraints, and success criteria into an implementation-ready spec.",
-      contextFiles: [".ged/PROJECT.md", ".ged/IDEAS.md", ".ged/SPEC.md"],
+      contextFiles: [
+        ".ged/PROJECT.md",
+        ".ged/IDEAS.md",
+        ".ged/work/<work-id>/SPEC.md",
+      ],
       skills: ["ged-planning", "brainstorming"],
       doneCriteria: [
         "The requested behavior is explicit.",
@@ -127,7 +128,11 @@ function buildBootstrapTasks(repoSignals: RepoSignals): TaskBrief[] {
       title: "Break the work into the first bounded slice",
       objective:
         "Break the first meaningful delivery slice into bounded tasks with clear verification steps.",
-      contextFiles: [".ged/SPEC.md", ".ged/TASKS.md", ".ged/TESTS.md"],
+      contextFiles: [
+        ".ged/work/<work-id>/SPEC.md",
+        ".ged/work/<work-id>/TASKS.md",
+        ".ged/work/<work-id>/TESTS.md",
+      ],
       skills: ["ged-planning", "brainstorming"],
       doneCriteria: [
         "The first slice is broken into bounded tasks.",
@@ -148,7 +153,10 @@ function buildBootstrapTasks(repoSignals: RepoSignals): TaskBrief[] {
       title: "Document browser verification expectations",
       objective:
         "Document how browser-based checks should be used during future work.",
-      contextFiles: [".ged/TESTS.md", ".ged/SPEC.md"],
+      contextFiles: [
+        ".ged/work/<work-id>/TESTS.md",
+        ".ged/work/<work-id>/SPEC.md",
+      ],
       skills: ["agent-browser", "ged-verification"],
       doneCriteria: [
         "Browser testing expectations are documented.",
@@ -306,7 +314,7 @@ export function createInitialSpec(
   }
 
   const acceptanceCriteria = [
-    "The project direction is captured in `.ged/PROJECT.md` and `.ged/SPEC.md`.",
+    "The project direction is captured in `.ged/PROJECT.md` and the active `.ged/work/<work-id>/SPEC.md`.",
     "The next tasks are small, verifiable, and ready for implementation.",
     "The verification plan names the checks needed for the first slice.",
   ];

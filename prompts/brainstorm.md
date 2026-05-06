@@ -12,4 +12,4 @@ Help the user turn rough ideas into a clear project direction.
 
 ## Output
 
-Write concise updates into `.ged/PROJECT.md`, `.ged/IDEAS.md`, and `.ged/SESSION-SUMMARY.md`.
+Write concise updates into `.ged/PROJECT.md`, `.ged/IDEAS.md`, and `.ged/runtime/<work-id>/SESSION-SUMMARY.md`.

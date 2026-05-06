@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+- Adopted branch/work-scoped Ged memory: active planning now lives under `.ged/work/<work-id>/` and runtime state/checkpoints live under `.ged/runtime/<work-id>/`; legacy root planning/runtime files are no longer authoritative.
+
 ### CI / Developer tooling
 
 - Added root Husky hooks so commits run type-check + GedPi lint, pushes run CI-equivalent verification, and commit messages are checked against the repo's conventional commit prefixes.
@@ -232,7 +236,7 @@
 
 - bundled `find-skills`, `skill-creator`, and `brainstorming` directly with the npm package as built-in default skills
 - made Ged automatically check task skill requirements, install matching skills project-scope, create a project-specific skill when no match exists, and remove unused project skills when no open task still depends on them
-- persisted task skill dependencies in `.ged/TASKS.md` so planning, dispatch, and execution share the same skill graph
+- persisted task skill dependencies in `.ged/work/<work-id>/TASKS.md` so planning, dispatch, and execution share the same skill graph
 - removed the mistaken default Rust-specific recommendations so task-driven skill discovery is now the primary path
 
 ### Documentation
@@ -257,7 +261,7 @@
 ### Planning continuity
 
 - reset stale active tasks when a new request is unrelated to the previous work
-- archive concise summaries of replaced task lists outside `.ged/TASKS.md` while keeping related follow-up work continuous
+- archive concise summaries of replaced task lists outside `.ged/work/<work-id>/TASKS.md` while keeping related follow-up work continuous
 
 ## 0.6.4 - 2026-03-30
 

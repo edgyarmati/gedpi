@@ -1,7 +1,7 @@
 /**
  * Shared checkpoint state types and validation for GedCode and GedPi.
  *
- * Both packages use the same .ged/runtime/checkpoints.json schema
+ * Both packages use the same .ged/runtime/<work-id>/checkpoints.json schema
  * to ensure the .ged/ memory format stays interchangeable.
  *
  * Vendored from @ged/shared-checkpoints to ensure it ships with the npm package.
@@ -71,7 +71,7 @@ export function validatePlannerCheckpoint(state) {
       valid: false,
       missing: ["classification"],
       warning:
-        "No checkpoint state found — classify the task and write .ged/runtime/checkpoints.json before editing source files.",
+        "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before editing source files.",
     };
   }
   if (state.classification === "trivial") {
@@ -98,7 +98,7 @@ export function validateVerifierCheckpoint(state, taskId) {
       valid: false,
       missing: ["classification"],
       warning:
-        "No checkpoint state found — classify the task and write .ged/runtime/checkpoints.json before committing.",
+        "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before committing.",
     };
   }
   if (state.classification === "trivial") {
@@ -125,7 +125,7 @@ export function validateAllVerifierCheckpoints(state) {
       valid: false,
       missing: ["classification"],
       warning:
-        "No checkpoint state found — classify the task and write .ged/runtime/checkpoints.json before committing.",
+        "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before committing.",
     };
   }
   if (state.classification === "trivial") {
@@ -163,7 +163,7 @@ export function validateCommitCheckpoints(state) {
       valid: false,
       missing: ["classification"],
       warning:
-        "No checkpoint state found — classify the task and write .ged/runtime/checkpoints.json before committing.",
+        "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before committing.",
     };
   }
   if (state.classification === "trivial") {

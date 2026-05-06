@@ -1,13 +1,13 @@
 ---
 name: ged-verification
-description: Runs checks from .ged/TESTS.md after task implementation, summarizes pass/fail, and prepares retry briefs. Triggers include "verify", "test", "check", "did it work", or after completing an implementation task.
+description: Runs checks from .ged/work/<work-id>/TESTS.md after task implementation, summarizes pass/fail, and prepares retry briefs. Triggers include "verify", "test", "check", "did it work", or after completing an implementation task.
 ---
 
 # Ged Verification
 
 ## Goals
 
-- run the planned checks from `.ged/TESTS.md`
+- run the planned checks from `.ged/work/<work-id>/TESTS.md`
 - summarize pass/fail status clearly
 - produce a compact retry brief when checks fail
 

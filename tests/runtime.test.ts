@@ -59,7 +59,7 @@ describe("Ged runtime flow", () => {
 
     const dispatch = await prepareNextTaskDispatch(rootDir);
     const tasks = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
+      path.join(rootDir, ".ged", "work", "root", "TASKS.md"),
       "utf8",
     );
 

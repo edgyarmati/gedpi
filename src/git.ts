@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { TaskBrief } from "./contracts.js";
+import { activeGedPaths } from "./ged-paths.js";
 import { parseTaskRow } from "./tasks.js";
 
 type ExecFn = (
@@ -52,10 +53,8 @@ export async function readLastCompletedTask(
   rootDir: string,
 ): Promise<{ taskId: string; task: TaskBrief } | null> {
   try {
-    const tasksContent = await readFile(
-      path.join(rootDir, ".ged", "TASKS.md"),
-      "utf8",
-    );
+    const paths = await activeGedPaths(rootDir);
+    const tasksContent = await readFile(paths.tasksPath, "utf8");
     const doneRows = tasksContent
       .split("\n")
       .filter((line) => line.startsWith("| T") && line.includes("| done |"));

@@ -8,7 +8,38 @@ export interface StarterFile {
 export const starterFiles: StarterFile[] = [
   {
     path: `${GED_DIR}/VERSION`,
-    content: `1
+    content: `2
+`,
+  },
+  {
+    path: `${GED_DIR}/CONTEXT-MAP.md`,
+    content: `# Context Map
+
+Ged memory is current-state oriented. Durable root files describe the project as it is now; active work and runtime state live under branch/work scoped directories.
+
+## Durable root memory
+
+- \`.ged/PROJECT.md\` — product goal, users, constraints, success criteria, repo signals.
+- \`.ged/ARCHITECTURE.md\` — current component boundaries and system shape.
+- \`.ged/PATTERNS.md\` — conventions and implementation patterns.
+- \`.ged/GLOSSARY.md\` — project/domain vocabulary.
+- \`.ged/DECISIONS.md\` — durable decisions and rationale.
+- \`.ged/STANDARDS.md\` — imported repo-wide agent standards.
+- \`.ged/SKILLS.md\` — durable skill guidance.
+
+## Active work memory
+
+- \`.ged/work/<work-id>/SPEC.md\`
+- \`.ged/work/<work-id>/TASKS.md\`
+- \`.ged/work/<work-id>/TESTS.md\`
+- \`.ged/work/<work-id>/NOTES.md\`
+- \`.ged/work/<work-id>/META.json\`
+
+## Runtime memory
+
+- \`.ged/runtime/<work-id>/STATE.md\`
+- \`.ged/runtime/<work-id>/SESSION-SUMMARY.md\`
+- \`.ged/runtime/<work-id>/checkpoints.json\`
 `,
   },
   {
@@ -32,6 +63,27 @@ Describe what this project should achieve.
 ## Success Criteria
 
 - What does success look like?
+`,
+  },
+  {
+    path: `${GED_DIR}/ARCHITECTURE.md`,
+    content: `# Architecture
+
+Describe current system components, boundaries, and data flow.
+`,
+  },
+  {
+    path: `${GED_DIR}/PATTERNS.md`,
+    content: `# Patterns
+
+Record implementation conventions and recurring workflow patterns.
+`,
+  },
+  {
+    path: `${GED_DIR}/GLOSSARY.md`,
+    content: `# Glossary
+
+Record domain terms and definitions.
 `,
   },
   {
@@ -75,17 +127,6 @@ No imported standards have been accepted yet.
 `,
   },
   {
-    path: `${GED_DIR}/STATE.md`,
-    content: `# State
-
-Current Phase: Understand
-Active Task: None
-Status Summary: Project initialized. Ready to interview the user and capture exact requirements.
-Blockers: None
-Next Step: Interview the user, write the exact spec into .ged/, then implement the first bounded slice.
-`,
-  },
-  {
     path: `${GED_DIR}/SKILLS.md`,
     content: `# Skills
 
@@ -125,7 +166,7 @@ Store project-scoped skills that Ged auto-installs or creates for active tasks h
 `,
   },
   {
-    path: `${GED_DIR}/SPEC.md`,
+    path: `${GED_DIR}/work/root/SPEC.md`,
     content: `# Spec
 
 ## Problem
@@ -140,7 +181,7 @@ Store project-scoped skills that Ged auto-installs or creates for active tasks h
 `,
   },
   {
-    path: `${GED_DIR}/TASKS.md`,
+    path: `${GED_DIR}/work/root/TASKS.md`,
     content: `# Tasks
 
 ## Task slices
@@ -150,7 +191,7 @@ Store project-scoped skills that Ged auto-installs or creates for active tasks h
 `,
   },
   {
-    path: `${GED_DIR}/TESTS.md`,
+    path: `${GED_DIR}/work/root/TESTS.md`,
     content: `# Tests
 
 ## Project-wide checks
@@ -171,20 +212,17 @@ Store project-scoped skills that Ged auto-installs or creates for active tasks h
 `,
   },
   {
-    path: `${GED_DIR}/SESSION-SUMMARY.md`,
-    content: `# Session Summary
+    path: `${GED_DIR}/work/root/NOTES.md`,
+    content: `# Notes
 
-## Current understanding
-
--
-
-## Recent progress
-
--
-
-## Next handoff notes
-
--
+`,
+  },
+  {
+    path: `${GED_DIR}/work/root/META.json`,
+    content: `{
+  "workId": "root",
+  "schema": 1
+}
 `,
   },
   {
@@ -214,20 +252,24 @@ Store external research summaries and package notes here.
     path: `${GED_DIR}/specs/README.md`,
     content: `# Specs
 
-Store versioned detailed specs here.
+Store durable detailed specs here when they remain useful after active work completes.
 `,
   },
   {
     path: `${GED_DIR}/tasks/README.md`,
     content: `# Task Artifacts
 
-Store per-task briefs, outputs, and failure histories here.
+Store per-task briefs, outputs, and failure histories here when they should outlive runtime summaries.
 `,
   },
   {
     path: `${GED_DIR}/.gitignore`,
     content: `# Ephemeral session state
 runtime/
+
+# Local repo-map cache artifacts
+REPO-MAP.md
+REPO-MAP.json
 `,
   },
   {
@@ -243,9 +285,9 @@ skill: ged-planning, ged-execution, ged-verification
 You are GedPi's only user-facing agent.
 
 Interview the user until the requested behavior, constraints, and success criteria are concrete enough to implement safely.
-Write the evolving project intent into .ged/PROJECT.md and .ged/SPEC.md.
-Break the work into bounded slices in .ged/TASKS.md before editing code.
-Run the planned checks, record outcomes in .ged/STATE.md and .ged/SESSION-SUMMARY.md, and tighten the plan if a slice fails.
+Write durable project context into .ged/PROJECT.md and active work context into .ged/work/<work-id>/SPEC.md.
+Break the work into bounded slices in .ged/work/<work-id>/TASKS.md before editing code.
+Run the planned checks, record outcomes in .ged/runtime/<work-id>/STATE.md and .ged/runtime/<work-id>/SESSION-SUMMARY.md, and tighten the plan if a slice fails.
 `,
   },
 ];

@@ -1,7 +1,8 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { writeFileAtomic } from "./atomic.js";
+import { activeGedPaths } from "./ged-paths.js";
 
 export interface SyncRequest {
   summary: string;
@@ -66,7 +67,17 @@ export async function syncGedMemory(
   rootDir: string,
   request: SyncRequest,
 ): Promise<void> {
-  const sessionPath = path.join(rootDir, ".ged", "SESSION-SUMMARY.md");
+  const paths = await activeGedPaths(rootDir);
+  await mkdir(paths.runtimeDir, { recursive: true });
+  try {
+    await readFile(paths.sessionSummaryPath, "utf8");
+  } catch {
+    await writeFileAtomic(
+      paths.sessionSummaryPath,
+      "# Session Summary\n\n## Current understanding\n\n-\n\n## Recent progress\n\n-\n\n## Next handoff notes\n\n-\n",
+    );
+  }
+  const sessionPath = paths.sessionSummaryPath;
   const decisionsPath = path.join(rootDir, ".ged", "DECISIONS.md");
 
   const safeSummary = sanitizeBulletLine(request.summary);

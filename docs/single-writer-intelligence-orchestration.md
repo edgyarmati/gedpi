@@ -297,7 +297,7 @@ Acceptance criterion: `gh auth status` and similar user CLIs should see the user
 ### Implemented
 - Orchestration prompt injected into brain system prompt when `agents.enabled: true`
 - Task classification gate: trivial tasks skip subagent workflow, non-trivial get mandatory checkpoints
-- Checkpoint state tracking in `.ged/runtime/checkpoints.json`
+- Checkpoint state tracking in `.ged/runtime/<work-id>/checkpoints.json`
 - Turn-end validation: warns if commits happen without ged-verifier checkpoint for non-trivial work
 - Skip-with-reason recording for intentionally skipped checkpoints
 - Prompt instructs brain to dispatch subagents via the `Agent` tool at three mandatory checkpoints and retrieve background results with `get_subagent_result`

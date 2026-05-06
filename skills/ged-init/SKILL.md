@@ -15,5 +15,5 @@ description: Initializes GedPi in a new or existing project by creating .ged/ fo
 ## Outputs
 
 - updated `.ged/PROJECT.md`
-- updated `.ged/STATE.md`
+- updated `.ged/runtime/<work-id>/STATE.md`
 - updated `.ged/SKILLS.md`

@@ -1,6 +1,6 @@
 ---
 name: ged-execution
-description: Implements the next task from .ged/TASKS.md with narrow scope and concise handoff notes. Triggers include "do the next task", "implement", "execute", or when a task is ready for implementation.
+description: Implements the next task from .ged/work/<work-id>/TASKS.md with narrow scope and concise handoff notes. Triggers include "do the next task", "implement", "execute", or when a task is ready for implementation.
 ---
 
 # Ged Execution

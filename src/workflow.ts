@@ -8,6 +8,7 @@ import type {
   SkillCandidate,
 } from "./contracts.js";
 import { type DoctorReport, runDoctor } from "./doctor.js";
+import { activeGedPaths, relativeGedPath } from "./ged-paths.js";
 import { buildStarterFileMap, listStarterFiles } from "./memory.js";
 import {
   createInitialSpec,
@@ -179,8 +180,15 @@ async function archiveReplacedTaskList(
   rootDir: string,
   summary: string,
 ): Promise<void> {
-  const sessionPath = path.join(rootDir, ".ged", "SESSION-SUMMARY.md");
-  await appendBullets(sessionPath, "## Archived task summaries", [summary]);
+  const paths = await activeGedPaths(rootDir);
+  await mkdir(paths.runtimeDir, { recursive: true });
+  await writeIfMissing(
+    paths.sessionSummaryPath,
+    "# Session Summary\n\n## Current understanding\n\n-\n\n## Recent progress\n\n-\n\n## Next handoff notes\n\n-\n",
+  );
+  await appendBullets(paths.sessionSummaryPath, "## Archived task summaries", [
+    summary,
+  ]);
 }
 
 async function discardActivePlans(rootDir: string): Promise<void> {
@@ -193,7 +201,9 @@ async function discardActivePlans(rootDir: string): Promise<void> {
 }
 
 async function writeState(rootDir: string, state: GedState): Promise<void> {
-  const statePath = path.join(rootDir, ".ged", "STATE.md");
+  const paths = await activeGedPaths(rootDir);
+  await mkdir(paths.runtimeDir, { recursive: true });
+  const statePath = paths.statePath;
   const recoverySection =
     state.recoveryOptions && state.recoveryOptions.length > 0
       ? `\nRecovery Options:\n${state.recoveryOptions.map((option) => `- ${option}`).join("\n")}\n`
@@ -368,7 +378,7 @@ Capture:
 Known repo context:
 ${hints}
 
-After the interview, write the resulting context into .ged/PROJECT.md, .ged/SPEC.md, and .ged/SESSION-SUMMARY.md before proceeding. Do not implement anything yet.`;
+After the interview, write durable project context into .ged/PROJECT.md, active work context into .ged/work/<work-id>/SPEC.md, and session notes into .ged/runtime/<work-id>/SESSION-SUMMARY.md before proceeding. Do not implement anything yet.`;
 }
 
 function buildSkillCandidates(
@@ -466,6 +476,12 @@ export async function initializeGedProject(
 
   const diagnostics = await runDoctor(rootDir);
   const onboarding = await assessInitialProjectClarity(rootDir);
+  const paths = await activeGedPaths(rootDir);
+  await mkdir(paths.runtimeDir, { recursive: true });
+  await writeIfMissing(
+    paths.sessionSummaryPath,
+    "# Session Summary\n\n## Current understanding\n\n-\n\n## Recent progress\n\n-\n\n## Next handoff notes\n\n-\n",
+  );
 
   await writeState(rootDir, {
     currentPhase: "understand",
@@ -476,13 +492,21 @@ export async function initializeGedProject(
       ? `GedPi has created its project memory files and needs first-run onboarding context. ${onboarding.onboardingReason}`
       : "GedPi has created its project memory files and scanned the repository for useful signals.",
     blockers: [],
-    nextStep:
-      diagnostics.overall === "red"
+    nextStep: onboarding.onboardingInterviewNeeded
+      ? "Run a short onboarding interview to capture project goal, users, constraints, workflow style, and missing context before planning or implementation."
+      : diagnostics.overall === "red"
         ? "Review the recorded issues before proceeding."
-        : onboarding.onboardingInterviewNeeded
-          ? "Run a short onboarding interview to capture project goal, users, constraints, workflow style, and missing context before planning or implementation."
-          : "Interview the user, capture the exact spec in .ged/, then break the work into bounded slices.",
+        : "Interview the user, capture the exact spec in the active work directory, then break the work into bounded slices.",
   });
+
+  const stateCreatedPath = relativeGedPath(rootDir, paths.statePath);
+  const summaryCreatedPath = relativeGedPath(rootDir, paths.sessionSummaryPath);
+  if (!created.includes(stateCreatedPath)) {
+    created.push(stateCreatedPath);
+  }
+  if (!created.includes(summaryCreatedPath)) {
+    created.push(summaryCreatedPath);
+  }
 
   return {
     created,
@@ -514,9 +538,9 @@ export async function ensureGedProjectCurrent(
   rootDir: string,
   options: InitializeGedOptions = {},
 ): Promise<EnsureCurrentGedResult> {
-  const statePath = path.join(rootDir, ".ged", "STATE.md");
+  const paths = await activeGedPaths(rootDir);
   const currentVersion = await readGedVersion(rootDir);
-  const needsInit = !(await readOptionalText(statePath));
+  const needsInit = !(await readOptionalText(paths.statePath));
   const needsMigration =
     currentVersion == null || currentVersion < GED_STANDARD_VERSION;
 
@@ -541,17 +565,26 @@ export async function planGedProject(
   rootDir: string,
   brief: ConversationBrief,
 ): Promise<PlanResult> {
-  const specPath = path.join(rootDir, ".ged", "SPEC.md");
-  const tasksPath = path.join(rootDir, ".ged", "TASKS.md");
-  const testsPath = path.join(rootDir, ".ged", "TESTS.md");
+  const paths = await activeGedPaths(rootDir);
+  const { specPath, tasksPath, testsPath } = paths;
 
-  for (const required of [specPath, tasksPath, testsPath]) {
-    const relative = path.relative(rootDir, required);
-    if (!starterFileMap[relative]) {
-      continue;
-    }
-    await writeIfMissing(required, starterFileMap[relative]);
-  }
+  await writeIfMissing(
+    specPath,
+    starterFileMap[".ged/work/root/SPEC.md"] ?? "# Spec\n",
+  );
+  await writeIfMissing(
+    tasksPath,
+    starterFileMap[".ged/work/root/TASKS.md"] ?? "# Tasks\n",
+  );
+  await writeIfMissing(
+    testsPath,
+    starterFileMap[".ged/work/root/TESTS.md"] ?? "# Tests\n",
+  );
+  await writeIfMissing(paths.notesPath, "# Notes\n\n");
+  await writeIfMissing(
+    paths.metaPath,
+    `${JSON.stringify({ workId: paths.workId, schema: 1 }, null, 2)}\n`,
+  );
 
   const repoSignals = await detectRepoSignals(rootDir);
   const planningCtx = await gatherPlanningContext(rootDir);
@@ -602,15 +635,15 @@ export async function planGedProject(
       : "GedPi refreshed the spec, task slices, and verification plan.",
     blockers: [],
     nextStep:
-      "Implement the next bounded slice and keep .ged/STATE.md in sync with progress.",
+      "Implement the next bounded slice and keep the active runtime STATE.md in sync with progress.",
   });
 
   return { specPath, tasksPath, testsPath };
 }
 
 export async function readGedStatus(rootDir: string): Promise<GedState> {
-  const statePath = path.join(rootDir, ".ged", "STATE.md");
-  const content = await readFile(statePath, "utf8");
+  const paths = await activeGedPaths(rootDir);
+  const content = await readFile(paths.statePath, "utf8");
 
   const matchValue = (label: string): string => {
     const regex = new RegExp(`^${label}:\\s*(.*)$`, "mu");

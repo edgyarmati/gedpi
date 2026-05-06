@@ -13,4 +13,4 @@ Turn the current spec into bounded task slices.
 - dependencies
 - role assignment
 
-Update `.ged/TASKS.md` and keep tasks small enough for one focused worker session.
+Update `.ged/work/<work-id>/TASKS.md` and keep tasks small enough for one focused worker session.

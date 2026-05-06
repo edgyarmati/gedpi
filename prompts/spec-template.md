@@ -11,4 +11,4 @@ Produce a focused implementation spec using the current `.ged/` context.
 - acceptance criteria
 - open risks or unknowns
 
-Update `.ged/SPEC.md` and keep the language understandable for a human reviewer.
+Update `.ged/work/<work-id>/SPEC.md` and keep the language understandable for a human reviewer.

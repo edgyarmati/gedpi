@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { GedPhase, TaskBrief } from "./contracts.js";
 import { GED_DIR } from "./contracts.js";
+import { activeGedPaths, relativeGedPath } from "./ged-paths.js";
 
 const CHARS_PER_TOKEN = 4;
 
@@ -34,29 +35,53 @@ export function fitsInBudget(budget: TokenBudget, text: string): boolean {
   return estimateTokens(text) <= budget.remainingTokens;
 }
 
-const PHASE_FILES: Record<GedPhase, string[]> = {
-  understand: ["PROJECT.md", "IDEAS.md", "SESSION-SUMMARY.md", "PROGRESS.md"],
-  plan: [
-    "PROJECT.md",
-    "SPEC.md",
-    "TASKS.md",
-    "DECISIONS.md",
-    "SESSION-SUMMARY.md",
-  ],
-  build: ["SPEC.md", "TASKS.md", "TESTS.md", "PROGRESS.md"],
-  check: ["TESTS.md", "TASKS.md", "SPEC.md"],
-  escalate: [
-    "SPEC.md",
-    "TASKS.md",
-    "TESTS.md",
-    "DECISIONS.md",
-    "SESSION-SUMMARY.md",
-    "PROGRESS.md",
-  ],
-};
+const DURABLE_FILES = {
+  project: ".ged/PROJECT.md",
+  ideas: ".ged/IDEAS.md",
+  decisions: ".ged/DECISIONS.md",
+  progress: ".ged/PROGRESS.md",
+} as const;
 
 export function getPhaseFiles(phase: GedPhase): string[] {
-  return PHASE_FILES[phase];
+  switch (phase) {
+    case "understand":
+      return [
+        DURABLE_FILES.project,
+        DURABLE_FILES.ideas,
+        ".ged/runtime/<work-id>/SESSION-SUMMARY.md",
+        DURABLE_FILES.progress,
+      ];
+    case "plan":
+      return [
+        DURABLE_FILES.project,
+        ".ged/work/<work-id>/SPEC.md",
+        ".ged/work/<work-id>/TASKS.md",
+        DURABLE_FILES.decisions,
+        ".ged/runtime/<work-id>/SESSION-SUMMARY.md",
+      ];
+    case "build":
+      return [
+        ".ged/work/<work-id>/SPEC.md",
+        ".ged/work/<work-id>/TASKS.md",
+        ".ged/work/<work-id>/TESTS.md",
+        DURABLE_FILES.progress,
+      ];
+    case "check":
+      return [
+        ".ged/work/<work-id>/TESTS.md",
+        ".ged/work/<work-id>/TASKS.md",
+        ".ged/work/<work-id>/SPEC.md",
+      ];
+    case "escalate":
+      return [
+        ".ged/work/<work-id>/SPEC.md",
+        ".ged/work/<work-id>/TASKS.md",
+        ".ged/work/<work-id>/TESTS.md",
+        DURABLE_FILES.decisions,
+        ".ged/runtime/<work-id>/SESSION-SUMMARY.md",
+        DURABLE_FILES.progress,
+      ];
+  }
 }
 
 async function safeReadFile(filePath: string): Promise<string | null> {
@@ -73,6 +98,31 @@ export interface ContextBlock {
   tokens: number;
 }
 
+async function resolveContextPath(
+  rootDir: string,
+  logicalPath: string,
+): Promise<{ file: string; absolutePath: string }> {
+  const paths = await activeGedPaths(rootDir);
+  const file = logicalPath
+    .replace(
+      ".ged/work/<work-id>/SPEC.md",
+      relativeGedPath(rootDir, paths.specPath),
+    )
+    .replace(
+      ".ged/work/<work-id>/TASKS.md",
+      relativeGedPath(rootDir, paths.tasksPath),
+    )
+    .replace(
+      ".ged/work/<work-id>/TESTS.md",
+      relativeGedPath(rootDir, paths.testsPath),
+    )
+    .replace(
+      ".ged/runtime/<work-id>/SESSION-SUMMARY.md",
+      relativeGedPath(rootDir, paths.sessionSummaryPath),
+    );
+  return { file, absolutePath: path.join(rootDir, file) };
+}
+
 export async function gatherPhaseContext(
   rootDir: string,
   phase: GedPhase,
@@ -82,8 +132,12 @@ export async function gatherPhaseContext(
   let budget = createBudget(maxTokens);
   const blocks: ContextBlock[] = [];
 
-  for (const file of files) {
-    const content = await safeReadFile(path.join(rootDir, GED_DIR, file));
+  for (const logicalFile of files) {
+    const { file, absolutePath } = await resolveContextPath(
+      rootDir,
+      logicalFile,
+    );
+    const content = await safeReadFile(absolutePath);
     if (!content) continue;
     if (!fitsInBudget(budget, content)) continue;
 
@@ -103,21 +157,24 @@ export async function gatherTaskContext(
   task: TaskBrief,
   maxTokens: number,
 ): Promise<ContextBlock[]> {
-  const coreFiles = ["SPEC.md", "TESTS.md"];
+  const paths = await activeGedPaths(rootDir);
+  const coreFiles = [paths.specPath, paths.testsPath];
   let budget = createBudget(maxTokens);
   const blocks: ContextBlock[] = [];
 
-  // Core ged files first
-  for (const file of coreFiles) {
-    const content = await safeReadFile(path.join(rootDir, GED_DIR, file));
+  for (const filePath of coreFiles) {
+    const content = await safeReadFile(filePath);
     if (!content) continue;
     if (!fitsInBudget(budget, content)) continue;
 
     budget = consumeBudget(budget, content);
-    blocks.push({ file, content, tokens: estimateTokens(content) });
+    blocks.push({
+      file: relativeGedPath(rootDir, filePath),
+      content,
+      tokens: estimateTokens(content),
+    });
   }
 
-  // Task brief
   const briefPath = path.join(rootDir, GED_DIR, "tasks", `${task.id}-BRIEF.md`);
   const briefContent = await safeReadFile(briefPath);
   if (briefContent && fitsInBudget(budget, briefContent)) {
@@ -129,14 +186,22 @@ export async function gatherTaskContext(
     });
   }
 
-  // Context files from the task definition
   for (const file of task.contextFiles) {
-    const content = await safeReadFile(path.join(rootDir, file));
+    const materializedFile = file
+      .replace("<work-id>", paths.workId)
+      .replace(".ged/SPEC.md", relativeGedPath(rootDir, paths.specPath))
+      .replace(".ged/TASKS.md", relativeGedPath(rootDir, paths.tasksPath))
+      .replace(".ged/TESTS.md", relativeGedPath(rootDir, paths.testsPath));
+    const content = await safeReadFile(path.join(rootDir, materializedFile));
     if (!content) continue;
     if (!fitsInBudget(budget, content)) continue;
 
     budget = consumeBudget(budget, content);
-    blocks.push({ file, content, tokens: estimateTokens(content) });
+    blocks.push({
+      file: materializedFile,
+      content,
+      tokens: estimateTokens(content),
+    });
   }
 
   return blocks;

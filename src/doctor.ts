@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { readConfig } from "./config.js";
 import { GED_DIR } from "./contracts.js";
+import { activeGedPaths } from "./ged-paths.js";
 import { detectRepoSignals } from "./repo.js";
 import { readTasks } from "./tasks.js";
 
@@ -29,13 +30,14 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 async function checkGedInitialized(rootDir: string): Promise<DiagnosticResult> {
-  const stateExists = await fileExists(path.join(rootDir, GED_DIR, "STATE.md"));
+  const paths = await activeGedPaths(rootDir);
+  const stateExists = await fileExists(paths.statePath);
   if (!stateExists) {
     return {
       name: "ged-init",
       level: "red",
       message:
-        ".ged/ directory not found. Run /ged-init to initialize the project.",
+        "Active Ged runtime state not found. Run /ged-init to initialize the project.",
     };
   }
   return { name: "ged-init", level: "green", message: "GedPi initialized." };
@@ -82,8 +84,8 @@ async function checkRepoSignals(rootDir: string): Promise<DiagnosticResult> {
 
 async function checkOrphanedTasks(rootDir: string): Promise<DiagnosticResult> {
   try {
-    const tasksPath = path.join(rootDir, GED_DIR, "TASKS.md");
-    const tasks = await readTasks(tasksPath);
+    const paths = await activeGedPaths(rootDir);
+    const tasks = await readTasks(paths.tasksPath);
     const inProgress = tasks.filter((t) => t.status === "in_progress");
     const blocked = tasks.filter((t) => t.status === "blocked");
 
@@ -124,8 +126,8 @@ export interface StuckSignal {
 export async function detectStuck(rootDir: string): Promise<StuckSignal> {
   const taskDir = path.join(rootDir, GED_DIR, "tasks");
   try {
-    const tasksPath = path.join(rootDir, GED_DIR, "TASKS.md");
-    const tasks = await readTasks(tasksPath);
+    const paths = await activeGedPaths(rootDir);
+    const tasks = await readTasks(paths.tasksPath);
     const inProgressOrTodo = tasks.filter(
       (t) => t.status === "in_progress" || t.status === "todo",
     );

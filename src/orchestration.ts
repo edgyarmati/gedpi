@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
-import path from "node:path";
 import { promisify } from "node:util";
 import { writeFileAtomic } from "./atomic.js";
+import { activeGedPaths } from "./ged-paths.js";
 import type {
   CheckpointState,
   CheckpointValidation,
@@ -22,15 +22,14 @@ export {
   validateVerifierCheckpoint,
 } from "./vendor/shared-checkpoints.js";
 
-const CHECKPOINT_FILE = ".ged/runtime/checkpoints.json";
-
 // ─── Read / Write ───────────────────────────────────────────────────────
 
 export async function readCheckpointState(
   rootDir: string,
 ): Promise<CheckpointState | null> {
   try {
-    const raw = await readFile(path.join(rootDir, CHECKPOINT_FILE), "utf8");
+    const paths = await activeGedPaths(rootDir);
+    const raw = await readFile(paths.checkpointsPath, "utf8");
     return parseCheckpointState(raw);
   } catch {
     return null;
@@ -41,29 +40,32 @@ export async function writeCheckpointState(
   rootDir: string,
   state: CheckpointState,
 ): Promise<void> {
-  const filePath = path.join(rootDir, CHECKPOINT_FILE);
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFileAtomic(filePath, `${JSON.stringify(state, null, 2)}\n`);
+  const paths = await activeGedPaths(rootDir);
+  await mkdir(paths.runtimeDir, { recursive: true });
+  await writeFileAtomic(
+    paths.checkpointsPath,
+    `${JSON.stringify(state, null, 2)}\n`,
+  );
 }
 
 // ─── Guard messages ─────────────────────────────────────────────────────
 
 export function plannerGuardMessage(validation: CheckpointValidation): string {
   if (validation.missing.includes("classification")) {
-    return 'GedPi planner guard: you must classify the task before editing source files. Write your classification to .ged/runtime/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+    return 'GedPi planner guard: you must classify the task before editing source files. Write your classification to .ged/runtime/<work-id>/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
   }
   return `GedPi planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner with the Agent tool, or reclassify the task as trivial.`;
 }
 
 export function verifierGuardMessage(validation: CheckpointValidation): string {
   if (validation.missing.includes("classification")) {
-    return 'GedPi verifier guard: you must classify the task before committing. Write your classification to .ged/runtime/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+    return 'GedPi verifier guard: you must classify the task before committing. Write your classification to .ged/runtime/<work-id>/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
   }
   if (validation.missing.includes("ged-planner")) {
     return `GedPi verifier guard: non-trivial work requires dispatching ged-planner and ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch the missing subagents before running git commit.`;
   }
   if (validation.missing.some((item) => item.includes("blocked commit"))) {
-    return `GedPi verifier guard: the verifier checkpoint reports commit-blocking findings. Missing/blocking checkpoints: ${validation.missing.join(", ")}. Resolve and adjudicate verifier findings, then update .ged/runtime/checkpoints.json to set blocksCommit: false on the verifier checkpoint before committing.`;
+    return `GedPi verifier guard: the verifier checkpoint reports commit-blocking findings. Missing/blocking checkpoints: ${validation.missing.join(", ")}. Resolve and adjudicate verifier findings, then update .ged/runtime/<work-id>/checkpoints.json to set blocksCommit: false on the verifier checkpoint before committing.`;
   }
   return `GedPi verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier with the Agent tool for clean-context review.`;
 }
@@ -108,7 +110,7 @@ Before any planning or implementation, classify the incoming request:
 - **TRIVIAL**: Questions, documentation-only changes, README edits, config tweaks, single-line formatting fixes, adding comments. Skip the subagent workflow entirely.
 - **NON-TRIVIAL**: Feature implementation, bug fixes, refactoring, multi-file changes, architectural work. Mandatory subagent checkpoints apply below.
 
-Write your classification and reason to .ged/runtime/checkpoints.json using:
+Write your classification and reason to .ged/runtime/<work-id>/checkpoints.json using:
 \`\`\`json
 {"classification": "trivial|non-trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}
 \`\`\`
@@ -117,10 +119,10 @@ Write your classification and reason to .ged/runtime/checkpoints.json using:
 
 All source file edits and git commits are **structurally guarded**:
 
-1. **Classification is required** — If \`.ged/runtime/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
+1. **Classification is required** — If \`.ged/runtime/<work-id>/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
 2. **Trivial classification** allows immediate edits and commits — no subagent dispatches needed.
 3. **Non-trivial classification** requires dispatching \`ged-planner\` with the \`Agent\` tool before edits and both \`ged-planner\` + \`ged-verifier\` before \`git commit\` or \`git commit --amend\`.
-4. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
+4. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
 5. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
 
 These guards are implemented in the tool-call interception layer — they cannot be bypassed by instruction alone. The only way to commit without verification is to set \`agents.allowCheckpointBypass: true\` in Ged settings and include \`[skip-checkpoint]\` in the commit command.
@@ -131,7 +133,7 @@ When subagents are enabled and the task is non-trivial, use mandatory intelligen
 
 1. **ged-explorer** — Dispatch with the \`Agent\` tool for evidence-backed codebase discovery when relevant code context is not already known. Use before planning to understand existing patterns, dependencies, and risks.
 
-2. **ged-planner** — Dispatch with the \`Agent\` tool before finalizing or materially changing .ged/SPEC.md, .ged/TASKS.md, or .ged/TESTS.md. The planner critiques your plan and identifies missing context, edge cases, and test seams. You adjudicate the findings and write the final planning files.
+2. **ged-planner** — Dispatch with the \`Agent\` tool before finalizing or materially changing .ged/work/<work-id>/SPEC.md, TASKS.md, or TESTS.md. The planner critiques your plan and identifies missing context, edge cases, and test seams. You adjudicate the findings and write the final planning files.
 
 3. **ged-verifier** — Dispatch with the \`Agent\` tool for clean-context review before committing meaningful implementation changes. The verifier reviews your diff and tests with minimal prior assumptions. You adjudicate each finding (accept, reject, needs-user), fix accepted issues, and rerun verification.
 
@@ -139,11 +141,11 @@ Use \`Agent({ subagent_type: "ged-planner", prompt: "...", description: "...", r
 
 ### Clean-context review flow (before every meaningful commit)
 
-1. Run all planned checks from .ged/TESTS.md
+1. Run all planned checks from .ged/work/<work-id>/TESTS.md
 2. Dispatch ged-verifier for clean-context review of the diff and tests
 3. Adjudicate each finding: accept (fix before commit), reject (record reason), or needs-user (ask)
 4. Fix accepted issues and rerun verification
-5. Update the verifier checkpoint in \`.ged/runtime/checkpoints.json\` to set \`blocksCommit: false\`
+5. Update the verifier checkpoint in \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\`
 6. Commit — the verifier guard will allow it through
 
 ### Subagent communication
