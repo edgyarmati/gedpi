@@ -4,6 +4,7 @@
 
 ### Fixed
 
+- **Kitty image artifacts on scroll** — Fixed stale Kitty terminal images persisting on screen after scrolling in the fixed-editor compositor. The compositor now emits `deleteAllKittyImages` on every scroll operation (mouse wheel, keyboard, jump-to-target, scroll-to-bottom).
 - **Export/share theme crash** — `/share` and `/export` no longer fail with "Theme not found: \<in-memory\>". GedPi now writes a fallback theme ("dark") to project settings so Pi's export pipeline can resolve a valid built-in theme.
 - **Checkpoint false-positive warnings** — Removed the `turn_end` post-hoc checkpoint warning that produced spurious alerts. The commit guard (`tool_call` handler for `git commit`) is the sole enforcement mechanism and blocks commits before execution.
 

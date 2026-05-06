@@ -1,4 +1,4 @@
-import { isKeyRelease, matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { deleteAllKittyImages, isKeyRelease, matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 import { matchesConfiguredShortcut } from "../shortcuts.ts";
 import type { FixedEditorClusterRender } from "./cluster.ts";
 
@@ -352,6 +352,7 @@ export class TerminalSplitCompositor {
   private selectionDragging = false;
   private preserveSelectionFocusOnRelease = false;
   private lastLeftPress: { area: SelectionArea; line: number; at: number } | null = null;
+  private pendingImageCleanup = false;
 
   constructor(options: TerminalSplitCompositorOptions) {
     this.tui = options.tui;
@@ -461,6 +462,7 @@ export class TerminalSplitCompositor {
     this.clearSelection();
     this.lastLeftPress = null;
     this.scrollOffset = 0;
+    this.pendingImageCleanup = true;
     this.requestRender();
     return true;
   }
@@ -483,6 +485,7 @@ export class TerminalSplitCompositor {
       this.clearSelection();
       this.lastLeftPress = null;
       this.scrollOffset = nextOffset;
+      this.pendingImageCleanup = true;
       this.requestRender();
       return true;
     }
@@ -583,8 +586,13 @@ export class TerminalSplitCompositor {
         this.scrollOffset += lines.length - this.lastRootLineCount;
       }
       this.lastRootLineCount = lines.length;
+      const prevMaxScroll = this.maxScrollOffset;
       this.maxScrollOffset = Math.max(0, lines.length - scrollableRows);
-      this.scrollOffset = Math.max(0, Math.min(this.scrollOffset, this.maxScrollOffset));
+      const clampedOffset = Math.max(0, Math.min(this.scrollOffset, this.maxScrollOffset));
+      if (clampedOffset !== this.scrollOffset || this.maxScrollOffset !== prevMaxScroll) {
+        this.pendingImageCleanup = true;
+      }
+      this.scrollOffset = clampedOffset;
 
       const start = this.updateVisibleRootWindow(scrollableRows);
       return this.visibleRootLines.map((line, index) => this.renderSelectionHighlight(line, start + index, "root"));
@@ -753,6 +761,7 @@ export class TerminalSplitCompositor {
     this.lastLeftPress = null;
     this.preserveSelectionFocusOnRelease = true;
     this.scrollOffset = nextOffset;
+    this.pendingImageCleanup = true;
     const start = this.updateVisibleRootWindow();
     const edgeLine = delta > 0 ? start : start + Math.max(0, this.visibleScrollableRows - 1);
     this.selectionFocus = {
@@ -848,6 +857,7 @@ export class TerminalSplitCompositor {
     this.clearSelection();
     this.lastLeftPress = null;
     this.scrollOffset = nextOffset;
+    this.pendingImageCleanup = true;
     this.requestRender();
   }
 
@@ -974,7 +984,10 @@ export class TerminalSplitCompositor {
           : 0;
       const viewportTop = typeof this.tui.previousViewportTop === "number" ? this.tui.previousViewportTop : 0;
       const screenRow = Math.max(1, Math.min(scrollBottom, hardwareCursorRow - viewportTop + 1));
+      const imageCleanup = this.pendingImageCleanup ? deleteAllKittyImages() : "";
+      this.pendingImageCleanup = false;
       const buffer = beginSynchronizedOutput()
+        + imageCleanup
         + setScrollRegion(1, scrollBottom)
         + moveCursor(screenRow, 1)
         + data
