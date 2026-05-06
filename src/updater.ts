@@ -1,6 +1,6 @@
 import { execFile as execFileCb } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -167,30 +167,195 @@ async function checkAndCache(): Promise<string | null> {
   return null;
 }
 
-function runNpmInstall(
-  version: string,
-): Promise<{ code: number; stderr: string }> {
-  return new Promise((resolve) => {
+/* ------------------------------------------------------------------ */
+/*  Robust npm install                                                */
+/* ------------------------------------------------------------------ */
+
+interface NpmResult {
+  code: number;
+  stderr: string;
+}
+
+function execFile(
+  file: string,
+  args: string[],
+  options: { timeout?: number } = {},
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
     execFileCb(
-      "npm",
-      ["install", "-g", `${PACKAGE_NAME}@${version}`],
-      { timeout: 120_000 },
-      (err, _stdout, stderr) => {
-        if (err && "code" in err) {
-          resolve({
-            code: (err as { code: number }).code,
-            stderr: stderr ?? "",
-          });
-          return;
-        }
+      file,
+      args,
+      { ...options, encoding: "utf8" },
+      (err, stdout, stderr) => {
         if (err) {
-          resolve({ code: 1, stderr: err.message });
+          reject(Object.assign(err, { stdout, stderr }));
           return;
         }
-        resolve({ code: 0, stderr: "" });
+        resolve({ stdout: stdout ?? "", stderr: stderr ?? "" });
       },
     );
   });
+}
+
+async function getGlobalNpmRoot(): Promise<string | null> {
+  try {
+    const { stdout } = await execFile("npm", ["root", "-g"], {
+      timeout: 10_000,
+    });
+    return stdout.trim();
+  } catch {
+    return null;
+  }
+}
+
+export function extractStalePath(stderr: string): string | null {
+  // npm sometimes prints:  rmdir '/path/to/thing'
+  const match = /rmdir ['"](.+?)['"]/u.exec(stderr);
+  if (match) return match[1];
+  // npm error path /path/to/thing (no quotes)
+  const match2 = /^npm error path (.+)$/um.exec(stderr);
+  if (match2) return match2[1].trim();
+  return null;
+}
+
+async function removeStalePath(stalePath: string): Promise<boolean> {
+  try {
+    await rm(stalePath, { recursive: true, force: true });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function runNpmInstall(version: string): Promise<NpmResult> {
+  const args = ["install", "-g", "--force", `${PACKAGE_NAME}@${version}`];
+
+  // First attempt
+  try {
+    await execFile("npm", args, { timeout: 120_000 });
+    return { code: 0, stderr: "" };
+  } catch (err) {
+    const stderr =
+      (err as { stderr?: string }).stderr ??
+      (err as Error).message ??
+      "";
+    const code =
+      "code" in (err as Record<string, unknown>)
+        ? ((err as { code: number }).code ?? 1)
+        : 1;
+
+    // If it's a stale-directory error, try to clean and retry once.
+    // ENOTEMPTY/EBUSY are always directory issues.
+    // EACCES is only treated as directory-related when npm mentions rmdir.
+    const isStaleError =
+      /ENOTEMPTY/u.test(stderr) ||
+      /EBUSY/u.test(stderr) ||
+      (/EACCES/u.test(stderr) && /rmdir/u.test(stderr));
+
+    if (isStaleError) {
+      const stalePath = extractStalePath(stderr);
+      const globalRoot = await getGlobalNpmRoot();
+      const packageRoot = globalRoot
+        ? path.resolve(globalRoot, PACKAGE_NAME)
+        : null;
+
+      if (stalePath && packageRoot) {
+        const target = path.resolve(stalePath);
+        const isInsidePackage =
+          target === packageRoot ||
+          target.startsWith(`${packageRoot}${path.sep}`);
+        if (isInsidePackage) {
+          await removeStalePath(target);
+        }
+      }
+
+      // Also try removing the top-level package dir as a fallback
+      if (packageRoot) {
+        await removeStalePath(packageRoot);
+      }
+
+      // Retry
+      try {
+        await execFile("npm", args, { timeout: 120_000 });
+        return { code: 0, stderr: "" };
+      } catch (retryErr) {
+        const retryStderr =
+          (retryErr as { stderr?: string }).stderr ??
+          (retryErr as Error).message ??
+          "";
+        const retryCode =
+          "code" in (retryErr as Record<string, unknown>)
+            ? ((retryErr as { code: number }).code ?? 1)
+            : 1;
+        return { code: retryCode, stderr: retryStderr };
+      }
+    }
+
+    return { code, stderr };
+  }
+}
+
+export interface NpmErrorCategory {
+  type:
+    | "permission"
+    | "network"
+    | "stale-directory"
+    | "not-found"
+    | "unknown";
+  message: string;
+  manualCommand?: string;
+}
+
+export function categorizeNpmError(
+  stderr: string,
+  version: string,
+): NpmErrorCategory {
+  if (/EACCES/u.test(stderr) || /permission denied/u.test(stderr)) {
+    return {
+      type: "permission",
+      message:
+        "Permission denied while installing. This usually means npm's global directory is owned by root.",
+      manualCommand: `sudo npm install -g --force ${PACKAGE_NAME}@${version}`,
+    };
+  }
+  if (/ENOTEMPTY/u.test(stderr) || /EBUSY/u.test(stderr)) {
+    return {
+      type: "stale-directory",
+      message:
+        "npm could not remove a stale directory. A manual clean-up may be required.",
+      manualCommand: `sudo rm -rf "$(npm root -g)/${PACKAGE_NAME}" && sudo npm install -g --force ${PACKAGE_NAME}@${version}`,
+    };
+  }
+  if (
+    /ENOTFOUND/u.test(stderr) ||
+    /ETIMEDOUT/u.test(stderr) ||
+    /ECONNRESET/u.test(stderr) ||
+    /ECONNREFUSED/u.test(stderr) ||
+    /EAI_AGAIN/u.test(stderr) ||
+    /EHOSTUNREACH/u.test(stderr) ||
+    /ESOCKETTIMEDOUT/u.test(stderr) ||
+    /ERR_SOCKET_TIMEOUT/u.test(stderr) ||
+    /network/u.test(stderr)
+  ) {
+    return {
+      type: "network",
+      message: "Network error while reaching the npm registry.",
+    };
+  }
+  if (
+    /404/u.test(stderr) ||
+    /not found/u.test(stderr) ||
+    /spawn npm ENOENT|npm.*ENOENT|ENOENT.*npm/ui.test(stderr)
+  ) {
+    return {
+      type: "not-found",
+      message: "npm command not found or package version does not exist.",
+    };
+  }
+  return {
+    type: "unknown",
+    message: "npm install failed with an unexpected error.",
+  };
 }
 
 async function doInstall(
@@ -202,7 +367,13 @@ async function doInstall(
   if (result.code === 0) {
     return true;
   }
-  ctx.ui.notify(`Update failed: ${result.stderr}`, "error");
+
+  const category = categorizeNpmError(result.stderr, version);
+  let fullMessage = `Update failed: ${category.message}`;
+  if (category.manualCommand) {
+    fullMessage += `\n\nYou can try running this manually:\n${category.manualCommand}`;
+  }
+  ctx.ui.notify(fullMessage, "error");
   return false;
 }
 

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { isNewer } from "../src/updater.js";
+import {
+  categorizeNpmError,
+  extractStalePath,
+  isNewer,
+} from "../src/updater.js";
 
 describe("updater.isNewer", () => {
   test("returns true when latest beats current on each segment", () => {
@@ -42,5 +46,71 @@ describe("updater.isNewer", () => {
     expect(isNewer("0.10", "0.10.5")).toBe(false);
     expect(isNewer("0.10.5", "")).toBe(false);
     expect(isNewer("", "")).toBe(false);
+  });
+});
+
+describe("updater.extractStalePath", () => {
+  test("extracts path from npm rmdir error", () => {
+    const stderr = `npm error code ENOTEMPTY
+npm error syscall rmdir
+npm error path /opt/homebrew/lib/node_modules/gedpi/vendor/pi-diff-review/node_modules/undici-types`;
+    expect(extractStalePath(stderr)).toBe(
+      "/opt/homebrew/lib/node_modules/gedpi/vendor/pi-diff-review/node_modules/undici-types",
+    );
+  });
+
+  test("returns null when no rmdir path is present", () => {
+    expect(extractStalePath("some random error")).toBeNull();
+  });
+});
+
+describe("updater.categorizeNpmError", () => {
+  test("categorizes permission errors", () => {
+    const cat = categorizeNpmError(
+      "npm error code EACCES\nnpm error syscall access",
+      "0.15.1",
+    );
+    expect(cat.type).toBe("permission");
+    expect(cat.manualCommand).toContain("sudo");
+    expect(cat.manualCommand).toContain("gedpi@0.15.1");
+  });
+
+  test("categorizes stale-directory errors", () => {
+    const cat = categorizeNpmError(
+      "npm error code ENOTEMPTY\nnpm error syscall rmdir",
+      "0.15.1",
+    );
+    expect(cat.type).toBe("stale-directory");
+    expect(cat.manualCommand).toContain("rm -rf");
+  });
+
+  test("categorizes EBUSY as stale-directory", () => {
+    const cat = categorizeNpmError(
+      "npm error code EBUSY\nnpm error syscall rmdir",
+      "0.15.1",
+    );
+    expect(cat.type).toBe("stale-directory");
+  });
+
+  test("categorizes network errors", () => {
+    const cat = categorizeNpmError(
+      "npm error code ENOTFOUND\nnpm error network request to registry failed",
+      "0.15.1",
+    );
+    expect(cat.type).toBe("network");
+    expect(cat.manualCommand).toBeUndefined();
+  });
+
+  test("categorizes ETIMEDOUT as network", () => {
+    const cat = categorizeNpmError(
+      "npm error code ETIMEDOUT\nnpm error network timeout",
+      "0.15.1",
+    );
+    expect(cat.type).toBe("network");
+  });
+
+  test("categorizes unknown errors", () => {
+    const cat = categorizeNpmError("something weird happened", "0.15.1");
+    expect(cat.type).toBe("unknown");
   });
 });
