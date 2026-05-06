@@ -219,41 +219,27 @@ function bundledRolePrompt(
     effective.models[role] ?? effective.defaultModel,
   );
   const thinkingLine = thinking ? `thinking: ${thinking}\n` : "";
+  const commonFrontmatter = `${modelLine}${thinkingLine}tools: read, bash, grep, find, ls\ndisallowed_tools: write, edit, multi_edit, patch, apply_patch\nextensions: false\nskills: false\nprompt_mode: replace\nrun_in_background: true\n`;
   const prompts: Record<GedAgentRole, string> = {
     "ged-explorer": `---
-name: ged-explorer
 description: Read-only Ged codebase scout for evidence-backed discovery packets.
-${modelLine}${thinkingLine}tools: read, grep, glob, bash
-inheritProjectContext: true
-inheritSkills: false
-systemPromptMode: replace
----
+${commonFrontmatter}---
 
 # Ged Explorer
 
 You are a read-only intelligence contributor for GedPi. Search and read repository files, run only non-mutating inspection commands, and return evidence-backed findings. Never edit files, write plans, commit, push, open PRs, or make scope decisions.
 `,
     "ged-planner": `---
-name: ged-planner
 description: Read-only Ged smart-friend planner that critiques plans and test seams.
-${modelLine}${thinkingLine}tools: read, grep, glob, bash
-inheritProjectContext: true
-inheritSkills: false
-systemPromptMode: replace
----
+${commonFrontmatter}---
 
 # Ged Planner
 
 You are a read-only planning critic for GedPi. Identify missing questions, constraints, edge cases, non-goals, and test seams. Never edit files, write planning artifacts, implement, commit, push, or open PRs.
 `,
     "ged-verifier": `---
-name: ged-verifier
 description: Read-only Ged clean-context reviewer for diffs and verification evidence.
-${modelLine}${thinkingLine}tools: read, grep, glob, bash
-inheritProjectContext: true
-inheritSkills: false
-systemPromptMode: replace
----
+${commonFrontmatter}---
 
 # Ged Verifier
 
@@ -263,35 +249,12 @@ You are a read-only clean-context reviewer for GedPi. Inspect diffs, tests, and 
   return prompts[role];
 }
 
-async function writeJsonMerged(
-  filePath: string,
-  patch: Record<string, unknown>,
-): Promise<void> {
-  const existing = await readJson(filePath);
-  const existingSubagents = isRecord(existing.subagents)
-    ? existing.subagents
-    : {};
-  const patchSubagents = isRecord(patch.subagents)
-    ? patch.subagents
-    : undefined;
-  const next = {
-    ...existing,
-    ...patch,
-    ...(patchSubagents
-      ? { subagents: { ...existingSubagents, ...patchSubagents } }
-      : {}),
-  };
-  await mkdir(path.dirname(filePath), { recursive: true });
-  await writeFileAtomic(filePath, `${JSON.stringify(next, null, 2)}\n`);
-}
-
 export async function syncGedSubagentRuntimeConfig(
   rootDir: string,
 ): Promise<void> {
   await ensureIgnoredInGitignore(rootDir, ".gedcode/");
   const effective = await readEffectiveGedAgentsSettings(rootDir);
   const agentsDir = path.join(rootDir, ".pi", "agents");
-  const piSettingsPath = path.join(rootDir, ".pi", "settings.json");
 
   if (!effective.enabled) {
     await Promise.all(
@@ -299,9 +262,6 @@ export async function syncGedSubagentRuntimeConfig(
         rm(path.join(agentsDir, `${role}.md`), { force: true }),
       ),
     );
-    await writeJsonMerged(piSettingsPath, {
-      subagents: { disableBuiltins: true },
-    });
     return;
   }
 
@@ -314,7 +274,4 @@ export async function syncGedSubagentRuntimeConfig(
       ),
     ),
   );
-  await writeJsonMerged(piSettingsPath, {
-    subagents: { disableBuiltins: true },
-  });
 }

@@ -7,6 +7,7 @@ import { buildWorkflowPromptSuffix } from "../src/brain.js";
 import {
   buildOrchestrationPrompt,
   detectRecentCommits,
+  detectSubagentDispatch,
   initCheckpointState,
   invalidateVerifierCheckpoints,
   readCheckpointState,
@@ -398,6 +399,35 @@ describe("invalidateVerifierCheckpoints", () => {
   });
 });
 
+describe("subagent dispatch detection", () => {
+  it("recognizes tintinweb Agent calls for Ged roles", () => {
+    expect(
+      detectSubagentDispatch("Agent", { subagent_type: "ged-planner" }),
+    ).toBe("ged-planner");
+    expect(
+      detectSubagentDispatch("Agent", { subagent_type: "GED-VERIFIER" }),
+    ).toBe("ged-verifier");
+  });
+
+  it("keeps compatibility with legacy task and subagent shapes", () => {
+    expect(detectSubagentDispatch("Task", { agent: "ged-explorer" })).toBe(
+      "ged-explorer",
+    );
+    expect(
+      detectSubagentDispatch("subagent", { subagentType: "ged-planner" }),
+    ).toBe("ged-planner");
+  });
+
+  it("ignores unknown roles and tools", () => {
+    expect(detectSubagentDispatch("Agent", { subagent_type: "worker" })).toBe(
+      null,
+    );
+    expect(
+      detectSubagentDispatch("bash", { subagent_type: "ged-planner" }),
+    ).toBe(null);
+  });
+});
+
 describe("orchestration prompt", () => {
   it("returns empty string when agents disabled", () => {
     const result = buildOrchestrationPrompt(false);
@@ -434,9 +464,10 @@ describe("orchestration prompt", () => {
     expect(result).toContain("adjudicate");
   });
 
-  it("references subagent tool for dispatch", () => {
+  it("references Agent tool for dispatch", () => {
     const result = buildOrchestrationPrompt(true);
-    expect(result).toContain("subagent");
+    expect(result).toContain("Agent");
+    expect(result).toContain("get_subagent_result");
   });
 
   it("references checkpoint state file", () => {
@@ -444,9 +475,9 @@ describe("orchestration prompt", () => {
     expect(result).toContain("checkpoints.json");
   });
 
-  it("includes intercom usage instructions", () => {
+  it("does not route normal workflow through pi-intercom", () => {
     const result = buildOrchestrationPrompt(true);
-    expect(result).toContain("pi-intercom");
+    expect(result).toContain("Do not rely on pi-intercom");
   });
 });
 

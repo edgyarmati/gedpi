@@ -59,11 +59,53 @@ import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
 
 // ─── Session-level touched-files tracking ──────────────────────────
 const touchedSourceFiles = new Set<string>();
+let activeCwd: string | undefined;
+
+async function recordGedSubagentCheckpoint(
+  cwd: string,
+  subagentName: string,
+): Promise<void> {
+  let state = await readCheckpointState(cwd);
+  if (!state) {
+    state = {
+      classification: "non-trivial",
+      classificationReason: "Subagent dispatched — auto-classified",
+      planCheckpoints: {},
+      taskCheckpoints: {},
+    };
+  }
+  const isTaskAgent =
+    subagentName === "ged-explorer" || subagentName === "ged-verifier";
+  const next = recordCheckpoint(
+    state,
+    {
+      agent: subagentName as CheckpointAgent,
+      timestamp: new Date().toISOString(),
+      status: "completed",
+      blocksCommit: subagentName === "ged-verifier" ? true : undefined,
+    },
+    isTaskAgent ? "auto" : undefined,
+  );
+  await writeCheckpointState(cwd, next);
+}
 
 export default function gedCoreExtension(api: ExtensionAPI): void {
   // Reset touched files on session start
-  api.on("session_start", () => {
+  api.on("session_start", (_event, ctx) => {
+    activeCwd = ctx.cwd;
     touchedSourceFiles.clear();
+  });
+
+  api.events?.on("subagents:completed", (raw: unknown) => {
+    const event = raw as { type?: unknown };
+    if (typeof event.type !== "string" || !activeCwd) return;
+    const subagentName = detectSubagentDispatch("Agent", {
+      subagent_type: event.type,
+    });
+    if (!subagentName) return;
+    void recordGedSubagentCheckpoint(activeCwd, subagentName).catch(() => {
+      // Non-fatal — lifecycle events should not break the subagent runtime.
+    });
   });
 
   registerGedMessageRenderer(api);
@@ -141,32 +183,9 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
 
     // --- Auto-recording: detect subagent dispatches and record checkpoints ---
     const subagentName = detectSubagentDispatch(toolName, input);
-    if (subagentName) {
+    if (subagentName && toolName !== "Agent") {
       try {
-        let state = await readCheckpointState(ctx.cwd);
-        if (!state) {
-          // Auto-init as non-trivial since we're dispatching subagents
-          state = {
-            classification: "non-trivial",
-            classificationReason: "Subagent dispatched — auto-classified",
-            planCheckpoints: {},
-            taskCheckpoints: {},
-          };
-        }
-        const now = new Date().toISOString();
-        const isTaskAgent =
-          subagentName === "ged-explorer" || subagentName === "ged-verifier";
-        state = recordCheckpoint(
-          state,
-          {
-            agent: subagentName as CheckpointAgent,
-            timestamp: now,
-            status: "completed",
-            blocksCommit: subagentName === "ged-verifier" ? true : undefined,
-          },
-          isTaskAgent ? "auto" : undefined,
-        );
-        await writeCheckpointState(ctx.cwd, state);
+        await recordGedSubagentCheckpoint(ctx.cwd, subagentName);
       } catch {
         // Non-fatal — don't block the subagent dispatch if recording fails
       }

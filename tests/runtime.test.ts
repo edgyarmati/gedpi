@@ -12,22 +12,28 @@ async function createTempProject(prefix: string): Promise<string> {
 }
 
 describe("Ged runtime flow", () => {
-  test("bundles pi-subagents and pi-intercom extensions and skills", () => {
+  test("bundles tintinweb subagents without default pi-intercom", () => {
     expect(packageJson.dependencies).toMatchObject({
-      "pi-intercom": expect.any(String),
-      "pi-subagents": expect.any(String),
+      "@tintinweb/pi-subagents": expect.any(String),
     });
+    expect(packageJson.dependencies).not.toHaveProperty("pi-intercom");
+    expect(packageJson.dependencies).not.toHaveProperty("pi-subagents");
     expect(packageJson.pi.extensions).toEqual(
       expect.arrayContaining([
-        "./node_modules/pi-intercom/index.ts",
-        "./node_modules/pi-subagents/src/extension/index.ts",
+        "./node_modules/@tintinweb/pi-subagents/src/index.ts",
       ]),
     );
-    expect(packageJson.pi.skills).toEqual(
-      expect.arrayContaining([
-        "./node_modules/pi-intercom/skills",
-        "./node_modules/pi-subagents/skills",
-      ]),
+    expect(packageJson.pi.extensions).not.toContain(
+      "./node_modules/pi-intercom/index.ts",
+    );
+    expect(packageJson.pi.extensions).not.toContain(
+      "./node_modules/pi-subagents/src/extension/index.ts",
+    );
+    expect(packageJson.pi.skills).not.toContain(
+      "./node_modules/pi-intercom/skills",
+    );
+    expect(packageJson.pi.skills).not.toContain(
+      "./node_modules/pi-subagents/skills",
     );
   });
 

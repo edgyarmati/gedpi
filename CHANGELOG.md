@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Features
+
+- **Tintinweb subagents runtime** — GedPi now uses `@tintinweb/pi-subagents` as its default subagent runtime, with Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tooling. The default workflow no longer loads `pi-intercom` or legacy `pi-subagents`.
+
+### Fixes
+
+- **Subagent checkpoint detection** — checkpoint auto-recording now recognizes tintinweb `Agent` calls and legacy task/subagent shapes, and Ged role prompts now reference the actual Agent tool.
+
 ## 0.15.3 - 2026-05-06
 
 ### Fixes

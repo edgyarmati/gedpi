@@ -63,8 +63,7 @@
       "./extensions/ged-memory/index.ts",
       "./node_modules/glimpseui/pi-extension/index.ts",
       "./node_modules/pi-web-access/index.ts",
-      "./node_modules/pi-intercom/index.ts",
-      "./node_modules/pi-subagents/src/extension/index.ts",
+      "./node_modules/@tintinweb/pi-subagents/src/index.ts",
       "./node_modules/pi-interview/index.ts",
       "./node_modules/pi-diff-review/src/index.ts",
       "./node_modules/pi-prompt-template-model/index.ts",
@@ -74,8 +73,6 @@
     "skills": [
       "./skills",
       "./node_modules/glimpseui/skills",
-      "./node_modules/pi-intercom/skills",
-      "./node_modules/pi-subagents/skills",
       "./node_modules/pi-web-access/skills",
       "./node_modules/pi-prompt-template-model/skills"
     ],
@@ -90,10 +87,9 @@
     "@mariozechner/pi-coding-agent": "^0.73.0",
     "glimpseui": "^0.8.0",
     "pi-diff-review": "file:./vendor/pi-diff-review",
-    "pi-intercom": "^0.3.0",
+    "@tintinweb/pi-subagents": "^0.7.0",
     "pi-interview": "^0.8.6",
     "pi-prompt-template-model": "^0.9.1",
-    "pi-subagents": "^0.24.0",
     "pi-web-access": "^0.10.7",
     "zod": "^4.3.6"
   },

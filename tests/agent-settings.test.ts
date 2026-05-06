@@ -119,15 +119,19 @@ describe("Ged optional agent settings", () => {
     );
     const settings = JSON.parse(
       await readFile(path.join(rootDir, ".pi", "settings.json"), "utf8"),
-    ) as { subagents: { disableBuiltins: boolean } };
+    ) as { subagents: { agentOverrides: { reviewer: { disabled: boolean } } } };
 
-    expect(explorer).toContain("name: ged-explorer");
+    expect(explorer).toContain("description: Read-only Ged codebase scout");
     expect(explorer).toContain("model: openai/gpt-5-mini");
+    expect(explorer).toContain("tools: read, bash, grep, find, ls");
+    expect(explorer).toContain("disallowed_tools: write, edit");
+    expect(explorer).toContain("extensions: false");
+    expect(explorer).toContain("prompt_mode: replace");
+    expect(explorer).toContain("run_in_background: true");
     await expect(
       readFile(path.join(rootDir, ".pi", "agents", "ged-planner.md"), "utf8"),
     ).resolves.toContain("model: openai/gpt-5.5");
     expect(explorer).toContain("Never edit files");
-    expect(settings.subagents.disableBuiltins).toBe(true);
     expect(settings.subagents).toMatchObject({
       agentOverrides: { reviewer: { disabled: true } },
     });
