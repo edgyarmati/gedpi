@@ -79,30 +79,6 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **pi-powerline-footer** | Powerline-style status bar with git, context, cost, model, and thinking segments |
 | **pi-extension-settings** | Settings persistence for extensions |
 
-### Optional: Claude Code CLI models
-
-GedPi can route subagent requests through the Claude Code CLI for API-billed models that avoid per-token pricing. To enable:
-
-```bash
-# 1. Install the companion package alongside GedPi
-npm install -g pi-claude-cli
-
-# 2. Install and authenticate Claude Code CLI
-npm install -g @anthropic-ai/claude-code
-claude auth login
-
-# 3. Restart GedPi — models appear automatically
-```
-
-After setup, `/ged-agents setup` shows `pi-claude-cli/claude-opus-4-7`, `pi-claude-cli/claude-sonnet-4-5`, etc. Assign them per role:
-
-```bash
-/ged-agents model ged-planner pi-claude-cli/claude-sonnet-4-5
-/ged-agents model ged-verifier pi-claude-cli/claude-opus-4-5
-```
-
-Model fallback chains (configured via `/ged-agents setup`) work with pi-claude-cli models too. If the Claude Code CLI isn't installed or authenticated, pi-claude-cli skips registration silently — GedPi starts normally without those models.
-
 ### Native Micro-UI
 
 GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI windows. The bundled `glimpse` skill lets the agent open native dialogs, forms, previews, and other rich UI when a task benefits from it.

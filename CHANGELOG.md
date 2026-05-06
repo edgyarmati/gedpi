@@ -10,13 +10,11 @@
 
 ### Features
 
-- **pi-claude-cli provider detection** — GedPi now detects and registers the pi-claude-cli provider at runtime if installed. Install the companion package to make Claude Code CLI models available for subagent assignment via `/ged-agents model`. See the README for setup instructions.
 - **Live fuzzy model picker** — `/ged-agents setup` now shows a scrollable fuzzy-search picker with 10 visible models, cursor centered at position 5, and live character-by-character filtering. Esc cancels, Enter confirms.
 - **Tintinweb subagents runtime** — GedPi now uses `@tintinweb/pi-subagents` as its default subagent runtime, with Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tooling. The default workflow no longer loads `pi-intercom` or legacy `pi-subagents`.
 
 ### Fixes
 
-- **Global pi-claude-cli detection** — pi-claude-cli installed globally alongside GedPi is now found via `createRequire` resolution, not just project-local `node_modules`.
 - **Subagent model fallbacks** — generated Ged role agents now use the first available model from each configured fallback chain before falling back to the main session model.
 - **Subagent checkpoint detection** — checkpoint auto-recording now recognizes tintinweb `Agent` lifecycle events only, and Ged role prompts now reference the actual Agent tool.
 

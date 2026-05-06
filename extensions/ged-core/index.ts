@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -56,22 +55,6 @@ import {
 } from "../../src/vendor/shared-checkpoints.js";
 import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
 
-// ─── Helpers ──────────────────────────────────────────────────────
-
-function globalPrefixes(): string[] {
-  const prefixes: string[] = [];
-  const envPrefix = process.env.npm_config_prefix;
-  if (envPrefix) {
-    prefixes.push(path.join(envPrefix, "lib", "node_modules"));
-  }
-  // Common global npm roots (checked by caller via import)
-  prefixes.push(
-    "/opt/homebrew/lib/node_modules",
-    "/usr/local/lib/node_modules",
-  );
-  return prefixes;
-}
-
 // ─── Session-level touched-files tracking ──────────────────────────
 const touchedSourceFiles = new Set<string>();
 let activeCwd: string | undefined;
@@ -107,54 +90,6 @@ async function recordGedSubagentCheckpoint(
 export default async function gedCoreExtension(
   api: ExtensionAPI,
 ): Promise<void> {
-  // ── Optional pi-claude-cli provider ───────────────────────────
-  // Detects at runtime: if the user has installed pi-claude-cli
-  // alongside GedPi, register its Claude Code CLI provider so models
-  // appear in /ged-agents setup and can be assigned to subagent roles.
-  // Tries multiple strategies: project-local, createRequire (for
-  // global installs), and the npm global prefix (for symlinked dev).
-  try {
-    let piClaudeCli: { default?: (api: ExtensionAPI) => void } | undefined;
-
-    // 1. Project-local resolution
-    try {
-      // @ts-expect-error — optional runtime dependency, not in GedPi's deps
-      piClaudeCli = await import("pi-claude-cli");
-    } catch {
-      /* ok */
-    }
-
-    // 2. createRequire from ged-core's file location
-    if (!piClaudeCli) {
-      try {
-        piClaudeCli = await import(
-          createRequire(import.meta.url).resolve("pi-claude-cli")
-        );
-      } catch {
-        /* ok */
-      }
-    }
-
-    // 3. npm global prefix (needed when GedPi is symlinked from
-    //    global prefix → local source, breaking strategy 2)
-    if (!piClaudeCli) {
-      for (const prefix of globalPrefixes()) {
-        try {
-          piClaudeCli = await import(path.join(prefix, "pi-claude-cli"));
-          if (piClaudeCli) break;
-        } catch {
-          /* ok */
-        }
-      }
-    }
-
-    if (piClaudeCli && typeof piClaudeCli.default === "function") {
-      await piClaudeCli.default(api);
-    }
-  } catch {
-    // pi-claude-cli not installed — no Claude Code CLI models available
-  }
-
   // Reset touched files on session start
   api.on("session_start", (_event, ctx) => {
     activeCwd = ctx.cwd;
