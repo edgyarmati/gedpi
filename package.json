@@ -52,7 +52,7 @@
     "prepublishOnly": "npm run verify"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.13",
+    "@biomejs/biome": "^2.4.14",
     "@types/node": "^25.6.0",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5"
@@ -81,17 +81,17 @@
     ]
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.119",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@juanibiapina/pi-extension-settings": "^0.6.1",
-    "pi-powerline-footer": "file:./vendor/pi-powerline-footer",
     "@mariozechner/pi-coding-agent": "^0.73.0",
+    "@tintinweb/pi-subagents": "^0.7.0",
     "glimpseui": "^0.8.0",
     "pi-diff-review": "file:./vendor/pi-diff-review",
-    "@tintinweb/pi-subagents": "^0.7.0",
     "pi-interview": "^0.8.6",
+    "pi-powerline-footer": "file:./vendor/pi-powerline-footer",
     "pi-prompt-template-model": "^0.9.1",
     "pi-web-access": "^0.10.7",
-    "zod": "^4.3.6"
+    "zod": "^4.4.3"
   },
   "overrides": {
     "@mariozechner/pi-tui": "0.72.1",

@@ -1,4 +1,5 @@
 export function getGedPackageDir(): string;
+export function getGedpiVersion(): string;
 export function resolvePiCliPath(): string;
 export function buildGedEnvironment(
   baseEnv?: NodeJS.ProcessEnv,

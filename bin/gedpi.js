@@ -44,6 +44,12 @@ export function getGedPackageDir() {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 }
 
+export function getGedpiVersion() {
+  const pkgPath = path.join(getGedPackageDir(), "package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  return pkg.version ?? "0.0.0";
+}
+
 export function resolvePiCliPath() {
   return path.join(
     getGedPackageDir(),
@@ -179,7 +185,12 @@ export function isGedEntrypointInvocation(
 }
 
 if (isGedEntrypointInvocation()) {
-  runGed().catch((error) => {
+  const args = process.argv.slice(2);
+  if (args.includes("--version") || args.includes("-v")) {
+    console.log(getGedpiVersion());
+    process.exit(0);
+  }
+  runGed(args).catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
   });
