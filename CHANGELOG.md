@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.15.1 - 2026-05-06
+
 ### Fixes
 
 - **Robust auto-updater** — `npm install -g` now uses `--force` and automatically retries once when npm fails with `ENOTEMPTY`, `EACCES`, or `EBUSY`. On stale-directory errors, the updater parses the offending path from npm's stderr, removes it, and retries. Error messages are now categorized (permission, network, stale-directory, unknown) and include actionable manual commands when applicable.
