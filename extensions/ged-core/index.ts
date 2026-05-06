@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -96,10 +97,13 @@ export default async function gedCoreExtension(
   // Detects at runtime: if the user has installed pi-claude-cli
   // alongside GedPi, register its Claude Code CLI provider so models
   // appear in /ged-agents setup and can be assigned to subagent roles.
-  // Install: npm install pi-claude-cli (in GedPi dir or globally).
+  // Uses createRequire to resolve from ged-core's location so global
+  // installs of pi-claude-cli (alongside global GedPi) are found.
   try {
-    // @ts-expect-error — optional runtime dependency, not in GedPi's deps
-    const piClaudeCli = await import("pi-claude-cli");
+    const resolvePath = createRequire(import.meta.url).resolve(
+      "pi-claude-cli",
+    );
+    const piClaudeCli = await import(resolvePath);
     if (typeof piClaudeCli.default === "function") {
       await piClaudeCli.default(api);
     }

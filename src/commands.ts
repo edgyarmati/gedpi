@@ -17,6 +17,7 @@ import {
   syncGedSubagentRuntimeConfig,
   writeGedAgentsSettings,
 } from "./agent-settings.js";
+import { pickModel } from "./fuzzy-picker.js";
 import type { AppCommandContext, AppCommandDefinition } from "./pi.js";
 import { executeRtkCommand } from "./rtk.js";
 
@@ -80,76 +81,6 @@ function modelAvailabilityFromRegistry(
       return Boolean(registry.find(parsed.provider, parsed.id));
     },
   };
-}
-
-function modelFromRef(
-  registry: ModelRegistry,
-  ref: string,
-): Model<Api> | undefined {
-  const parsed = splitModelRef(ref);
-  return parsed ? registry.find(parsed.provider, parsed.id) : undefined;
-}
-
-// ─── Searchable model picker ───────────────────────────────────────────
-
-async function pickModel(
-  ui: ExtensionUIContext,
-  registry: ModelRegistry,
-  title: string,
-  hint: string,
-  currentRef?: string,
-): Promise<Model<Api> | null> {
-  const available = registry.getAvailable();
-
-  // Step 0: offer to keep current
-  const keepLabel = currentRef ? `Keep current: ${currentRef}` : undefined;
-  const initialOptions = keepLabel
-    ? [keepLabel, "Search for a different model…", "Cancel"]
-    : ["Search for a model…", "Cancel"];
-
-  const initialChoice = await ui.select(title, initialOptions);
-  if (initialChoice === undefined || initialChoice === "Cancel") return null;
-  if (initialChoice === keepLabel) {
-    const found = currentRef ? modelFromRef(registry, currentRef) : undefined;
-    return found ?? null;
-  }
-
-  // Step 1: type a search query
-  const query = await ui.input(
-    `Search ${title}`,
-    `Type to search (e.g. ${hint})`,
-  );
-  if (query === undefined) return null; // cancelled
-
-  // Step 2: filter
-  const q = query.toLowerCase().trim();
-  const matches = available.filter(
-    (m) =>
-      m.id.toLowerCase().includes(q) ||
-      m.name.toLowerCase().includes(q) ||
-      m.provider.toLowerCase().includes(q),
-  );
-
-  if (matches.length === 0) {
-    ui.notify(
-      `No models matched "${query}". Try a different search.`,
-      "warning",
-    );
-    return pickModel(ui, registry, title, hint, currentRef);
-  }
-
-  if (matches.length === 1) {
-    return matches[0];
-  }
-
-  // Step 3: pick from matches
-  const options = matches.map((m) => `${m.provider}/${m.id} — ${m.name}`);
-  const choice = await ui.select(`Pick ${title}`, options);
-  if (choice === undefined) return null; // cancelled
-
-  const ref = choice.split(" — ")[0];
-  const found = modelFromRef(registry, ref);
-  return found ?? null;
 }
 
 // ─── Settings I/O ──────────────────────────────────────────────────────
@@ -330,23 +261,6 @@ function formatCompactSetup(): string {
 }
 
 // ─── Interactive wizard ────────────────────────────────────────────────
-
-function currentModelRef(
-  effective: Awaited<ReturnType<typeof readEffectiveGedAgentsSettings>>,
-  role: GedAgentRole,
-): string | undefined {
-  const config = effective.models[role];
-  if (config) {
-    return typeof config === "string" ? config : config.model;
-  }
-  if (effective.defaultModel) {
-    return typeof effective.defaultModel === "string"
-      ? effective.defaultModel
-      : effective.defaultModel.model;
-  }
-  return undefined;
-}
-
 async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const ui = ctx.runtime?.ctx.ui;
   const registry = ctx.runtime?.ctx.modelRegistry;
@@ -368,32 +282,14 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const targetPath = scopeChoice === "This project only" ? "PROJECT" : "GLOBAL";
   const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
 
-  // Step 2–4: Searchable model pickers (with "keep current" option)
-  const explorerModel = await pickModel(
-    ui,
-    registry,
-    "Explorer model",
-    "claude, gpt, deepseek",
-    currentModelRef(effective, "ged-explorer"),
-  );
+  // Step 2–4: Live fuzzy-search model pickers
+  const explorerModel = await pickModel(ui, registry, "Explorer model");
   if (explorerModel === null) return "Setup cancelled.";
 
-  const plannerModel = await pickModel(
-    ui,
-    registry,
-    "Planner model",
-    "opus, gpt-5.5, deepseek-pro",
-    currentModelRef(effective, "ged-planner"),
-  );
+  const plannerModel = await pickModel(ui, registry, "Planner model");
   if (plannerModel === null) return "Setup cancelled.";
 
-  const verifierModel = await pickModel(
-    ui,
-    registry,
-    "Verifier model",
-    "opus, gpt-5.5, deepseek-pro",
-    currentModelRef(effective, "ged-verifier"),
-  );
+  const verifierModel = await pickModel(ui, registry, "Verifier model");
   if (verifierModel === null) return "Setup cancelled.";
 
   // Step 5: Confirmation
