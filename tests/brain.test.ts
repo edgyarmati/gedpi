@@ -62,7 +62,7 @@ describe("Ged brain runtime", () => {
     const rootDir = await createTempProject("ged-brain-ext-");
     const handlers = new Map<string, (...args: unknown[]) => unknown>();
 
-    gedCoreExtension({
+    await gedCoreExtension({
       registerMessageRenderer() {
         return undefined;
       },

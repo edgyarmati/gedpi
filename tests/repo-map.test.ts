@@ -137,7 +137,7 @@ describe("repo map", () => {
     );
     const handlers = new Map<string, (...args: unknown[]) => unknown>();
 
-    gedCoreExtension({
+    await gedCoreExtension({
       registerMessageRenderer() {
         return undefined;
       },
@@ -208,7 +208,7 @@ describe("repo map", () => {
     );
     const handlers = new Map<string, (...args: unknown[]) => unknown>();
 
-    gedCoreExtension({
+    await gedCoreExtension({
       registerMessageRenderer() {
         return undefined;
       },

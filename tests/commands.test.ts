@@ -21,12 +21,12 @@ describe("Ged command surface", () => {
     ]);
   });
 
-  test("gedCoreExtension registers the GedPi commands", () => {
+  test("gedCoreExtension registers the GedPi commands", async () => {
     let rendererRegistrations = 0;
     const commands: string[] = [];
     const events: string[] = [];
 
-    gedCoreExtension({
+    await gedCoreExtension({
       registerMessageRenderer() {
         rendererRegistrations += 1;
       },

@@ -89,7 +89,24 @@ async function recordGedSubagentCheckpoint(
   await writeCheckpointState(cwd, next);
 }
 
-export default function gedCoreExtension(api: ExtensionAPI): void {
+export default async function gedCoreExtension(
+  api: ExtensionAPI,
+): Promise<void> {
+  // ── Optional pi-claude-cli provider ───────────────────────────
+  // Detects at runtime: if the user has installed pi-claude-cli
+  // alongside GedPi, register its Claude Code CLI provider so models
+  // appear in /ged-agents setup and can be assigned to subagent roles.
+  // Install: npm install pi-claude-cli (in GedPi dir or globally).
+  try {
+    // @ts-expect-error — optional runtime dependency, not in GedPi's deps
+    const piClaudeCli = await import("pi-claude-cli");
+    if (typeof piClaudeCli.default === "function") {
+      await piClaudeCli.default(api);
+    }
+  } catch {
+    // pi-claude-cli not installed — no Claude Code CLI models available
+  }
+
   // Reset touched files on session start
   api.on("session_start", (_event, ctx) => {
     activeCwd = ctx.cwd;
