@@ -224,7 +224,7 @@ describe("Ged workflow", () => {
     ).toBe(false);
   });
 
-  test("initializeGedProject marks sparse repos as needing onboarding interview", async () => {
+  test("initializeGedProject marks sparse repos as needing onboarding clarification", async () => {
     const rootDir = await createTempProject("ged-init-onboarding-");
 
     const result = await initializeGedProject(rootDir);
@@ -232,11 +232,11 @@ describe("Ged workflow", () => {
 
     expect(result.onboardingInterviewNeeded).toBe(true);
     expect(result.onboardingReason).toContain("First-run onboarding needed");
-    expect(state.activeTask).toBe("Run onboarding interview");
-    expect(state.nextStep).toContain("Run a short onboarding interview");
+    expect(state.activeTask).toBe("Run onboarding clarification");
+    expect(state.nextStep).toContain("Run a short grill-me clarification");
   });
 
-  test("initializeGedProject skips onboarding interview for well-documented repos", async () => {
+  test("initializeGedProject skips onboarding clarification for well-documented repos", async () => {
     const rootDir = await createTempProject("ged-init-docs-clear-");
     await writeFile(
       path.join(rootDir, "package.json"),
@@ -316,7 +316,7 @@ The product must preserve audit history, avoid surprise downtime, and keep rollb
     const rendered = renderPlainStatus(status);
 
     expect(rendered).toContain("Phase: Understand");
-    expect(rendered).toContain("Active task: Run onboarding interview");
+    expect(rendered).toContain("Active task: Run onboarding clarification");
     expect(rendered).toContain("Next step:");
   });
 

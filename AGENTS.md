@@ -15,7 +15,7 @@ This file provides guidance to Codex and other AI agents when working with code 
 
 GedPi is a batteries-included Pi package built around a single conversational brain.
 
-**Agent flow**: GedPi always starts in full workflow mode. One brain interviews the user, writes the spec into `.ged/`, breaks work into bounded slices, implements them, and records verification/results in durable memory. The agent classifies tasks as trivial or non-trivial and adjusts its behavior accordingly — no manual toggle needed.
+**Agent flow**: GedPi always starts in full workflow mode. One brain clarifies ambiguous requests, writes the spec into `.ged/`, breaks work into bounded slices, implements them, and records verification/results in durable memory. The agent classifies tasks as trivial or non-trivial and adjusts its behavior accordingly — no manual toggle needed.
 
 Future orchestration work should follow `docs/single-writer-intelligence-orchestration.md`: keep the primary Ged brain as the default writer and decision owner, use additional agents/model calls as read-only scouts, smart friends, or clean-context reviewers, and only allow writer workers through explicit branch/worktree-backed isolation. Do not reintroduce unstructured multi-agent writer swarms.
 
@@ -28,7 +28,6 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `ged-memory` — `.ged/` durable memory bootstrap
 - `glimpseui` — native micro-UI windows and floating companion widget
 - `pi-web-access` — web search and fetch tools
-- `pi-interview` — guided Q&A for clarification
 - `pi-diff-review` — diff review surface
 - `pi-prompt-template-model` — prompt template / model wiring
 - `pi-extension-settings` — settings persistence

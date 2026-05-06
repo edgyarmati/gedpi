@@ -1,6 +1,6 @@
 # GedPi
 
-A batteries-included [Pi](https://github.com/badlogic/pi-mono) package with an always-on workflow for interviewing, documenting the spec, and implementing work in bounded slices.
+A batteries-included [Pi](https://github.com/badlogic/pi-mono) package with an always-on workflow for clarifying, documenting the spec, and implementing work in bounded slices.
 
 Requires Node.js 22 or newer.
 
@@ -10,11 +10,11 @@ Requires Node.js 22 or newer.
 
 ## What It Does
 
-- Starts with the full Ged workflow always active — the agent interviews, plans, implements, and verifies in bounded slices.
+- Starts with the full Ged workflow always active — the agent clarifies, runs skill-fit, plans, implements, and verifies in bounded slices.
 - Keeps durable standards and project context in `.ged/`.
 - Writes specs, tasks, and progress into `.ged/` and tracks workflow state across sessions.
 - Adds a repo map that indexes supported source files, ranks them by structure plus recent activity, and injects a compact codebase-awareness block into Ged prompts.
-- Bundles web search, guided interviews, themed UI, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, a task viewer, a powerbar, and automatic updates out of the box.
+- Bundles web search, themed UI, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, a task viewer, a powerbar, and automatic updates out of the box.
 - Documents a future [single-writer intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as the default writer while using scouts, smart friends, and clean-context reviewers for additional intelligence.
 
 ## Install
@@ -73,7 +73,6 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **glimpseui** | Native micro-UI windows and the optional floating companion widget |
 | **pi-web-access** | Web search and fetch tools for the agent |
 | **@tintinweb/pi-subagents** | Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tools for read-only Ged scouts, planners, and verifiers |
-| **pi-interview** | Guided Q&A when the agent needs clarification |
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
 | **pi-powerline-footer** | Powerline-style status bar with git, context, cost, model, and thinking segments |

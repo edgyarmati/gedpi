@@ -353,7 +353,7 @@ async function assessInitialProjectClarity(rootDir: string): Promise<{
     onboardingReason:
       missing.length > 0
         ? `First-run onboarding needed: ${missing.join("; ")}.`
-        : "Repository docs look clear enough to skip first-run onboarding interview.",
+        : "Repository docs look clear enough to skip first-run onboarding clarification.",
     onboardingContextHints: hints,
   };
 }
@@ -366,7 +366,7 @@ export function buildOnboardingInterviewKickoff(init: InitResult): string {
 
   return `This is the first run in this project and the repository context is not yet clear enough to implement safely.
 
-Before doing any planning or implementation work, use the interview tool now to run a concise onboarding interview.
+Before doing any planning or implementation work, use grill-me in chat to clarify only the missing onboarding context. Ask one concise question at a time with a recommended answer/default.
 
 Capture:
 - project goal and success criteria
@@ -378,7 +378,7 @@ Capture:
 Known repo context:
 ${hints}
 
-After the interview, write durable project context into .ged/PROJECT.md, active work context into .ged/work/<work-id>/SPEC.md, and session notes into .ged/runtime/<work-id>/SESSION-SUMMARY.md before proceeding. Do not implement anything yet.`;
+After clarification, write durable project context into .ged/PROJECT.md, active work context into .ged/work/<work-id>/SPEC.md, and session notes into .ged/runtime/<work-id>/SESSION-SUMMARY.md before proceeding. Do not implement anything yet.`;
 }
 
 function buildSkillCandidates(
@@ -486,17 +486,17 @@ export async function initializeGedProject(
   await writeState(rootDir, {
     currentPhase: "understand",
     activeTask: onboarding.onboardingInterviewNeeded
-      ? "Run onboarding interview"
+      ? "Run onboarding clarification"
       : "Capture exact requirements",
     statusSummary: onboarding.onboardingInterviewNeeded
       ? `GedPi has created its project memory files and needs first-run onboarding context. ${onboarding.onboardingReason}`
       : "GedPi has created its project memory files and scanned the repository for useful signals.",
     blockers: [],
     nextStep: onboarding.onboardingInterviewNeeded
-      ? "Run a short onboarding interview to capture project goal, users, constraints, workflow style, and missing context before planning or implementation."
+      ? "Run a short grill-me clarification to capture project goal, users, constraints, workflow style, and missing context before planning or implementation."
       : diagnostics.overall === "red"
         ? "Review the recorded issues before proceeding."
-        : "Interview the user, capture the exact spec in the active work directory, then break the work into bounded slices.",
+        : "Clarify any ambiguity, capture the exact spec in the active work directory, run skill-fit, then break the work into bounded slices.",
   });
 
   const stateCreatedPath = relativeGedPath(rootDir, paths.statePath);

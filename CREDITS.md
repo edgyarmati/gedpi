@@ -13,7 +13,6 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
 
 - [pi-web-access](https://www.npmjs.com/package/pi-web-access)
   - Web search and fetch tools for the agent
-- [pi-interview](https://www.npmjs.com/package/pi-interview)
   - Guided Q&A interface for user clarification
 - [@juanibiapina/pi-powerbar](https://www.npmjs.com/package/@juanibiapina/pi-powerbar) by Juani Biapina
   - Powerline-style status bar with extensible segments

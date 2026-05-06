@@ -299,7 +299,7 @@ export function createInitialSpec(
 
   const architecture = [
     "Use `.ged/` as the durable project memory layer.",
-    "Keep one friendly user-facing brain that interviews first, plans privately, and only then edits code.",
+    "Keep one friendly user-facing brain that clarifies ambiguity first, plans privately, and only then edits code.",
     `Detected repo signals: languages=${repoSignals.languages.join(", ") || "unknown"}; frameworks=${repoSignals.frameworks.join(", ") || "unknown"}; tools=${repoSignals.tools.join(", ") || "unknown"}.`,
   ];
 

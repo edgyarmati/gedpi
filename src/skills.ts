@@ -26,6 +26,12 @@ export const defaultSkillSignals: SkillSignal[] = [
     policy: "auto-install",
   },
   {
+    label: "grill-me",
+    reason:
+      "Clarify ambiguous non-trivial tasks one question at a time before planning.",
+    policy: "auto-install",
+  },
+  {
     label: "brainstorming",
     reason:
       "Useful when Ged is designing or decomposing task slices before implementation.",
@@ -42,6 +48,7 @@ export const defaultSkillSignals: SkillSignal[] = [
 export const BUNDLED_FOUNDATION_SKILLS = new Set([
   "find-skills",
   "skill-creator",
+  "grill-me",
 ]);
 export const BUNDLED_GED_SKILLS = new Set([
   ...BUNDLED_FOUNDATION_SKILLS,

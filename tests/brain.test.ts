@@ -25,7 +25,7 @@ describe("Ged brain runtime", () => {
     );
 
     expect(result.status).toBe("initialized");
-    expect(state).toContain("Run onboarding interview");
+    expect(state).toContain("Run onboarding clarification");
   });
 
   test("buildBrainSystemPromptSuffix includes the single-brain workflow and durable files", async () => {
@@ -35,15 +35,15 @@ describe("Ged brain runtime", () => {
     const prompt = await buildBrainSystemPromptSuffix(rootDir);
 
     expect(prompt).toContain("GedPi Single-Brain Mode");
-    expect(prompt).toContain("Interview the user until the requested behavior");
-    expect(prompt).toContain(
-      "use the interview tool to ask targeted clarification questions instead of asking them in chat",
-    );
+    expect(prompt).toContain("use grill-me in chat");
+    expect(prompt).toContain("skill-fit checkpoint before planning");
+    expect(prompt).toContain("use find-skills if coverage is insufficient");
+    expect(prompt).not.toContain("interview tool");
     expect(prompt).toContain(
       "treat direct user instructions as requested Ged app/product behavior by default",
     );
     expect(prompt).toContain(".ged/work/root/TASKS.md");
-    expect(prompt).toContain("Run onboarding interview");
+    expect(prompt).toContain("Run onboarding clarification");
   });
 
   test("buildPassiveGedPromptSuffix excludes workflow files and keeps durable guidance", async () => {
@@ -98,8 +98,7 @@ describe("Ged brain runtime", () => {
 
     expect(beforeStart.systemPrompt).toContain("BASE");
     expect(beforeStart.systemPrompt).toContain("GedPi Single-Brain Mode");
-    expect(beforeStart.systemPrompt).toContain(
-      "use the interview tool now to run a concise onboarding interview",
-    );
+    expect(beforeStart.systemPrompt).toContain("use grill-me in chat");
+    expect(beforeStart.systemPrompt).not.toContain("interview tool");
   });
 });

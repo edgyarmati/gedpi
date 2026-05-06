@@ -1,7 +1,7 @@
 {
   "name": "gedpi",
   "version": "0.15.3",
-  "description": "Single-agent Pi package that interviews the user, documents the spec, and implements work in bounded slices.",
+  "description": "Single-agent Pi package that clarifies requests, documents the spec, and implements work in bounded slices.",
   "type": "module",
   "license": "MIT",
   "author": "Eduard-David Gyarmati",
@@ -25,7 +25,7 @@
     "agent",
     "planning",
     "implementation",
-    "interview"
+    "clarification"
   ],
   "files": [
     "bin",
@@ -64,7 +64,6 @@
       "./node_modules/glimpseui/pi-extension/index.ts",
       "./node_modules/pi-web-access/index.ts",
       "./node_modules/@tintinweb/pi-subagents/src/index.ts",
-      "./node_modules/pi-interview/index.ts",
       "./node_modules/pi-diff-review/src/index.ts",
       "./node_modules/pi-prompt-template-model/index.ts",
       "./node_modules/@juanibiapina/pi-extension-settings/dist/index.js",
@@ -87,7 +86,6 @@
     "@tintinweb/pi-subagents": "^0.7.0",
     "glimpseui": "^0.8.0",
     "pi-diff-review": "file:./vendor/pi-diff-review",
-    "pi-interview": "^0.8.6",
     "pi-powerline-footer": "file:./vendor/pi-powerline-footer",
     "pi-prompt-template-model": "^0.9.1",
     "pi-web-access": "^0.10.7",

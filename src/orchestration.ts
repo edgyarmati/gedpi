@@ -121,7 +121,7 @@ All source file edits and git commits are **structurally guarded**:
 
 1. **Classification is required** — If \`.ged/runtime/<work-id>/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
 2. **Trivial classification** allows immediate edits and commits — no subagent dispatches needed.
-3. **Non-trivial classification** requires dispatching \`ged-planner\` with the \`Agent\` tool before edits and both \`ged-planner\` + \`ged-verifier\` before \`git commit\` or \`git commit --amend\`.
+3. **Non-trivial classification** requires clarification when ambiguous, a skill-fit checkpoint before planning, dispatching \`ged-planner\` with the \`Agent\` tool before edits, and both \`ged-planner\` + \`ged-verifier\` before \`git commit\` or \`git commit --amend\`.
 4. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
 5. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
 
@@ -130,6 +130,8 @@ These guards are implemented in the tool-call interception layer — they cannot
 ### Mandatory checkpoints for non-trivial work
 
 When subagents are enabled and the task is non-trivial, use mandatory intelligence checkpoints:
+
+0. **clarification + skill-fit** — If the request is not fully clear, use \`grill-me\` in chat before planning: one concise question at a time with a recommended answer/default. Then inventory available bundled/project/user skills. If coverage is insufficient, use \`find-skills\`; if no adequate external skill exists and the gap is reusable, create a narrow project-local skill with \`skill-creator\`. Never install global/user skills automatically.
 
 1. **ged-explorer** — Dispatch with the \`Agent\` tool for evidence-backed codebase discovery when relevant code context is not already known. Use before planning to understand existing patterns, dependencies, and risks.
 

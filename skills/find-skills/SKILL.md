@@ -7,6 +7,12 @@ description: Helps users discover and install agent skills when they ask questio
 
 This skill helps you discover and install skills from the open agent skills ecosystem.
 
+## Ged skill-fit checkpoint
+
+For Ged non-trivial tasks, use this skill during the skill-fit checkpoint when bundled/project/user skills do not sufficiently cover the clarified task. First inventory available skills and decide what expertise is missing. Search only for the gap.
+
+Do not install global/user skills automatically during Ged's normal workflow. Recommend external skills to the user, or use `skill-creator` to create a narrow project-local skill when no adequate external skill exists and the gap is reusable.
+
 ## When to Use This Skill
 
 Use this skill when the user:

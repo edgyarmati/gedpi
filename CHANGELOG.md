@@ -5,6 +5,7 @@
 ### Breaking Changes
 
 - Adopted branch/work-scoped Ged memory: active planning now lives under `.ged/work/<work-id>/` and runtime state/checkpoints live under `.ged/runtime/<work-id>/`; legacy root planning/runtime files are no longer authoritative.
+- Removed the `pi-interview` extension from GedPi. Ambiguous non-trivial requests now use `grill-me` chat clarification instead, followed by a skill-fit checkpoint before planning.
 
 ### CI / Developer tooling
 

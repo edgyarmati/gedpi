@@ -483,3 +483,8 @@ Repeating one more time the core loop here for emphasis:
 Please add steps to your TodoList, if you have such a thing, to make sure you don't forget. If you're in Cowork, please specifically put "Create evals JSON and run `eval-viewer/generate_review.py` so human can review test cases" in your TodoList to make sure it happens.
 
 Good luck!
+
+
+## Ged skill-fit workflow
+
+For non-trivial Ged tasks, planning should happen after classification, any needed `grill-me` clarification, and the skill-fit checkpoint. Inventory available bundled/project/user skills first. If coverage is insufficient, use `find-skills`; if no adequate external skill exists and the missing capability is reusable, create a narrow project-local skill. Do not install global/user skills automatically.

@@ -17,3 +17,8 @@ description: Produces or refines implementation plans in .ged/work/<work-id>/SPE
 - tasks must stay small and concrete
 - done criteria must be explicit
 - only recommend skills when they materially help execution
+
+
+## Ged skill-fit workflow
+
+For non-trivial Ged tasks, planning should happen after classification, any needed `grill-me` clarification, and the skill-fit checkpoint. Inventory available bundled/project/user skills first. If coverage is insufficient, use `find-skills`; if no adequate external skill exists and the missing capability is reusable, create a narrow project-local skill. Do not install global/user skills automatically.
