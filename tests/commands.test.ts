@@ -44,7 +44,6 @@ describe("Ged command surface", () => {
     expect(events).toContain("session_start");
     expect(events).toContain("before_agent_start");
     expect(events).toContain("tool_call");
-    expect(events).toContain("turn_end");
   });
 
   test("status and skills extensions register no commands", () => {

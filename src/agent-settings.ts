@@ -191,9 +191,7 @@ function modelId(value: AgentModelConfig | undefined): string | undefined {
   return typeof value === "string" ? value : value.model;
 }
 
-export function modelCandidates(
-  value: AgentModelConfig | undefined,
-): string[] {
+export function modelCandidates(value: AgentModelConfig | undefined): string[] {
   const primary = modelId(value);
   if (!primary) return [];
   return [...new Set([primary, ...fallbackChain(value)])];

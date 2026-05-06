@@ -10,10 +10,10 @@ import {
   type GedAgentRole,
   type GedAgentsSettings,
   globalGedSettingsPath,
+  type ModelAvailability,
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
   readGedRuntimeSettings,
-  type ModelAvailability,
   syncGedSubagentRuntimeConfig,
   writeGedAgentsSettings,
 } from "./agent-settings.js";

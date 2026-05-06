@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- **Export/share theme crash** — `/share` and `/export` no longer fail with "Theme not found: \<in-memory\>". GedPi now writes a fallback theme ("dark") to project settings so Pi's export pipeline can resolve a valid built-in theme.
+- **Checkpoint false-positive warnings** — Removed the `turn_end` post-hoc checkpoint warning that produced spurious alerts. The commit guard (`tool_call` handler for `git commit`) is the sole enforcement mechanism and blocks commits before execution.
+
 ### Features
 
 - **pi-claude-cli provider detection** — GedPi now detects and registers the pi-claude-cli provider at runtime if installed. Install the companion package to make Claude Code CLI models available for subagent assignment via `/ged-agents model`. See the README for setup instructions.

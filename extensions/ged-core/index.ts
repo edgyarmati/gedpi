@@ -14,12 +14,10 @@ import {
 import { createGedCommands } from "../../src/commands.js";
 import { renderHeader } from "../../src/header.js";
 import {
-  detectRecentCommits,
   detectSubagentDispatch,
   plannerGuardMessage,
   readCheckpointState,
   recordCheckpoint,
-  validateAllVerifierCheckpoints,
   validateCommitCheckpoints,
   validatePlannerCheckpoint,
   verifierGuardMessage,
@@ -119,16 +117,22 @@ export default async function gedCoreExtension(
     let piClaudeCli: { default?: (api: ExtensionAPI) => void } | undefined;
 
     // 1. Project-local resolution
-    // @ts-expect-error — optional runtime dependency, not in GedPi's deps
-    try { piClaudeCli = await import("pi-claude-cli"); } catch { /* ok */ }
+    try {
+      // @ts-expect-error — optional runtime dependency, not in GedPi's deps
+      piClaudeCli = await import("pi-claude-cli");
+    } catch {
+      /* ok */
+    }
 
     // 2. createRequire from ged-core's file location
     if (!piClaudeCli) {
       try {
         piClaudeCli = await import(
-          createRequire(import.meta.url).resolve("pi-claude-cli"),
+          createRequire(import.meta.url).resolve("pi-claude-cli")
         );
-      } catch { /* ok */ }
+      } catch {
+        /* ok */
+      }
     }
 
     // 3. npm global prefix (needed when GedPi is symlinked from
@@ -136,11 +140,11 @@ export default async function gedCoreExtension(
     if (!piClaudeCli) {
       for (const prefix of globalPrefixes()) {
         try {
-          piClaudeCli = await import(
-            path.join(prefix, "pi-claude-cli"),
-          );
+          piClaudeCli = await import(path.join(prefix, "pi-claude-cli"));
           if (piClaudeCli) break;
-        } catch { /* ok */ }
+        } catch {
+          /* ok */
+        }
       }
     }
 
@@ -344,32 +348,10 @@ export default async function gedCoreExtension(
     }
   });
 
-  // ─── Turn end (post-hoc checkpoint warning) ─────────────────────
-
-  api.on("turn_end", async (_event, ctx) => {
-    const agentSettings = await readEffectiveGedAgentsSettings(ctx.cwd).catch(
-      () => null,
-    );
-    if (!agentSettings?.enabled) return;
-
-    const recentCommits = await detectRecentCommits(ctx.cwd, 120);
-    if (recentCommits.length === 0) return;
-
-    const checkpointState = await readCheckpointState(ctx.cwd);
-    if (!checkpointState || checkpointState.classification === "trivial")
-      return;
-
-    const validation = validateAllVerifierCheckpoints(checkpointState);
-    if (!validation.valid) {
-      api.sendMessage({
-        customType: "ged-checkpoint-warning",
-        content: `Checkpoint warning: You committed without completing required checkpoints: ${validation.missing.join(", ")}. For non-trivial work, dispatch ged-verifier for clean-context review before committing. If intentionally skipped, record a skip reason in .ged/runtime/checkpoints.json.`,
-        display: true,
-        details: {
-          title: "checkpoint-gate",
-          missing: validation.missing,
-        },
-      });
-    }
-  });
+  // ─── Turn end post-hoc checkpoint warning removed ───────────────
+  // The commit guard (tool_call handler for git commit) is the real
+  // enforcement — it blocks commits before execution. Post-hoc
+  // turn_end validation produces false positives because source edits
+  // after a valid commit invalidate verifier checkpoints, making past
+  // valid commits appear unverified.
 }

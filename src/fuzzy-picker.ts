@@ -166,8 +166,7 @@ class FuzzyModelPicker implements Component {
       this.filtered = this.models;
     } else {
       this.filtered = this.models.filter(
-        (m) =>
-          fuzzyMatch(`${m.provider}/${m.id}`, q) || fuzzyMatch(m.name, q),
+        (m) => fuzzyMatch(`${m.provider}/${m.id}`, q) || fuzzyMatch(m.name, q),
       );
     }
     // Clamp selected index

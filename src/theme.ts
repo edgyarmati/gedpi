@@ -102,6 +102,7 @@ export type RtkMode = "off" | "auto";
 interface PiSettings {
   quietStartup?: boolean;
   gedTheme?: string;
+  theme?: string;
   rtkMode?: RtkMode;
   [key: string]: unknown;
 }
@@ -131,12 +132,25 @@ function writeSettings(cwd: string, settings: PiSettings): void {
 }
 
 export async function ensurePiSettings(cwd: string): Promise<void> {
-  const p = settingsPath(cwd);
-  try {
-    readFileSync(p);
-  } catch {
+  const existing = readSettings(cwd);
+  let modified = false;
+
+  // Preserve original first-run defaults
+  if (existing.quietStartup === undefined) {
+    existing.quietStartup = true;
+    modified = true;
+  }
+
+  // Ensure theme fallback exists for export/share (Pi core can't resolve
+  // the in-memory theme we set via setThemeInstance()).
+  if (!existing.theme) {
+    existing.theme = "dark";
+    modified = true;
+  }
+
+  if (modified) {
     await mkdir(path.join(cwd, ".pi"), { recursive: true });
-    writeSettings(cwd, { quietStartup: true });
+    writeSettings(cwd, existing);
   }
 }
 
