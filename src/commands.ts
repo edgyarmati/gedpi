@@ -1,9 +1,6 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
 // Pi UI context type alias for the command handler
-import type {
-  ExtensionUIContext,
-  ModelRegistry,
-} from "@mariozechner/pi-coding-agent";
+import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
 import {
   formatGedAgentsStatus,
   GED_AGENT_ROLES,
@@ -120,10 +117,11 @@ async function setAgentModel(
   await syncGedSubagentRuntimeConfig(cwd, { modelAvailability: availability });
 
   const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
+  const roleLabel = role === "default" ? "default model" : `${role} model`;
   if (modelId === null) {
-    return `Cleared ${role === "default" ? "default model" : role + " model"} from ${scopeLabel} settings.`;
+    return `Cleared ${roleLabel} from ${scopeLabel} settings.`;
   }
-  return `Set ${role === "default" ? "default model" : role + " model"} to \`${modelId}\` in ${scopeLabel} settings.`;
+  return `Set ${roleLabel} to \`${modelId}\` in ${scopeLabel} settings.`;
 }
 
 async function applyAgentConfig(
@@ -267,8 +265,6 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   if (!ui || !registry) {
     return formatCompactSetup();
   }
-
-  const effective = await readEffectiveGedAgentsSettings(ctx.cwd);
 
   // Step 1: Scope
   const scopeChoice = await ui.select("Set up Ged subagents", [

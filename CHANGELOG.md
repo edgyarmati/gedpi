@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### CI / Developer tooling
+
+- Added root Husky hooks so commits run type-check + GedPi lint, pushes run CI-equivalent verification, and commit messages are checked against the repo's conventional commit prefixes.
+
 ### Fixed
 
 - **Kitty image artifacts on scroll** — Fixed stale Kitty terminal images persisting on screen after scrolling in the fixed-editor compositor. The compositor now emits `deleteAllKittyImages` on every scroll operation (mouse wheel, keyboard, jump-to-target, scroll-to-bottom).
