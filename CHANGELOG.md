@@ -4,7 +4,7 @@
 
 ### Features
 
-- **pi-claude-cli provider detection** — GedPi now detects and registers the pi-claude-cli provider at runtime if installed. Install the companion package (`npm install pi-claude-cli`) to make Claude Code CLI models available for subagent assignment via `/ged-agents model`.
+- **pi-claude-cli provider detection** — GedPi now detects and registers the pi-claude-cli provider at runtime if installed. Install the companion package to make Claude Code CLI models available for subagent assignment via `/ged-agents model`. See the README for setup instructions.
 - **Tintinweb subagents runtime** — GedPi now uses `@tintinweb/pi-subagents` as its default subagent runtime, with Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tooling. The default workflow no longer loads `pi-intercom` or legacy `pi-subagents`.
 
 ### Fixes
