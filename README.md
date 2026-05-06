@@ -1,6 +1,6 @@
 # GedPi
 
-A batteries-included [Pi](https://github.com/badlogic/pi-mono) package with an always-on Ged workflow for interviewing, documenting the spec, and implementing work in bounded slices.
+A batteries-included [Pi](https://github.com/badlogic/pi-mono) package with an always-on workflow for interviewing, documenting the spec, and implementing work in bounded slices.
 
 Requires Node.js 22 or newer.
 
