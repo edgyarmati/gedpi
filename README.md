@@ -72,8 +72,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **ged-memory** | `.ged/` durable memory bootstrap |
 | **glimpseui** | Native micro-UI windows and the optional floating companion widget |
 | **pi-web-access** | Web search and fetch tools for the agent |
-| **pi-intercom** | Inter-agent communication and messaging |
-| **pi-subagents** | Subagent orchestration for parallel and delegated work |
+| **@tintinweb/pi-subagents** | Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tools for read-only Ged scouts, planners, and verifiers |
 | **pi-interview** | Guided Q&A when the agent needs clarification |
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |

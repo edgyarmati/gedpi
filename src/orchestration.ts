@@ -74,14 +74,9 @@ export function detectSubagentDispatch(
   toolName: string,
   input: Record<string, unknown>,
 ): string | null {
-  const supportedTool =
-    toolName === "Agent" ||
-    toolName === "task" ||
-    toolName === "Task" ||
-    toolName === "subagent";
-  if (!supportedTool) return null;
+  if (toolName !== "Agent") return null;
 
-  const subagentType = input.subagent_type || input.agent || input.subagentType;
+  const subagentType = input.subagent_type;
   if (typeof subagentType !== "string") return null;
 
   const normalized = subagentType.toLowerCase();

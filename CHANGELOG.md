@@ -8,7 +8,7 @@
 
 ### Fixes
 
-- **Subagent checkpoint detection** — checkpoint auto-recording now recognizes tintinweb `Agent` calls and legacy task/subagent shapes, and Ged role prompts now reference the actual Agent tool.
+- **Subagent checkpoint detection** — checkpoint auto-recording now recognizes tintinweb `Agent` lifecycle events only, and Ged role prompts now reference the actual Agent tool.
 
 ## 0.15.3 - 2026-05-06
 

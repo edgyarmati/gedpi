@@ -82,11 +82,8 @@ The primary brain may delegate tasks only to these roles. A safe permission shap
 
 ```json
 {
-  "task": {
-    "*": "deny",
-    "ged-explorer": "allow",
-    "ged-planner": "allow",
-    "ged-verifier": "allow"
+  "Agent": {
+    "subagent_type": ["ged-explorer", "ged-planner", "ged-verifier"]
   }
 }
 ```
@@ -303,7 +300,7 @@ Acceptance criterion: `gh auth status` and similar user CLIs should see the user
 - Checkpoint state tracking in `.ged/runtime/checkpoints.json`
 - Turn-end validation: warns if commits happen without ged-verifier checkpoint for non-trivial work
 - Skip-with-reason recording for intentionally skipped checkpoints
-- Prompt instructs brain to dispatch subagents via the `subagent` tool at three mandatory checkpoints
+- Prompt instructs brain to dispatch subagents via the `Agent` tool at three mandatory checkpoints and retrieve background results with `get_subagent_result`
 
 ### How enforcement works
 1. **Prompt enforcement**: The orchestration prompt tells the brain exactly when to dispatch each subagent and how to record checkpoints

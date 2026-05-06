@@ -409,13 +409,16 @@ describe("subagent dispatch detection", () => {
     ).toBe("ged-verifier");
   });
 
-  it("keeps compatibility with legacy task and subagent shapes", () => {
+  it("rejects legacy task/subagent shapes", () => {
     expect(detectSubagentDispatch("Task", { agent: "ged-explorer" })).toBe(
-      "ged-explorer",
+      null,
     );
     expect(
       detectSubagentDispatch("subagent", { subagentType: "ged-planner" }),
-    ).toBe("ged-planner");
+    ).toBe(null);
+    expect(detectSubagentDispatch("Agent", { agent: "ged-planner" })).toBe(
+      null,
+    );
   });
 
   it("ignores unknown roles and tools", () => {

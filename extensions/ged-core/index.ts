@@ -181,16 +181,6 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
     const input = event.input as Record<string, unknown>;
     const toolName: string = (input.toolName as string) ?? "";
 
-    // --- Auto-recording: detect subagent dispatches and record checkpoints ---
-    const subagentName = detectSubagentDispatch(toolName, input);
-    if (subagentName && toolName !== "Agent") {
-      try {
-        await recordGedSubagentCheckpoint(ctx.cwd, subagentName);
-      } catch {
-        // Non-fatal — don't block the subagent dispatch if recording fails
-      }
-    }
-
     // --- Planner guard: block write/edit to non-.ged source files ---
     if (toolName === "write" || toolName === "edit") {
       const filePath = String(
