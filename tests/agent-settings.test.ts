@@ -5,8 +5,10 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   cleanAgentsSettings,
+  modelCandidates,
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
+  selectAgentModel,
   syncGedSubagentRuntimeConfig,
   writeGedAgentsSettings,
 } from "../src/agent-settings.js";
@@ -93,6 +95,37 @@ describe("Ged optional agent settings", () => {
     expect(raw.agents.models).toEqual({ "ged-verifier": "model/v" });
   });
 
+  test("selects the first available model from a fallback chain", () => {
+    const config = {
+      model: "provider/missing-primary",
+      fallback: ["provider/missing-fallback", "provider/available"],
+    };
+
+    expect(modelCandidates(config)).toEqual([
+      "provider/missing-primary",
+      "provider/missing-fallback",
+      "provider/available",
+    ]);
+    expect(
+      selectAgentModel(config, {
+        isAvailable: (modelId) => modelId === "provider/available",
+      }),
+    ).toBe("provider/available");
+  });
+
+  test("omits model selection when no configured model is available", () => {
+    const config = {
+      model: "provider/missing-primary",
+      fallback: ["provider/missing-fallback"],
+    };
+
+    expect(
+      selectAgentModel(config, {
+        isAvailable: () => false,
+      }),
+    ).toBeUndefined();
+  });
+
   test("runtime sync exposes only Ged read-only roles when enabled", async () => {
     const rootDir = await tempDir("ged-agent-sync-root-");
     await mkdir(path.join(rootDir, ".pi"), { recursive: true });
@@ -135,6 +168,54 @@ describe("Ged optional agent settings", () => {
     expect(settings.subagents).toMatchObject({
       agentOverrides: { reviewer: { disabled: true } },
     });
+  });
+
+  test("runtime sync writes the first available fallback model", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      models: {
+        "ged-planner": {
+          model: "provider/missing-primary",
+          fallback: ["provider/available-fallback"],
+        },
+      },
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir, {
+      modelAvailability: {
+        isAvailable: (modelId) => modelId === "provider/available-fallback",
+      },
+    });
+
+    await expect(
+      readFile(path.join(rootDir, ".pi", "agents", "ged-planner.md"), "utf8"),
+    ).resolves.toContain("model: provider/available-fallback");
+  });
+
+  test("runtime sync omits model when no fallback candidate is available", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      models: {
+        "ged-planner": {
+          model: "provider/missing-primary",
+          fallback: ["provider/missing-fallback"],
+        },
+      },
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir, {
+      modelAvailability: {
+        isAvailable: () => false,
+      },
+    });
+
+    const planner = await readFile(
+      path.join(rootDir, ".pi", "agents", "ged-planner.md"),
+      "utf8",
+    );
+    expect(planner).not.toContain("model:");
   });
 
   test("runtime sync gitignores project gedcode settings in git repos", async () => {

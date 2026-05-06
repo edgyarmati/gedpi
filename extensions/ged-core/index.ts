@@ -119,7 +119,24 @@ export default function gedCoreExtension(api: ExtensionAPI): void {
 
   api.on("session_start", async (_event, ctx) => {
     await ensurePiSettings(ctx.cwd);
-    await syncGedSubagentRuntimeConfig(ctx.cwd);
+    await syncGedSubagentRuntimeConfig(
+      ctx.cwd,
+      ctx.modelRegistry
+        ? {
+            modelAvailability: {
+              isAvailable(modelId) {
+                const slashIndex = modelId.indexOf("/");
+                if (slashIndex <= 0 || slashIndex === modelId.length - 1) {
+                  return false;
+                }
+                const provider = modelId.slice(0, slashIndex);
+                const id = modelId.slice(slashIndex + 1);
+                return Boolean(ctx.modelRegistry.find(provider, id));
+              },
+            },
+          }
+        : undefined,
+    );
     ensureBundledPromptTemplates(
       fileURLToPath(
         new URL("../../templates/managed-prompts", import.meta.url),

@@ -28,6 +28,14 @@ export interface GedRuntimeSettings {
   agents?: GedAgentsSettings;
 }
 
+export interface ModelAvailability {
+  isAvailable(modelId: string): boolean;
+}
+
+export interface SyncGedSubagentRuntimeOptions {
+  modelAvailability?: ModelAvailability;
+}
+
 export interface EffectiveGedAgentsSettings {
   enabled: boolean;
   defaultModel?: AgentModelConfig;
@@ -183,6 +191,24 @@ function modelId(value: AgentModelConfig | undefined): string | undefined {
   return typeof value === "string" ? value : value.model;
 }
 
+export function modelCandidates(
+  value: AgentModelConfig | undefined,
+): string[] {
+  const primary = modelId(value);
+  if (!primary) return [];
+  return [...new Set([primary, ...fallbackChain(value)])];
+}
+
+export function selectAgentModel(
+  value: AgentModelConfig | undefined,
+  availability?: ModelAvailability,
+): string | undefined {
+  const candidates = modelCandidates(value);
+  if (candidates.length === 0) return undefined;
+  if (!availability) return candidates[0];
+  return candidates.find((candidate) => availability.isAvailable(candidate));
+}
+
 function fallbackChain(value: AgentModelConfig | undefined): string[] {
   if (!value || typeof value === "string") return [];
   const fb = value.fallback;
@@ -212,8 +238,12 @@ function formatModelConfig(value: AgentModelConfig | undefined): string {
 function bundledRolePrompt(
   role: GedAgentRole,
   effective: EffectiveGedAgentsSettings,
+  availability?: ModelAvailability,
 ): string {
-  const model = modelId(effective.models[role] ?? effective.defaultModel);
+  const model = selectAgentModel(
+    effective.models[role] ?? effective.defaultModel,
+    availability,
+  );
   const modelLine = model ? `model: ${model}\n` : "";
   const thinking = thinkingLevel(
     effective.models[role] ?? effective.defaultModel,
@@ -251,6 +281,7 @@ You are a read-only clean-context reviewer for GedPi. Inspect diffs, tests, and 
 
 export async function syncGedSubagentRuntimeConfig(
   rootDir: string,
+  options: SyncGedSubagentRuntimeOptions = {},
 ): Promise<void> {
   await ensureIgnoredInGitignore(rootDir, ".gedcode/");
   const effective = await readEffectiveGedAgentsSettings(rootDir);
@@ -270,7 +301,7 @@ export async function syncGedSubagentRuntimeConfig(
     GED_AGENT_ROLES.map((role) =>
       writeFileAtomic(
         path.join(agentsDir, `${role}.md`),
-        bundledRolePrompt(role, effective),
+        bundledRolePrompt(role, effective, options.modelAvailability),
       ),
     ),
   );

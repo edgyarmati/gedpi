@@ -13,6 +13,7 @@ import {
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
   readGedRuntimeSettings,
+  type ModelAvailability,
   syncGedSubagentRuntimeConfig,
   writeGedAgentsSettings,
 } from "./agent-settings.js";
@@ -57,13 +58,36 @@ function formatModelRef(model: Model<Api>): string {
   return `${model.provider}/${model.id}`;
 }
 
+function splitModelRef(
+  ref: string,
+): { provider: string; id: string } | undefined {
+  const slashIndex = ref.indexOf("/");
+  if (slashIndex <= 0 || slashIndex === ref.length - 1) return undefined;
+  return {
+    provider: ref.slice(0, slashIndex),
+    id: ref.slice(slashIndex + 1),
+  };
+}
+
+function modelAvailabilityFromRegistry(
+  registry: ModelRegistry | undefined,
+): ModelAvailability | undefined {
+  if (!registry) return undefined;
+  return {
+    isAvailable(modelId) {
+      const parsed = splitModelRef(modelId);
+      if (!parsed) return false;
+      return Boolean(registry.find(parsed.provider, parsed.id));
+    },
+  };
+}
+
 function modelFromRef(
   registry: ModelRegistry,
   ref: string,
 ): Model<Api> | undefined {
-  const [provider, id] = ref.split("/");
-  if (provider && id) return registry.find(provider, id);
-  return undefined;
+  const parsed = splitModelRef(ref);
+  return parsed ? registry.find(parsed.provider, parsed.id) : undefined;
 }
 
 // ─── Searchable model picker ───────────────────────────────────────────
@@ -135,6 +159,7 @@ async function setAgentModel(
   targetPath: string,
   role: "default" | GedAgentRole,
   modelId: string | null,
+  availability?: ModelAvailability,
 ): Promise<string> {
   const filePath = resolveTargetPath(cwd, targetPath);
   const existing = await readGedRuntimeSettings(filePath);
@@ -161,7 +186,7 @@ async function setAgentModel(
   }
 
   await writeGedAgentsSettings(filePath, next);
-  await syncGedSubagentRuntimeConfig(cwd);
+  await syncGedSubagentRuntimeConfig(cwd, { modelAvailability: availability });
 
   const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
   if (modelId === null) {
@@ -178,6 +203,7 @@ async function applyAgentConfig(
     planner?: string;
     verifier?: string;
   },
+  availability?: ModelAvailability,
 ): Promise<string> {
   const filePath = resolveTargetPath(cwd, targetPath);
   const existing = await readGedRuntimeSettings(filePath);
@@ -237,7 +263,7 @@ async function applyAgentConfig(
   }
 
   await writeGedAgentsSettings(filePath, next);
-  await syncGedSubagentRuntimeConfig(cwd);
+  await syncGedSubagentRuntimeConfig(cwd, { modelAvailability: availability });
 
   const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
   const lines = [
@@ -387,11 +413,16 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   }
 
   // Step 6: Apply
-  const result = await applyAgentConfig(ctx.cwd, targetPath, {
-    explorer: formatModelRef(explorerModel),
-    planner: formatModelRef(plannerModel),
-    verifier: formatModelRef(verifierModel),
-  });
+  const result = await applyAgentConfig(
+    ctx.cwd,
+    targetPath,
+    {
+      explorer: formatModelRef(explorerModel),
+      planner: formatModelRef(plannerModel),
+      verifier: formatModelRef(verifierModel),
+    },
+    modelAvailabilityFromRegistry(registry),
+  );
 
   ui.notify("Ged subagents configured", "info");
 
@@ -430,7 +461,11 @@ async function executeGedAgentsCommand(
       ...(existing.agents ?? {}),
       enabled: action === "on",
     });
-    await syncGedSubagentRuntimeConfig(cwd);
+    await syncGedSubagentRuntimeConfig(cwd, {
+      modelAvailability: modelAvailabilityFromRegistry(
+        ctx?.runtime?.ctx.modelRegistry,
+      ),
+    });
     return `Ged optional subagents are now ${action === "on" ? "enabled" : "disabled"} in ${scopeLabel} settings.`;
   }
 
@@ -452,6 +487,7 @@ async function executeGedAgentsCommand(
         targetPath,
         role as "default" | GedAgentRole,
         null,
+        modelAvailabilityFromRegistry(ctx?.runtime?.ctx.modelRegistry),
       );
     }
 
@@ -460,6 +496,7 @@ async function executeGedAgentsCommand(
       targetPath,
       role as "default" | GedAgentRole,
       modelId,
+      modelAvailabilityFromRegistry(ctx?.runtime?.ctx.modelRegistry),
     );
   }
 

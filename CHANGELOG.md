@@ -8,6 +8,7 @@
 
 ### Fixes
 
+- **Subagent model fallbacks** — generated Ged role agents now use the first available model from each configured fallback chain before falling back to the main session model.
 - **Subagent checkpoint detection** — checkpoint auto-recording now recognizes tintinweb `Agent` lifecycle events only, and Ged role prompts now reference the actual Agent tool.
 
 ## 0.15.3 - 2026-05-06
