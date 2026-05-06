@@ -213,7 +213,7 @@ export function extractStalePath(stderr: string): string | null {
   const match = /rmdir ['"](.+?)['"]/u.exec(stderr);
   if (match) return match[1];
   // npm error path /path/to/thing (no quotes)
-  const match2 = /^npm error path (.+)$/um.exec(stderr);
+  const match2 = /^npm error path (.+)$/mu.exec(stderr);
   if (match2) return match2[1].trim();
   return null;
 }
@@ -236,9 +236,7 @@ async function runNpmInstall(version: string): Promise<NpmResult> {
     return { code: 0, stderr: "" };
   } catch (err) {
     const stderr =
-      (err as { stderr?: string }).stderr ??
-      (err as Error).message ??
-      "";
+      (err as { stderr?: string }).stderr ?? (err as Error).message ?? "";
     const code =
       "code" in (err as Record<string, unknown>)
         ? ((err as { code: number }).code ?? 1)
@@ -296,12 +294,7 @@ async function runNpmInstall(version: string): Promise<NpmResult> {
 }
 
 export interface NpmErrorCategory {
-  type:
-    | "permission"
-    | "network"
-    | "stale-directory"
-    | "not-found"
-    | "unknown";
+  type: "permission" | "network" | "stale-directory" | "not-found" | "unknown";
   message: string;
   manualCommand?: string;
 }
@@ -345,7 +338,7 @@ export function categorizeNpmError(
   if (
     /404/u.test(stderr) ||
     /not found/u.test(stderr) ||
-    /spawn npm ENOENT|npm.*ENOENT|ENOENT.*npm/ui.test(stderr)
+    /spawn npm ENOENT|npm.*ENOENT|ENOENT.*npm/iu.test(stderr)
   ) {
     return {
       type: "not-found",
