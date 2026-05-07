@@ -2,30 +2,27 @@
 
 ## Unreleased
 
+## 0.16.0 - 2026-05-07
+
 ### Breaking Changes
 
-- Adopted branch/work-scoped Ged memory: active planning now lives under `.ged/work/<work-id>/` and runtime state/checkpoints live under `.ged/runtime/<work-id>/`; legacy root planning/runtime files are no longer authoritative.
-- Removed the `pi-interview` extension from GedPi. Ambiguous non-trivial requests now use `grill-me` chat clarification instead, followed by a skill-fit checkpoint before planning.
-
-### CI / Developer tooling
-
-- Added root Husky hooks so commits run type-check + GedPi lint, pushes run CI-equivalent verification, and commit messages are checked against the repo's conventional commit prefixes.
-
-### Fixed
-
-- **Kitty image artifacts on scroll** — Fixed stale Kitty terminal images persisting on screen after scrolling in the fixed-editor compositor. The compositor now emits `deleteAllKittyImages` on every scroll operation (mouse wheel, keyboard, jump-to-target, scroll-to-bottom).
-- **Export/share theme crash** — `/share` and `/export` no longer fail with "Theme not found: \<in-memory\>". GedPi now writes a fallback theme ("dark") to project settings so Pi's export pipeline can resolve a valid built-in theme.
-- **Checkpoint false-positive warnings** — Removed the `turn_end` post-hoc checkpoint warning that produced spurious alerts. The commit guard (`tool_call` handler for `git commit`) is the sole enforcement mechanism and blocks commits before execution.
+- **Checkpoint schema v2** — `.ged/runtime/<work-id>/checkpoints.json` now requires `schemaVersion: 2`. Legacy v1 checkpoints are rejected with a migration message. Agents must re-classify tasks to create v2 state.
+- **Subagent enforcement** — planner, verifier, and explorer checkpoints now require `source: "auto"` provenance. Only the auto-recording hook (which detects real `Agent` dispatches) stamps this field. Hand-written checkpoint entries are rejected by the structural guards.
+- **Explorer-first guard** — for non-trivial work, source file inspection (read, grep, find, exploratory bash) is blocked until `ged-explorer` has completed its initial reconnaissance. Only `.md` and `.ged/` files may be read before the explorer runs.
+- **Grill-me enforcement** — planner validation now requires a `clarification` checkpoint with structured evidence (goal, users, scope, constraints). The planner subagent also refuses to plan if the orchestrator's dispatch lacks a `## Grill-me evidence` block.
+- **Planner consumed on commit** — every commit now clears the planner checkpoint, forcing re-planning before the next source edit. A single planner dispatch no longer acts as a permanent hall pass for all future work on the branch.
 
 ### Features
 
-- **Live fuzzy model picker** — `/ged-agents setup` now shows a scrollable fuzzy-search picker with 10 visible models, cursor centered at position 5, and live character-by-character filtering. Esc cancels, Enter confirms.
-- **Tintinweb subagents runtime** — GedPi now uses `@tintinweb/pi-subagents` as its default subagent runtime, with Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tooling. The default workflow no longer loads `pi-intercom` or legacy `pi-subagents`.
+- **Branch hygiene nudge** — when the agent is on `main`, `master`, or a detached HEAD, the system prompt now includes a prominent nudge recommending a feature branch. This gives each piece of work a dedicated `.ged/work/<branch>/` namespace.
+- **Comprehensive explorer prompt** — the explorer subagent prompt now instructs broad reconnaissance: map file structure, identify key types, trace dependency graphs, spot patterns, and report with structured output.
+- **Planner grill-me contract** — the planner subagent now checks for a `## Grill-me evidence` block and refuses to plan if it's missing.
+- **Orchestration diagrams** — README now includes ASCII diagrams for single-brain and subagent orchestration modes, plus a detailed three-tier memory architecture section.
 
 ### Fixes
 
-- **Subagent model fallbacks** — generated Ged role agents now use the first available model from each configured fallback chain before falling back to the main session model.
-- **Subagent checkpoint detection** — checkpoint auto-recording now recognizes tintinweb `Agent` lifecycle events only, and Ged role prompts now reference the actual Agent tool.
+- **Null-branch warning in GedCode** — `buildBranchNudge(null)` now correctly emits the root namespace warning for detached HEAD (previously returned empty string).
+- **GedCode verifier guard message** — updated to handle the new "(auto-recorded)" suffix in missing checkpoint entries.
 
 ## 0.15.3 - 2026-05-06
 
