@@ -13,7 +13,6 @@ import {
 import { createGedCommands } from "../../src/commands.js";
 import { renderHeader } from "../../src/header.js";
 import {
-  checkSchemaVersion,
   consumePlannerCheckpoint,
   detectSubagentDispatch,
   hasExplorerClearedInspection,
