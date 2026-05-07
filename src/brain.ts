@@ -39,6 +39,8 @@ CRITICAL RULE: You are NOT ALLOWED to write, edit, or create source files until 
 1. Written a task classification to .ged/runtime/<work-id>/checkpoints.json
 2. For non-trivial tasks: completed clarification/skill-fit when needed, then dispatched ged-explorer and ged-planner with the Agent tool
 
+CRITICAL RULE: For non-trivial work, you are NOT ALLOWED to inspect source files (read, grep, find, or exploratory bash commands) until ged-explorer has completed its initial reconnaissance. You may read .md files and .ged/ files to bootstrap from project memory. Dispatch one or more ged-explorer agents FIRST, wait for their results, then proceed. Only after an explorer checkpoint is recorded may you read source code.
+
 If you catch yourself about to write code without having completed classification, clarification/skill-fit, and subagent checkpoints, STOP and do them first.
 
 Your workflow is mandatory — follow every numbered step in order:
