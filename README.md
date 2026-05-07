@@ -108,30 +108,152 @@ GedPi always runs the full Ged workflow. There is no toggle — the agent classi
 - In Git repos, Ged ensures `.pi/` is ignored because that directory is only runtime-local Pi state.
 - Every planned or executed task checks for required skills, auto-installs matching skills into `.ged/project-skills/`, creates a project skill when none exists, records task-to-skill dependencies, and removes project skills once no open task still needs them.
 
+## Orchestration Models
+
+GedPi runs in one of two orchestration modes, controlled by `/ged-agents on|off`.
+
+### Single-Brain Mode (default)
+
+The agent does everything inline — classification, clarification (grill-me), skill-fit, planning, implementation, and verification — all in one brain.
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   GEDPI BRAIN                        │
+│                                                      │
+│  1. classify  2. clarify  3. skill-fit  4. plan     │
+│  5. implement  6. verify  7. commit  8. record      │
+│                                                      │
+│  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
+│  │ .ged/    │  │ source   │  │ .ged/runtime/     │  │
+│  │ PROJECT  │  │ files    │  │ STATE.md          │  │
+│  │ STANDARDS│  │          │  │ SESSION-SUMMARY   │  │
+│  │ work/    │  │          │  │ checkpoints.json  │  │
+│  │ SPEC.md  │  │          │  │                   │  │
+│  │ TASKS.md │  │          │  │                   │  │
+│  │ TESTS.md │  │          │  │                   │  │
+│  └──────────┘  └──────────┘  └───────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Subagent Mode (`/ged-agents on`)
+
+The main brain delegates intelligence-gathering to read-only subagents. It remains the sole writer, synthesizer, and decision owner. Structural guards enforce the workflow.
+
+```
+                        ┌─────────────────────────┐
+                        │     GEDPI BRAIN          │
+                        │   (single writer)        │
+                        │                          │
+                        │  classify · clarify      │
+                        │  synthesize · adjudicate │
+                        │  implement · commit      │
+                        └─────┬──────────┬────────┘
+                              │          │
+              ┌───────────────┘          └───────────────┐
+              ▼                                          ▼
+┌──────────────────────────┐              ┌──────────────────────────┐
+│   ged-explorer           │              │   ged-planner            │
+│   (read-only, cheap)     │              │   (read-only)            │
+│                          │              │                          │
+│  • scout codebase        │              │  • critique plan          │
+│  • map structure         │              │  • identify edge cases    │
+│  • find patterns         │              │  • spot missing context   │
+│  • report with evidence  │              │  • require grill-me       │
+│                          │              │    evidence               │
+└──────────────────────────┘              └──────────────────────────┘
+
+              ┌──────────────────────────┐
+              │   ged-verifier           │
+              │   (read-only)            │
+              │                          │
+              │  • review diff & tests   │
+              │  • report blockers       │
+              │  • suggest fixes         │
+              │  • clean-context review  │
+              └──────────────────────────┘
+
+┌───────────────────────────────────────────────────────────────┐
+│                      STRUCTURAL GUARDS                         │
+│                                                                │
+│  ✗ No source inspection before explorer                        │
+│  ✗ No edits without source:auto planner + explorer             │
+│  ✗ No commit without source:auto verifier                      │
+│  ✗ No planner without clarification evidence                   │
+│  ✗ Planner consumed after every commit                         │
+│  ✗ Only .md and .ged/ reads allowed pre-explorer               │
+└───────────────────────────────────────────────────────────────┘
+```
+
 ## Durable Memory
 
-GedPi keeps its working notes in `.ged/`:
+GedPi uses a three-tier memory architecture under `.ged/`. All memory is project-scoped and human-readable markdown.
 
-| File | Purpose |
-|------|---------|
-| `VERSION` | Current `.ged/` standard version |
-| `PROJECT.md` | Problem, users, constraints, success criteria |
-| `SPEC.md` | Exact requested behavior and implementation shape |
-| `STANDARDS.md` | Imported standards accepted from other harness instruction files |
-| `TASKS.md` | Work broken into bounded slices |
-| `TESTS.md` | Checks for the current slice |
-| `STATE.md` | Current phase, active task, blockers |
-| `SESSION-SUMMARY.md` | Progress notes across sessions |
-| `PROGRESS.md` | Ongoing log of project progress |
-| `DECISIONS.md` | Rationale for key choices |
-| `IDEAS.md` | Active, future, and parking-lot ideas |
-| `SKILLS.md` | Installed, recommended, deferred, and rejected skills |
-| `SKILLS-STATE.json` | Machine-readable managed-skills state |
-| `project-skills/` | Project-scoped skills auto-installed or created for active tasks |
-| `plans/` | Plan index and per-plan documents |
-| `specs/` | Versioned detailed specs |
-| `research/` | External research summaries and package notes |
-| `tasks/` | Per-task briefs, outputs, and failure histories |
+### Root — durable project context
+
+These files describe the project as it is now. They evolve slowly and persist across branches.
+
+```
+.ged/
+├── PROJECT.md          goal, users, constraints, success criteria
+├── ARCHITECTURE.md     component boundaries and system shape
+├── PATTERNS.md         implementation conventions
+├── GLOSSARY.md         project/domain vocabulary
+├── DECISIONS.md        durable decisions and rationale
+├── STANDARDS.md        imported repo-wide agent standards
+├── SKILLS.md           skill inventory and recommendations
+├── CONFIG.md           Ged configuration
+└── VERSION             memory schema version
+```
+
+### Work — active implementation contracts
+
+Scoped per-branch under `.ged/work/<work-id>/`. The work-id is the sanitized git branch name, or `root` when no branch exists. Each branch gets its own isolated planning namespace.
+
+```
+.ged/work/<work-id>/
+├── SPEC.md             current work-item contract
+├── TASKS.md            bounded implementation slices
+├── TESTS.md            verification plan and evidence
+├── NOTES.md            handoff notes local to this work
+└── META.json           machine-readable work metadata
+```
+
+### Runtime — session state
+
+Per-branch, ephemeral. Tracks current phase, session handoff, and checkpoint state. The checkpoint file enforces the subagent workflow.
+
+```
+.ged/runtime/<work-id>/
+├── STATE.md            current phase, active task, blockers, next step
+├── SESSION-SUMMARY.md  cross-session handoff notes
+└── checkpoints.json    workflow checkpoint state (schema v2)
+```
+
+### Checkpoint Schema (v2)
+
+The checkpoint file records the provenance of every subagent dispatch. Only auto-recorded checkpoints (written by the tool-call interception layer when a real `Agent` dispatch occurs) are trusted by the structural guards. Hand-written entries are rejected.
+
+```json
+{
+  "schemaVersion": 2,
+  "classification": "non-trivial",
+  "classificationReason": "Feature implementation",
+  "clarification": {
+    "status": "completed",
+    "source": "manual",
+    "evidence": { "goal": "...", "users": "...", "scope": "...", "constraints": "..." }
+  },
+  "planCheckpoints": {
+    "ged-explorer": { "source": "auto", "status": "completed", ... },
+    "ged-planner":  { "source": "auto", "status": "completed", ... }
+  },
+  "taskCheckpoints": {
+    "T01": {
+      "ged-verifier": { "source": "auto", "status": "completed", ... }
+    }
+  }
+}
+```
 
 ## Development
 
