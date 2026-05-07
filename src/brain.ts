@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { readEffectiveGedAgentsSettings } from "./agent-settings.js";
 import type { GedState } from "./contracts.js";
-import { activeGedPaths, relativeGedPath } from "./ged-paths.js";
+import { activeGedPaths, currentWorkId, relativeGedPath } from "./ged-paths.js";
 import { buildOrchestrationPrompt } from "./orchestration.js";
 import { ensurePiSettings, loadSavedTheme } from "./theme.js";
 import type {
@@ -66,6 +66,32 @@ Behavior rules:
 - Keep documentation current in .ged/PROJECT.md, active work SPEC.md/TASKS.md/TESTS.md, and .ged/DECISIONS.md when relevant.
 - When the user request is clear and bounded, skip grilling and move to skill-fit/planning without asking unnecessary extra questions.
 `;
+
+// ─── Branch hygiene nudge ──────────────────────────────────────────────
+
+export const TRUNK_BRANCHES = new Set(["main", "master", "root"]);
+
+export function buildBranchNudge(workId: string): string {
+  if (!TRUNK_BRANCHES.has(workId)) return "";
+
+  if (workId === "root") {
+    return `## ⚠️ Branch Hygiene
+
+No named Git branch was detected, so GedPi is using the \`root\` work namespace.
+Work tracking is less reliable here because unrelated detached/non-branch work can share
+\`.ged/work/root/\`. Before making substantial changes, strongly suggest to the user:
+
+    git checkout -b <descriptive-branch-name>`;
+  }
+
+  return `## ⚠️ Branch Hygiene
+
+You are on the \`${workId}\` branch. GedPi strongly recommends working in a feature branch
+so each piece of work gets a dedicated \`.ged/work/<branch>/\` namespace and the trunk
+stays clean. Before making substantial changes, suggest to the user:
+
+    git checkout -b <descriptive-branch-name>`;
+}
 
 function buildBrainSystemAppend(agentsEnabled: boolean): string {
   const base = agentsEnabled
@@ -231,7 +257,9 @@ ${clipSection(tests, 1200)}`,
 export async function buildBrainSystemPromptSuffix(
   cwd: string,
 ): Promise<string> {
+  const workId = await currentWorkId(cwd);
+  const branchNudge = buildBranchNudge(workId);
   const passive = await buildPassiveGedPromptSuffix(cwd);
   const workflow = await buildWorkflowPromptSuffix(cwd);
-  return [passive, workflow].filter(Boolean).join("\n\n");
+  return [branchNudge, passive, workflow].filter(Boolean).join("\n\n");
 }

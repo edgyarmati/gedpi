@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -6,8 +7,10 @@ import { describe, expect, test } from "vitest";
 import gedCoreExtension from "../extensions/ged-core/index.js";
 import {
   buildBrainSystemPromptSuffix,
+  buildBranchNudge,
   buildPassiveGedPromptSuffix,
   ensureGedReady,
+  TRUNK_BRANCHES,
 } from "../src/brain.js";
 
 async function createTempProject(prefix: string): Promise<string> {
@@ -56,6 +59,105 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain(".ged/PROJECT.md");
     expect(prompt).not.toContain("### .ged/TASKS.md");
     expect(prompt).not.toContain("### .ged/TESTS.md");
+  });
+
+  describe("buildBranchNudge", () => {
+    test("returns nudge for main branch", () => {
+      const nudge = buildBranchNudge("main");
+      expect(nudge).toContain("## ⚠️ Branch Hygiene");
+      expect(nudge).toContain("`main`");
+      expect(nudge).toContain("feature branch");
+      expect(nudge).toContain("git checkout -b");
+    });
+
+    test("returns nudge for master branch", () => {
+      const nudge = buildBranchNudge("master");
+      expect(nudge).toContain("## ⚠️ Branch Hygiene");
+      expect(nudge).toContain("`master`");
+      expect(nudge).toContain("feature branch");
+    });
+
+    test("returns nudge for root work-id", () => {
+      const nudge = buildBranchNudge("root");
+      expect(nudge).toContain("## ⚠️ Branch Hygiene");
+      expect(nudge).toContain("No named Git branch");
+      expect(nudge).toContain("`root` work namespace");
+      expect(nudge).not.toContain("feature branch");
+    });
+
+    test("returns empty string for feature branches", () => {
+      expect(buildBranchNudge("feat-foo")).toBe("");
+      expect(buildBranchNudge("fix-bar")).toBe("");
+      expect(buildBranchNudge("chore/update-deps")).toBe("");
+      expect(buildBranchNudge("feature/my-cool-thing")).toBe("");
+    });
+
+    test("returns empty string for empty work-id", () => {
+      expect(buildBranchNudge("")).toBe("");
+    });
+
+    test("TRUNK_BRANCHES contains expected values", () => {
+      expect(TRUNK_BRANCHES.has("main")).toBe(true);
+      expect(TRUNK_BRANCHES.has("master")).toBe(true);
+      expect(TRUNK_BRANCHES.has("root")).toBe(true);
+      expect(TRUNK_BRANCHES.size).toBe(3);
+    });
+  });
+
+  test("buildBrainSystemPromptSuffix includes branch nudge when no git repo (root work-id)", async () => {
+    const rootDir = await createTempProject("ged-brain-nudge-");
+    await ensureGedReady(rootDir);
+
+    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+
+    expect(prompt).toContain("## ⚠️ Branch Hygiene");
+    expect(prompt).toContain("No named Git branch");
+    expect(prompt).toContain("`root` work namespace");
+    // Nudge should appear before the passive durable standards section
+    const nudgeIndex = prompt.indexOf("## ⚠️ Branch Hygiene");
+    const standardsIndex = prompt.indexOf("## Ged Durable Standards");
+    expect(nudgeIndex).toBeLessThan(standardsIndex);
+  });
+
+  test("buildBrainSystemPromptSuffix omits branch nudge on feature branch", async () => {
+    const rootDir = await createTempProject("ged-brain-feat-");
+    execSync("git init -b feat/my-work", { cwd: rootDir });
+    execSync('git config user.email "test@gedpi.dev"', { cwd: rootDir });
+    execSync('git config user.name "GedPi Test"', { cwd: rootDir });
+    execSync("git commit --allow-empty -m 'initial'", { cwd: rootDir });
+    await ensureGedReady(rootDir);
+
+    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+
+    expect(prompt).not.toContain("## ⚠️ Branch Hygiene");
+  });
+
+  test("buildBrainSystemPromptSuffix includes branch nudge on main branch", async () => {
+    const rootDir = await createTempProject("ged-brain-main-");
+    execSync("git init -b main", { cwd: rootDir });
+    execSync('git config user.email "test@gedpi.dev"', { cwd: rootDir });
+    execSync('git config user.name "GedPi Test"', { cwd: rootDir });
+    execSync("git commit --allow-empty -m 'initial'", { cwd: rootDir });
+    await ensureGedReady(rootDir);
+
+    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+
+    expect(prompt).toContain("## ⚠️ Branch Hygiene");
+    expect(prompt).toContain("`main`");
+  });
+
+  test("buildBrainSystemPromptSuffix includes branch nudge on master branch", async () => {
+    const rootDir = await createTempProject("ged-brain-master-");
+    execSync("git init -b master", { cwd: rootDir });
+    execSync('git config user.email "test@gedpi.dev"', { cwd: rootDir });
+    execSync('git config user.name "GedPi Test"', { cwd: rootDir });
+    execSync("git commit --allow-empty -m 'initial'", { cwd: rootDir });
+    await ensureGedReady(rootDir);
+
+    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+
+    expect(prompt).toContain("## ⚠️ Branch Hygiene");
+    expect(prompt).toContain("`master`");
   });
 
   test("gedCoreExtension always initializes and injects the full workflow prompt", async () => {
