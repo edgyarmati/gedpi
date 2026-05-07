@@ -13,10 +13,19 @@ import {
 import { createGedCommands } from "../../src/commands.js";
 import { renderHeader } from "../../src/header.js";
 import {
+  checkSchemaVersion,
+  consumePlannerCheckpoint,
   detectSubagentDispatch,
+  hasExplorerClearedInspection,
+  hasSkipCheckpointMarker,
+  invalidateVerifierCheckpoints,
+  isGitCommitCommand,
+  isSafePreExplorerRead,
   plannerGuardMessage,
   readCheckpointState,
-  recordCheckpoint,
+  readCheckpointStateOrMigrationError,
+  recordAutoCheckpoint,
+  shouldAutoEscalate,
   validateCommitCheckpoints,
   validatePlannerCheckpoint,
   verifierGuardMessage,
@@ -47,13 +56,6 @@ import {
 import { registerThemeCommand } from "../../src/theme-command.js";
 import { registerUpdater } from "../../src/updater.js";
 import type { CheckpointAgent } from "../../src/vendor/shared-checkpoints.js";
-import {
-  consumePlannerCheckpoint,
-  hasSkipCheckpointMarker,
-  invalidateVerifierCheckpoints,
-  isGitCommitCommand,
-  shouldAutoEscalate,
-} from "../../src/vendor/shared-checkpoints.js";
 import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
 
 // ─── Session-level touched-files tracking ──────────────────────────
@@ -67,6 +69,7 @@ async function recordGedSubagentCheckpoint(
   let state = await readCheckpointState(cwd);
   if (!state) {
     state = {
+      schemaVersion: 2,
       classification: "non-trivial",
       classificationReason: "Subagent dispatched — auto-classified",
       planCheckpoints: {},
@@ -75,13 +78,15 @@ async function recordGedSubagentCheckpoint(
   }
   const isTaskAgent =
     subagentName === "ged-explorer" || subagentName === "ged-verifier";
-  const next = recordCheckpoint(
+  const next = recordAutoCheckpoint(
     state,
     {
       agent: subagentName as CheckpointAgent,
       timestamp: new Date().toISOString(),
       status: "completed",
-      blocksCommit: subagentName === "ged-verifier" ? true : undefined,
+      // Verifiers start with blocksCommit: false until they report findings.
+      // The agent adjudicates findings and the verifier re-runs with findings.
+      blocksCommit: subagentName === "ged-verifier" ? undefined : undefined,
     },
     isTaskAgent ? "auto" : undefined,
   );
@@ -199,7 +204,55 @@ export default async function gedCoreExtension(
     const input = event.input as Record<string, unknown>;
     const toolName: string = (input.toolName as string) ?? "";
 
-    // --- Planner guard: block write/edit to non-.ged source files ---
+    // --- Explorer-first guard: block source inspection before explorer runs ---
+    // Non-trivial work must dispatch ged-explorer before reading source files.
+    // Only .md and .ged/ reads are allowed before explorer completes.
+    const sourceInspectingTool =
+      toolName === "read" ||
+      toolName === "grep" ||
+      toolName === "find" ||
+      (toolName === "bash" &&
+        typeof (input as Record<string, unknown>).command === "string" &&
+        !["git status", "git branch", "git log", "git diff"].some((safe) =>
+          ((input as Record<string, unknown>).command as string).startsWith(
+            safe,
+          ),
+        ));
+
+    if (sourceInspectingTool) {
+      const state = await readCheckpointState(ctx.cwd);
+      if (state && state.classification === "non-trivial") {
+        // Check if explorer has cleared source inspection
+        if (!hasExplorerClearedInspection(state)) {
+          // Allow .md files and .ged/ paths unconditionally
+          const targetPath =
+            toolName === "read" || toolName === "grep"
+              ? String(
+                  (input as Record<string, unknown>).filePath ??
+                    (input as Record<string, unknown>).path ??
+                    "",
+                )
+              : "";
+          if (!targetPath || !isSafePreExplorerRead(targetPath)) {
+            api.sendMessage({
+              customType: "ged-checkpoint-blocked",
+              content:
+                "GedPi explorer-first guard: for non-trivial work, source file inspection (read/grep/find) is blocked until ged-explorer has completed its initial reconnaissance. Dispatch ged-explorer with the Agent tool first. Only .md and .ged/ files may be read before explorer runs.",
+              display: true,
+              details: {
+                title: "explorer-first-guard",
+                missing: ["ged-explorer (auto-recorded)"],
+              },
+            });
+            return {
+              block: true,
+              reason:
+                "GedPi explorer-first guard: dispatch ged-explorer before inspecting source files.",
+            };
+          }
+        }
+      }
+    }
     if (toolName === "write" || toolName === "edit") {
       const filePath = String(
         (input as Record<string, unknown>).filePath ??
@@ -216,6 +269,28 @@ export default async function gedCoreExtension(
       }
 
       let state = await readCheckpointState(ctx.cwd);
+
+      // Check for legacy schema that needs migration
+      if (!state) {
+        const { migrationError } = await readCheckpointStateOrMigrationError(
+          ctx.cwd,
+        );
+        if (migrationError) {
+          api.sendMessage({
+            customType: "ged-checkpoint-blocked",
+            content: `GedPi planner guard: ${migrationError}`,
+            display: true,
+            details: {
+              title: "planner-guard",
+              missing: ["schema-migration"],
+            },
+          });
+          return {
+            block: true,
+            reason: `GedPi planner guard: ${migrationError}`,
+          };
+        }
+      }
 
       // Auto-escalation: if classified as trivial but touching >1 source file,
       // reclassify to non-trivial and persist. This triggers the planner guard

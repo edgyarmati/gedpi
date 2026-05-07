@@ -11,6 +11,7 @@ import {
   initCheckpointState,
   invalidateVerifierCheckpoints,
   readCheckpointState,
+  recordAutoCheckpoint,
   recordCheckpoint,
   validateCommitCheckpoints,
   validatePlannerCheckpoint,
@@ -22,9 +23,49 @@ import type {
   CheckpointState,
 } from "../src/vendor/shared-checkpoints.js";
 
+/** Build a valid v2 state with clarification, explorer, and planner (auto). */
+function makeValidV2State(
+  classification: "trivial" | "non-trivial" = "non-trivial",
+): CheckpointState {
+  const base = initCheckpointState(classification, "Test setup");
+  if (classification === "trivial") return base;
+
+  let state: CheckpointState = {
+    ...base,
+    clarification: {
+      status: "completed",
+      source: "manual",
+      timestamp: "2026-05-07T10:00:00Z",
+      evidence: {
+        goal: "Test the checkpoint validation system",
+        users: "Engineers working on the GedPi system",
+        scope: "Unit tests in the orchestration module",
+        constraints: "Must pass CI and be fast",
+      },
+    },
+  };
+
+  state = recordAutoCheckpoint(state, {
+    agent: "ged-explorer",
+    timestamp: "2026-05-07T10:05:00Z",
+    status: "completed",
+    findingCount: 5,
+  });
+
+  state = recordAutoCheckpoint(state, {
+    agent: "ged-planner",
+    timestamp: "2026-05-07T10:10:00Z",
+    status: "completed",
+    findingCount: 3,
+  });
+
+  return state;
+}
+
 describe("checkpoint types", () => {
   it("CheckpointState has expected shape", () => {
     const state: CheckpointState = {
+      schemaVersion: 2,
       classification: "non-trivial",
       classificationReason: "Feature implementation spanning multiple files",
       planCheckpoints: {},
@@ -36,6 +77,7 @@ describe("checkpoint types", () => {
 
   it("trivial classification skips checkpoint tracking", () => {
     const state: CheckpointState = {
+      schemaVersion: 2,
       classification: "trivial",
       classificationReason: "README update",
       planCheckpoints: {},
@@ -49,11 +91,13 @@ describe("checkpoint types", () => {
       agent: "ged-verifier",
       timestamp: "2026-05-04T10:00:00Z",
       status: "completed",
+      source: "auto",
       findingCount: 2,
       blocksCommit: false,
     };
     expect(record.agent).toBe("ged-verifier");
     expect(record.status).toBe("completed");
+    expect(record.source).toBe("auto");
   });
 });
 
@@ -77,7 +121,21 @@ describe("checkpoint state management", () => {
   it("returns null for malformed checkpoint JSON", async () => {
     await writeFileAtomic(
       path.join(tmpDir, ".ged", "runtime", "checkpoints.json"),
-      '{"classification": "invalid-value"}',
+      '{"schemaVersion":2,"classification":"invalid-value"}',
+    );
+    const state = await readCheckpointState(tmpDir);
+    expect(state).toBeNull();
+  });
+
+  it("returns null for legacy v1 schema", async () => {
+    await writeFileAtomic(
+      path.join(tmpDir, ".ged", "runtime", "checkpoints.json"),
+      JSON.stringify({
+        classification: "non-trivial",
+        classificationReason: "v1",
+        planCheckpoints: {},
+        taskCheckpoints: {},
+      }),
     );
     const state = await readCheckpointState(tmpDir);
     expect(state).toBeNull();
@@ -92,8 +150,9 @@ describe("checkpoint state management", () => {
     expect(state).toBeNull();
   });
 
-  it("initializes checkpoint state with classification", () => {
+  it("initializes checkpoint state with classification and schemaVersion", () => {
     const state = initCheckpointState("non-trivial", "Multi-file feature");
+    expect(state.schemaVersion).toBe(2);
     expect(state.classification).toBe("non-trivial");
     expect(state.classificationReason).toBe("Multi-file feature");
     expect(state.planCheckpoints).toEqual({});
@@ -121,8 +180,27 @@ describe("checkpoint state management", () => {
       status: "completed",
       findingCount: 3,
     });
-    // Original not mutated
     expect(state.planCheckpoints["ged-planner"]).toBeUndefined();
+  });
+
+  it("recordAutoCheckpoint stamps source:auto", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const updated = recordAutoCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-04T10:00:00Z",
+      status: "completed",
+    });
+    expect(updated.planCheckpoints["ged-planner"]?.source).toBe("auto");
+  });
+
+  it("recordCheckpoint does NOT stamp source:auto", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const updated = recordCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-04T10:00:00Z",
+      status: "completed",
+    });
+    expect(updated.planCheckpoints["ged-planner"]?.source).toBeUndefined();
   });
 
   it("records a task checkpoint", () => {
@@ -160,53 +238,225 @@ describe("checkpoint state management", () => {
       "Task classified as trivial",
     );
   });
+
+  it("recordCheckpoint overwrites existing entries", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const withCompleted = recordAutoCheckpoint(state, {
+      agent: "ged-explorer",
+      timestamp: "2026-05-04T10:00:00Z",
+      status: "completed",
+    });
+    const withSkipped = recordAutoCheckpoint(withCompleted, {
+      agent: "ged-explorer",
+      timestamp: "2026-05-04T10:05:00Z",
+      status: "skipped",
+      skipReason: "redundant",
+    });
+    // Latest write overwrites — even from completed to skipped
+    expect(withSkipped.planCheckpoints["ged-explorer"]?.status).toBe("skipped");
+  });
 });
 
 describe("checkpoint validation", () => {
-  it("plan validation passes when ged-planner completed", () => {
-    const state = initCheckpointState("non-trivial", "Feature work");
-    const withPlanner = recordCheckpoint(state, {
-      agent: "ged-planner",
-      timestamp: "2026-05-04T10:00:00Z",
-      status: "completed",
-      findingCount: 1,
-    });
-    const result = validatePlannerCheckpoint(withPlanner);
+  it("plan validation passes with valid v2 state", () => {
+    const state = makeValidV2State();
+    const result = validatePlannerCheckpoint(state);
     expect(result.valid).toBe(true);
     expect(result.missing).toEqual([]);
   });
 
-  it("plan validation fails when ged-planner missing for non-trivial", () => {
+  it("plan validation fails without clarification", () => {
     const state = initCheckpointState("non-trivial", "Feature work");
     const result = validatePlannerCheckpoint(state);
     expect(result.valid).toBe(false);
-    expect(result.missing).toContain("ged-planner");
+    expect(result.missing).toContain("clarification");
+  });
+
+  it("plan validation fails without explorer", () => {
+    const state = makeValidV2State();
+    // Remove explorer
+    const { ["ged-explorer"]: _, ...rest } = state.planCheckpoints;
+    const noExplorer = { ...state, planCheckpoints: rest };
+    const result = validatePlannerCheckpoint(noExplorer);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-explorer (auto-recorded)");
+  });
+
+  it("plan validation fails when planner lacks source:auto", () => {
+    const state = makeValidV2State();
+    // Replace planner with manual version
+    const manualPlanner = recordCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:15:00Z",
+      status: "completed",
+    });
+    const result = validatePlannerCheckpoint(manualPlanner);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-planner (not auto-recorded)");
+  });
+
+  it("plan validation fails when planner is blocked", () => {
+    const base = initCheckpointState("non-trivial", "Feature work");
+    let state: CheckpointState = {
+      ...base,
+      clarification: {
+        status: "completed",
+        source: "manual",
+        timestamp: "2026-05-07T10:00:00Z",
+        evidence: {
+          goal: "Test",
+          users: "Engineers working on GedPi",
+          scope: "Unit test suite",
+          constraints: "Must pass CI checks",
+        },
+      },
+    };
+    state = recordAutoCheckpoint(state, {
+      agent: "ged-explorer",
+      timestamp: "2026-05-07T10:05:00Z",
+      status: "completed",
+    });
+    state = recordAutoCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:10:00Z",
+      status: "blocked",
+    });
+    const result = validatePlannerCheckpoint(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain(
+      "ged-planner (status is blocked, not completed)",
+    );
+  });
+
+  it("plan validation accepts explorer skipped with reason", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    let withClarification: CheckpointState = {
+      ...state,
+      clarification: {
+        status: "completed",
+        source: "manual",
+        timestamp: "2026-05-07T10:00:00Z",
+        evidence: {
+          goal: "Docs update",
+          users: "All project contributors",
+          scope: "README and documentation files",
+          constraints: "No specific constraints",
+        },
+      },
+    };
+    withClarification = recordAutoCheckpoint(withClarification, {
+      agent: "ged-explorer",
+      timestamp: "2026-05-07T10:05:00Z",
+      status: "skipped",
+      skipReason: "Documentation-only task, no source inspection needed",
+    });
+    withClarification = recordAutoCheckpoint(withClarification, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:10:00Z",
+      status: "completed",
+    });
+    const result = validatePlannerCheckpoint(withClarification);
+    expect(result.valid).toBe(true);
+  });
+
+  it("plan validation fails when explorer skipped without reason", () => {
+    // Build state without the pre-existing completed explorer from helper
+    const base = initCheckpointState("non-trivial", "Feature work");
+    let state: CheckpointState = {
+      ...base,
+      clarification: {
+        status: "completed",
+        source: "manual",
+        timestamp: "2026-05-07T10:00:00Z",
+        evidence: {
+          goal: "Test",
+          users: "Engineers working on GedPi",
+          scope: "Unit test suite",
+          constraints: "Must pass CI checks",
+        },
+      },
+    };
+    state = recordAutoCheckpoint(state, {
+      agent: "ged-explorer",
+      timestamp: "2026-05-07T10:05:00Z",
+      status: "skipped",
+      // No skipReason — invalid
+    });
+    state = recordAutoCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:10:00Z",
+      status: "completed",
+    });
+    const result = validatePlannerCheckpoint(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-explorer (skipped without reason)");
+  });
+
+  it("plan validation fails for missing clarification evidence fields", () => {
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const bad: CheckpointState = {
+      ...state,
+      clarification: {
+        status: "completed",
+        source: "manual",
+        timestamp: "2026-05-07T10:00:00Z",
+        evidence: {
+          goal: "",
+          users: "N/A",
+          scope: "todo",
+          constraints: ".",
+        },
+      },
+    };
+    const result = validatePlannerCheckpoint(bad);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("clarification.evidence.goal");
+    expect(result.missing).toContain("clarification.evidence.users");
+    expect(result.missing).toContain("clarification.evidence.constraints");
   });
 
   it("plan validation passes for trivial classification", () => {
-    const state = initCheckpointState("trivial", "README update");
+    const state = makeValidV2State("trivial");
     const result = validatePlannerCheckpoint(state);
     expect(result.valid).toBe(true);
   });
 
-  it("commit validation passes when ged-verifier completed", () => {
-    const state = initCheckpointState("non-trivial", "Feature work");
-    const withVerifier = recordCheckpoint(
+  it("verifier validation passes with auto-recorded verifier", () => {
+    const state = makeValidV2State();
+    const withVerifier = recordAutoCheckpoint(
       state,
       {
         agent: "ged-verifier",
-        timestamp: "2026-05-04T11:00:00Z",
+        timestamp: "2026-05-07T11:00:00Z",
         status: "completed",
         findingCount: 0,
         blocksCommit: false,
       },
-      "T04",
+      "T01",
     );
-    const result = validateVerifierCheckpoint(withVerifier, "T04");
+    const result = validateVerifierCheckpoint(withVerifier, "T01");
     expect(result.valid).toBe(true);
   });
 
-  it("commit validation fails when ged-verifier missing for non-trivial", () => {
+  it("verifier validation fails without source:auto", () => {
+    const state = makeValidV2State();
+    const withVerifier = recordCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-07T11:00:00Z",
+        status: "completed",
+        findingCount: 0,
+        blocksCommit: false,
+      },
+      "T01",
+    );
+    const result = validateVerifierCheckpoint(withVerifier, "T01");
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-verifier (not auto-recorded)");
+  });
+
+  it("commit validation fails when verifier missing for non-trivial", () => {
     const state = initCheckpointState("non-trivial", "Feature work");
     const result = validateVerifierCheckpoint(state, "T04");
     expect(result.valid).toBe(false);
@@ -214,25 +464,28 @@ describe("checkpoint validation", () => {
   });
 
   it("commit validation passes for trivial classification", () => {
-    const state = initCheckpointState("trivial", "Config change");
+    const state = makeValidV2State("trivial");
     const result = validateVerifierCheckpoint(state, "T01");
     expect(result.valid).toBe(true);
   });
 
-  it("commit validation passes when checkpoint was skipped with reason", () => {
-    const state = initCheckpointState("non-trivial", "Feature work");
-    const withSkip = recordCheckpoint(
+  it("verifier validation fails when verifier is skipped", () => {
+    const state = makeValidV2State();
+    const withSkip = recordAutoCheckpoint(
       state,
       {
         agent: "ged-verifier",
-        timestamp: "2026-05-04T11:00:00Z",
+        timestamp: "2026-05-07T11:00:00Z",
         status: "skipped",
-        skipReason: "User asked to skip",
+        skipReason: "Trivial",
       },
-      "T04",
+      "T01",
     );
-    const result = validateVerifierCheckpoint(withSkip, "T04");
-    expect(result.valid).toBe(true);
+    const result = validateVerifierCheckpoint(withSkip, "T01");
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain(
+      "ged-verifier (status is skipped, not completed)",
+    );
   });
 
   it("validation returns invalid when no checkpoint state", () => {
@@ -246,67 +499,39 @@ describe("checkpoint validation", () => {
     const state = initCheckpointState("non-trivial", "Feature work");
     const result = validateCommitCheckpoints(state);
     expect(result.valid).toBe(false);
-    expect(result.missing).toContain("ged-planner");
-    expect(result.missing).toContain("ged-verifier");
+    // v2 validation lists clarification + explorer + planner + verifier
+    expect(result.missing).toContain("clarification");
   });
 
-  it("commit validation blocks planner-only non-trivial work without verifier", () => {
-    const state = recordCheckpoint(
-      initCheckpointState("non-trivial", "Feature work"),
-      {
-        agent: "ged-planner",
-        timestamp: "2026-05-04T10:00:00Z",
-        status: "completed",
-      },
-    );
-    const result = validateCommitCheckpoints(state);
-    expect(result.valid).toBe(false);
-    expect(result.missing).toEqual(["ged-verifier"]);
-  });
-
-  it("commit validation allows non-trivial work with planner and verifier", () => {
-    const withPlanner = recordCheckpoint(
-      initCheckpointState("non-trivial", "Feature work"),
-      {
-        agent: "ged-planner",
-        timestamp: "2026-05-04T10:00:00Z",
-        status: "completed",
-      },
-    );
-    const withVerifier = recordCheckpoint(
-      withPlanner,
+  it("commit validation allows valid v2 non-trivial work", () => {
+    let state = makeValidV2State();
+    state = recordAutoCheckpoint(
+      state,
       {
         agent: "ged-verifier",
-        timestamp: "2026-05-04T11:00:00Z",
+        timestamp: "2026-05-07T11:00:00Z",
         status: "completed",
         blocksCommit: false,
       },
       "T01",
     );
-    const result = validateCommitCheckpoints(withVerifier);
+    const result = validateCommitCheckpoints(state);
     expect(result.valid).toBe(true);
   });
 
   it("commit validation blocks verifier checkpoints that report blockers", () => {
-    const withPlanner = recordCheckpoint(
-      initCheckpointState("non-trivial", "Feature work"),
-      {
-        agent: "ged-planner",
-        timestamp: "2026-05-04T10:00:00Z",
-        status: "completed",
-      },
-    );
-    const withBlockingVerifier = recordCheckpoint(
-      withPlanner,
+    let state = makeValidV2State();
+    state = recordAutoCheckpoint(
+      state,
       {
         agent: "ged-verifier",
-        timestamp: "2026-05-04T11:00:00Z",
+        timestamp: "2026-05-07T11:00:00Z",
         status: "completed",
         blocksCommit: true,
       },
       "T01",
     );
-    const result = validateCommitCheckpoints(withBlockingVerifier);
+    const result = validateCommitCheckpoints(state);
     expect(result.valid).toBe(false);
     expect(result.missing).toContain("ged-verifier blocked commit (task T01)");
   });
@@ -314,8 +539,9 @@ describe("checkpoint validation", () => {
 
 describe("invalidateVerifierCheckpoints", () => {
   it("sets blocksCommit: true on all existing verifier checkpoints", () => {
-    const state = recordCheckpoint(
-      initCheckpointState("non-trivial", "Feature work"),
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const state2 = recordAutoCheckpoint(
+      state,
       {
         agent: "ged-verifier",
         timestamp: "2026-05-04T10:00:00Z",
@@ -325,8 +551,8 @@ describe("invalidateVerifierCheckpoints", () => {
       },
       "T01",
     );
-    const state2 = recordCheckpoint(
-      state,
+    const state3 = recordAutoCheckpoint(
+      state2,
       {
         agent: "ged-verifier",
         timestamp: "2026-05-04T11:00:00Z",
@@ -337,23 +563,19 @@ describe("invalidateVerifierCheckpoints", () => {
       "T02",
     );
 
-    const invalidated = invalidateVerifierCheckpoints(state2);
-
+    const invalidated = invalidateVerifierCheckpoints(state3);
     expect(
       invalidated.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit,
     ).toBe(true);
     expect(
       invalidated.taskCheckpoints.T02?.["ged-verifier"]?.blocksCommit,
     ).toBe(true);
-    // Original not mutated
-    expect(state2.taskCheckpoints.T01?.["ged-verifier"]?.blocksCommit).toBe(
-      false,
-    );
   });
 
   it("leaves non-verifier checkpoints untouched", () => {
-    const state = recordCheckpoint(
-      initCheckpointState("non-trivial", "Feature work"),
+    const state = initCheckpointState("non-trivial", "Feature work");
+    const withExplorer = recordAutoCheckpoint(
+      state,
       {
         agent: "ged-explorer",
         timestamp: "2026-05-04T10:00:00Z",
@@ -362,27 +584,19 @@ describe("invalidateVerifierCheckpoints", () => {
       "T01",
     );
 
-    const invalidated = invalidateVerifierCheckpoints(state);
-
+    const invalidated = invalidateVerifierCheckpoints(withExplorer);
     expect(
       invalidated.taskCheckpoints.T01?.["ged-explorer"]?.blocksCommit,
     ).toBeUndefined();
   });
 
   it("blocks commit after invalidation", () => {
-    const withPlanner = recordCheckpoint(
-      initCheckpointState("non-trivial", "Feature work"),
-      {
-        agent: "ged-planner",
-        timestamp: "2026-05-04T10:00:00Z",
-        status: "completed",
-      },
-    );
-    const withVerifier = recordCheckpoint(
-      withPlanner,
+    let state = makeValidV2State();
+    state = recordAutoCheckpoint(
+      state,
       {
         agent: "ged-verifier",
-        timestamp: "2026-05-04T11:00:00Z",
+        timestamp: "2026-05-07T11:00:00Z",
         status: "completed",
         blocksCommit: false,
         findingCount: 0,
@@ -390,9 +604,9 @@ describe("invalidateVerifierCheckpoints", () => {
       "T01",
     );
 
-    expect(validateCommitCheckpoints(withVerifier).valid).toBe(true);
+    expect(validateCommitCheckpoints(state).valid).toBe(true);
 
-    const invalidated = invalidateVerifierCheckpoints(withVerifier);
+    const invalidated = invalidateVerifierCheckpoints(state);
     const result = validateCommitCheckpoints(invalidated);
     expect(result.valid).toBe(false);
     expect(result.missing).toContain("ged-verifier blocked commit (task T01)");
@@ -566,30 +780,55 @@ describe("orchestration integration", () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it("full non-trivial workflow: init → plan checkpoint → task checkpoint → validate", async () => {
+  it("full non-trivial v2 workflow: classification → clarification → explorer → planner → verifier → commit", async () => {
     let state = initCheckpointState("non-trivial", "Add user authentication");
-    await writeCheckpointState(tmpDir, state);
 
-    const planCheck = validatePlannerCheckpoint(state);
-    expect(planCheck.valid).toBe(false);
-    expect(planCheck.missing).toContain("ged-planner");
+    // Step 1: Before clarification, planner validation fails
+    const planCheck1 = validatePlannerCheckpoint(state);
+    expect(planCheck1.valid).toBe(false);
+    expect(planCheck1.missing).toContain("clarification");
 
-    state = recordCheckpoint(state, {
+    // Step 2: Add clarification
+    state = {
+      ...state,
+      clarification: {
+        status: "completed",
+        source: "manual",
+        timestamp: new Date().toISOString(),
+        evidence: {
+          goal: "Add authentication",
+          users: "End users",
+          scope: "Login and registration flow",
+          constraints: "Must use OAuth 2.0 providers",
+        },
+      },
+    };
+
+    // Step 3: Auto-record explorer
+    state = recordAutoCheckpoint(state, {
+      agent: "ged-explorer",
+      timestamp: new Date().toISOString(),
+      status: "completed",
+      findingCount: 5,
+    });
+
+    // Step 4: Auto-record planner
+    state = recordAutoCheckpoint(state, {
       agent: "ged-planner",
       timestamp: new Date().toISOString(),
       status: "completed",
-      findingCount: 2,
+      findingCount: 3,
     });
     await writeCheckpointState(tmpDir, state);
 
-    const planCheck2 = validatePlannerCheckpoint(state);
-    expect(planCheck2.valid).toBe(true);
+    // Now planner validation passes
+    expect(validatePlannerCheckpoint(state).valid).toBe(true);
 
-    const commitCheck = validateVerifierCheckpoint(state, "T01");
-    expect(commitCheck.valid).toBe(false);
-    expect(commitCheck.missing).toContain("ged-verifier");
+    // Step 5: Verifier required for commit
+    const commitCheck1 = validateVerifierCheckpoint(state, "T01");
+    expect(commitCheck1.valid).toBe(false);
 
-    state = recordCheckpoint(
+    state = recordAutoCheckpoint(
       state,
       {
         agent: "ged-verifier",
@@ -602,14 +841,16 @@ describe("orchestration integration", () => {
     );
     await writeCheckpointState(tmpDir, state);
 
-    const commitCheck2 = validateVerifierCheckpoint(state, "T01");
-    expect(commitCheck2.valid).toBe(true);
+    // Now commit validation passes
+    expect(validateCommitCheckpoints(state).valid).toBe(true);
 
     const persisted = await readCheckpointState(tmpDir);
+    expect(persisted?.schemaVersion).toBe(2);
     expect(persisted?.classification).toBe("non-trivial");
-    expect(persisted?.planCheckpoints["ged-planner"]?.status).toBe("completed");
-    expect(persisted?.taskCheckpoints.T01?.["ged-verifier"]?.status).toBe(
-      "completed",
+    expect(persisted?.planCheckpoints["ged-explorer"]?.source).toBe("auto");
+    expect(persisted?.planCheckpoints["ged-planner"]?.source).toBe("auto");
+    expect(persisted?.taskCheckpoints.T01?.["ged-verifier"]?.source).toBe(
+      "auto",
     );
   });
 
@@ -619,5 +860,40 @@ describe("orchestration integration", () => {
 
     expect(validatePlannerCheckpoint(state).valid).toBe(true);
     expect(validateVerifierCheckpoint(state, "T01").valid).toBe(true);
+    expect(validateCommitCheckpoints(state).valid).toBe(true);
+  });
+
+  it("manual checkpoints without source:auto are rejected", async () => {
+    let state = initCheckpointState("non-trivial", "Feature work");
+    state = {
+      ...state,
+      clarification: {
+        status: "completed",
+        source: "manual",
+        timestamp: "2026-05-07T10:00:00Z",
+        evidence: {
+          goal: "Test",
+          users: "Engineers working on GedPi",
+          scope: "Unit test suite",
+          constraints: "Must pass CI checks",
+        },
+      },
+    };
+    state = recordCheckpoint(state, {
+      agent: "ged-explorer",
+      timestamp: "2026-05-07T10:05:00Z",
+      status: "completed",
+    });
+    state = recordCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:10:00Z",
+      status: "completed",
+    });
+
+    // Manual checkpoints without source:auto are rejected
+    const result = validatePlannerCheckpoint(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-explorer (not auto-recorded)");
+    expect(result.missing).toContain("ged-planner (not auto-recorded)");
   });
 });

@@ -7,16 +7,24 @@ import type {
   CheckpointState,
   CheckpointValidation,
 } from "./vendor/shared-checkpoints.js";
-import { parseCheckpointState } from "./vendor/shared-checkpoints.js";
+import {
+  checkSchemaVersion,
+  parseCheckpointState,
+} from "./vendor/shared-checkpoints.js";
 
 export {
+  checkSchemaVersion,
   consumePlannerCheckpoint,
+  hasExplorerClearedInspection,
   hasSkipCheckpointMarker,
   initCheckpointState,
   invalidateVerifierCheckpoints,
   isGitCommitCommand,
+  isSafePreExplorerRead,
   parseCheckpointState,
+  recordAutoCheckpoint,
   recordCheckpoint,
+  shouldAutoEscalate,
   validateAllVerifierCheckpoints,
   validateCommitCheckpoints,
   validatePlannerCheckpoint,
@@ -31,9 +39,27 @@ export async function readCheckpointState(
   try {
     const paths = await activeGedPaths(rootDir);
     const raw = await readFile(paths.checkpointsPath, "utf8");
+    const schemaCheck = checkSchemaVersion(raw);
+    if (!schemaCheck.ok) return null;
     return parseCheckpointState(raw);
   } catch {
     return null;
+  }
+}
+
+export async function readCheckpointStateOrMigrationError(
+  rootDir: string,
+): Promise<{ state: CheckpointState | null; migrationError: string | null }> {
+  try {
+    const paths = await activeGedPaths(rootDir);
+    const raw = await readFile(paths.checkpointsPath, "utf8");
+    const schemaCheck = checkSchemaVersion(raw);
+    if (!schemaCheck.ok) {
+      return { state: null, migrationError: schemaCheck.error };
+    }
+    return { state: parseCheckpointState(raw), migrationError: null };
+  } catch {
+    return { state: null, migrationError: null };
   }
 }
 
