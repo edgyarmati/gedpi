@@ -58,6 +58,9 @@ export function recordCheckpoint(
 export function invalidateVerifierCheckpoints(
   state: CheckpointState,
 ): CheckpointState;
+export function consumePlannerCheckpoint(
+  state: CheckpointState,
+): CheckpointState;
 export function isGitCommitCommand(command: string): boolean;
 export function hasSkipCheckpointMarker(command: string): boolean;
 export function shouldAutoEscalate(

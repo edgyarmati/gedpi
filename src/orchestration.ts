@@ -10,6 +10,7 @@ import type {
 import { parseCheckpointState } from "./vendor/shared-checkpoints.js";
 
 export {
+  consumePlannerCheckpoint,
   hasSkipCheckpointMarker,
   initCheckpointState,
   invalidateVerifierCheckpoints,

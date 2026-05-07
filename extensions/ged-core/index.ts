@@ -48,6 +48,7 @@ import { registerThemeCommand } from "../../src/theme-command.js";
 import { registerUpdater } from "../../src/updater.js";
 import type { CheckpointAgent } from "../../src/vendor/shared-checkpoints.js";
 import {
+  consumePlannerCheckpoint,
   hasSkipCheckpointMarker,
   invalidateVerifierCheckpoints,
   isGitCommitCommand,
@@ -278,6 +279,13 @@ export default async function gedCoreExtension(
             details: { title: "verifier-guard", missing: validation.missing },
           });
           return { block: true, reason: verifierGuardMessage(validation) };
+        }
+
+        // Consume the planner checkpoint so the next source edit requires
+        // fresh planning — even for sequential slices of the same plan.
+        if (state && state.classification === "non-trivial") {
+          const consumed = consumePlannerCheckpoint(state);
+          await writeCheckpointState(ctx.cwd, consumed);
         }
       }
     }
