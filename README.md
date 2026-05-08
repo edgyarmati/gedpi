@@ -14,7 +14,7 @@ Requires Node.js 22 or newer.
 - Keeps durable standards and project context in `.ged/`.
 - Writes specs, tasks, and progress into `.ged/` and tracks workflow state across sessions.
 - Adds a repo map that indexes supported source files, ranks them by structure plus recent activity, and injects a compact codebase-awareness block into Ged prompts.
-- Bundles web search, themed UI, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, a task viewer, a powerbar, and automatic updates out of the box.
+- Bundles web search, amp-themes-powered UI styling, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
 - Documents a future [single-writer intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as the default writer while using scouts, smart friends, and clean-context reviewers for additional intelligence.
 
 ## Install
@@ -68,15 +68,17 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 
 | Extension | What it does |
 |-----------|-------------|
-| **ged-core** | Brain workflow, themed header, session init, system prompt injection |
+| **ged-core** | Brain workflow, header, session init, shortcuts, updater, and system prompt injection |
 | **ged-memory** | `.ged/` durable memory bootstrap |
 | **glimpseui** | Native micro-UI windows and the optional floating companion widget |
 | **pi-web-access** | Web search and fetch tools for the agent |
 | **@tintinweb/pi-subagents** | Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tools for read-only Ged scouts, planners, and verifiers |
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
-| **pi-powerline-footer** | Powerline-style status bar with git, context, cost, model, and thinking segments |
 | **pi-extension-settings** | Settings persistence for extensions |
+| **amp-themes** | Bundled theme files plus editor and user-message styling, selected through Pi settings |
+| **pi-tool-display** | Tool display renderer bundled through `amp-themes` |
+| **pi-fixed-editor** | Keeps the input box pinned at the bottom while chat history scrolls |
 
 ### Native Micro-UI
 
@@ -89,7 +91,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/diff-review` | Open a native git diff review window and insert feedback into the editor |
 | `/commit` | Review local changes and create a descriptive conventional commit |
 | `/push` | Push the current branch, with automatic recovery flow if the first push fails |
-| `/theme` | Switch between color presets (lavender, ember, ocean, mint, rose, gold, arctic, neon, copper, slate) |
+| `/settings` | Open Pi settings, including theme selection from bundled `amp-themes` themes |
 | `/update` | Check for GedPi updates |
 | `/ged-rtk` | Install RTK and control Ged's bash-side RTK routing (status, install, on, off) |
 | `/ged-agents` | Configure optional read-only Ged subagents (status, setup, on, off) |

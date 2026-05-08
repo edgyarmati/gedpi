@@ -14,8 +14,8 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
 - [pi-web-access](https://www.npmjs.com/package/pi-web-access)
   - Web search and fetch tools for the agent
   - Guided Q&A interface for user clarification
-- [@juanibiapina/pi-powerbar](https://www.npmjs.com/package/@juanibiapina/pi-powerbar) by Juani Biapina
-  - Powerline-style status bar with extensible segments
+- [amp-themes](https://www.npmjs.com/package/amp-themes)
+  - Theme files, editor chrome, user-message styling, and bundled `pi-tool-display`
 - [@juanibiapina/pi-extension-settings](https://www.npmjs.com/package/@juanibiapina/pi-extension-settings) by Juani Biapina
   - Settings persistence for Pi extensions
 
@@ -28,8 +28,10 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
 
 ## Ecosystem inspiration
 
+- [@tintinweb/pi-subagents](https://www.npmjs.com/package/@tintinweb/pi-subagents)
+  - Read-only scout, planner, and verifier subagent tools (direct dependency)
 - [nicobailon/pi-subagents](https://github.com/nicobailon/pi-subagents) by Nico Bailon
-  - Isolated worker/expert execution substrate (direct dependency) and broader subagent and extension ecosystem inspiration
+  - Broader subagent and extension ecosystem inspiration
 - The broader Pi community
   - Package, skill, and workflow ideas that shaped the GedPi direction
 

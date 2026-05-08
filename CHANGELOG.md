@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Documentation
+
+- Updated GedPi theme and bundled extension documentation to reflect the current `amp-themes`/Pi settings integration instead of the old custom `/theme` preset picker and powerbar references.
+
 ## 0.17.0 - 2026-05-08
 
 ### Features
