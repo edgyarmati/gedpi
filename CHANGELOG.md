@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.17.0 - 2026-05-08
+
 ### Features
 
 - **Fixed editor compositor** — new minimal `vendor/pi-fixed-editor` extension keeps the input box pinned at the bottom while scrolling chat history. Loaded after amp-themes. If a future Pi update breaks it, simply remove `./vendor/pi-fixed-editor/index.ts` from `pi.extensions` in `package.json`.
