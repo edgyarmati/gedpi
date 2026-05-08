@@ -1,10 +1,10 @@
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 import type {
   ExtensionUIContext,
   ModelRegistry,
-} from "@mariozechner/pi-coding-agent";
-import type { Component, KeybindingsManager } from "@mariozechner/pi-tui";
-import { truncateToWidth } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import type { Component, KeybindingsManager } from "@earendil-works/pi-tui";
+import { truncateToWidth } from "@earendil-works/pi-tui";
 
 // ─── Fuzzy matching ────────────────────────────────────────────────────
 

@@ -37,7 +37,7 @@
     "src",
     "templates",
     "vendor/pi-diff-review",
-    "vendor/pi-powerline-footer",
+    "vendor/pi-fixed-editor",
     "README.md",
     "CREDITS.md"
   ],
@@ -67,32 +67,39 @@
       "./node_modules/pi-diff-review/src/index.ts",
       "./node_modules/pi-prompt-template-model/index.ts",
       "./node_modules/@juanibiapina/pi-extension-settings/dist/index.js",
-      "./vendor/pi-powerline-footer/index.ts"
+      "./node_modules/amp-themes/extensions/amp-editor.ts",
+      "./node_modules/amp-themes/node_modules/pi-tool-display/index.ts",
+      "./node_modules/amp-themes/extensions/amp-user-message.ts",
+      "./vendor/pi-fixed-editor/index.ts"
     ],
     "skills": [
       "./skills",
       "./node_modules/glimpseui/skills",
       "./node_modules/pi-web-access/skills",
-      "./node_modules/pi-prompt-template-model/skills"
+      "./node_modules/pi-prompt-template-model/skills",
+      "./node_modules/amp-themes/skills"
     ],
     "prompts": [
       "./prompts"
+    ],
+    "themes": [
+      "./node_modules/amp-themes/themes"
     ]
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.131",
+    "@earendil-works/pi-coding-agent": "^0.74.0",
     "@juanibiapina/pi-extension-settings": "^0.6.1",
-    "@mariozechner/pi-coding-agent": "^0.73.0",
     "@tintinweb/pi-subagents": "^0.7.0",
+    "amp-themes": "^0.2.17",
     "glimpseui": "^0.8.0",
     "pi-diff-review": "file:./vendor/pi-diff-review",
-    "pi-powerline-footer": "file:./vendor/pi-powerline-footer",
     "pi-prompt-template-model": "^0.9.1",
     "pi-web-access": "^0.10.7",
     "zod": "^4.4.3"
   },
   "overrides": {
-    "@mariozechner/pi-tui": "0.72.1",
+    "@earendil-works/pi-tui": "0.74.0",
     "@mozilla/readability": "0.6.0",
     "brace-expansion": "5.0.5",
     "picomatch": "4.0.4",

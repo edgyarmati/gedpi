@@ -54,7 +54,7 @@ export function resolvePiCliPath() {
   return path.join(
     getGedPackageDir(),
     "node_modules",
-    "@mariozechner",
+    "@earendil-works",
     "pi-coding-agent",
     "dist",
     "cli.js",
@@ -123,6 +123,37 @@ export function ensureQuietStartupDefault(baseEnv = process.env) {
   }
 }
 
+export function ensureDefaultTheme(baseEnv = process.env) {
+  const agentDir = resolveAgentDir(baseEnv);
+  const settingsFile = path.join(agentDir, "settings.json");
+
+  try {
+    const raw = readFileSync(settingsFile, "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && parsed.theme === undefined) {
+      writeFileAtomicSync(
+        settingsFile,
+        `${JSON.stringify({ ...parsed, theme: "amp-gruvbox-dark-hard" }, null, 2)}\n`,
+      );
+    }
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? error.code
+        : undefined;
+
+    if (code !== "ENOENT") {
+      return;
+    }
+
+    mkdirSync(agentDir, { recursive: true });
+    writeFileAtomicSync(
+      settingsFile,
+      `${JSON.stringify({ quietStartup: true, theme: "amp-gruvbox-dark-hard" }, null, 2)}\n`,
+    );
+  }
+}
+
 export function buildPiProcessSpec(
   argv = process.argv.slice(2),
   baseEnv = process.env,
@@ -136,6 +167,7 @@ export function buildPiProcessSpec(
 
 export async function runGed(argv = process.argv.slice(2), options = {}) {
   ensureQuietStartupDefault(options.env);
+  ensureDefaultTheme(options.env);
   const spec = buildPiProcessSpec(argv, options.env);
 
   return await new Promise((resolve, reject) => {

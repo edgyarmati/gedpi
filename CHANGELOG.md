@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Features
+
+- **Fixed editor compositor** — new minimal `vendor/pi-fixed-editor` extension keeps the input box pinned at the bottom while scrolling chat history. Loaded after amp-themes. If a future Pi update breaks it, simply remove `./vendor/pi-fixed-editor/index.ts` from `pi.extensions` in `package.json`.
+- **Default theme `amp-gruvbox-dark-hard`** — new GedPi users (or users without a global theme preference) now default to the `amp-gruvbox-dark-hard` theme. Existing user theme choices in `~/.pi/agent/settings.json` are respected.
+
 ## 0.16.0 - 2026-05-07
 
 ### Breaking Changes

@@ -2,8 +2,8 @@ import type {
   ExtensionAPI,
   ExtensionCommandContext,
   Theme,
-} from "@mariozechner/pi-coding-agent";
-import { Box, Text } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import { Box, Text } from "@earendil-works/pi-tui";
 
 export interface AppCommandContext {
   cwd: string;

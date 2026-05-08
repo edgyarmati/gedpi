@@ -33,7 +33,7 @@ describe("ged launcher", () => {
   });
 
   test("resolvePiCliPath resolves the installed Pi CLI", () => {
-    expect(resolvePiCliPath()).toContain("@mariozechner/pi-coding-agent");
+    expect(resolvePiCliPath()).toContain("@earendil-works/pi-coding-agent");
     expect(resolvePiCliPath().endsWith(path.join("dist", "cli.js"))).toBe(true);
   });
 

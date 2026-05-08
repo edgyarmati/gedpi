@@ -275,7 +275,7 @@ describe("checkpoint validation", () => {
   it("plan validation fails without explorer", () => {
     const state = makeValidV2State();
     // Remove explorer
-    const { ["ged-explorer"]: _, ...rest } = state.planCheckpoints;
+    const { "ged-explorer": _, ...rest } = state.planCheckpoints;
     const noExplorer = { ...state, planCheckpoints: rest };
     const result = validatePlannerCheckpoint(noExplorer);
     expect(result.valid).toBe(false);

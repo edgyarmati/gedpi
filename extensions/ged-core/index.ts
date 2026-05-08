@@ -1,6 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   readEffectiveGedAgentsSettings,
   syncGedSubagentRuntimeConfig,
@@ -46,13 +46,10 @@ import {
   registerRtkBashRouting,
 } from "../../src/rtk.js";
 import {
-  createGedTheme,
   ensurePiSettings,
   formatGedStatus,
-  loadSavedTheme,
   readRtkMode,
 } from "../../src/theme.js";
-import { registerThemeCommand } from "../../src/theme-command.js";
 import { registerUpdater } from "../../src/updater.js";
 import type { CheckpointAgent } from "../../src/vendor/shared-checkpoints.js";
 import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
@@ -115,7 +112,6 @@ export default async function gedCoreExtension(
 
   registerGedMessageRenderer(api);
   registerPiCommands(api, createGedCommands());
-  registerThemeCommand(api);
   registerUpdater(api);
   registerRtkBashRouting(api);
   registerRepoMapTracking(api);
@@ -147,9 +143,7 @@ export default async function gedCoreExtension(
         new URL("../../templates/managed-prompts", import.meta.url),
       ),
     );
-    loadSavedTheme(ctx.cwd);
     ctx.ui.setTitle("GedPi");
-    ctx.ui.setTheme(createGedTheme());
     ctx.ui.setHeader((_tui, theme) => renderHeader(theme));
     ctx.ui.setStatus("gedpi", formatGedStatus());
     ctx.ui.setStatus("rtk", formatRtkModeStatus(readRtkMode(ctx.cwd), false));

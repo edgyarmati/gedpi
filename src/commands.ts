@@ -1,6 +1,6 @@
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 // Pi UI context type alias for the command handler
-import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
   formatGedAgentsStatus,
   GED_AGENT_ROLES,

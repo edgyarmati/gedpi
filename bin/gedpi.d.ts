@@ -5,6 +5,7 @@ export function buildGedEnvironment(
   baseEnv?: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv;
 export function ensureQuietStartupDefault(baseEnv?: NodeJS.ProcessEnv): void;
+export function ensureDefaultTheme(baseEnv?: NodeJS.ProcessEnv): void;
 export function buildPiProcessSpec(
   argv?: string[],
   baseEnv?: NodeJS.ProcessEnv,

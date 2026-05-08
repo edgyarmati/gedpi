@@ -5,7 +5,7 @@ import { readEffectiveGedAgentsSettings } from "./agent-settings.js";
 import type { GedState } from "./contracts.js";
 import { activeGedPaths, currentWorkId, relativeGedPath } from "./ged-paths.js";
 import { buildOrchestrationPrompt } from "./orchestration.js";
-import { ensurePiSettings, loadSavedTheme } from "./theme.js";
+import { ensurePiSettings } from "./theme.js";
 import type {
   EnsureCurrentGedResult,
   InitializeGedOptions,
@@ -166,7 +166,6 @@ export async function ensureGedReady(
   options: InitializeGedOptions = {},
 ): Promise<EnsureGedInitResult> {
   await ensurePiSettings(cwd);
-  loadSavedTheme(cwd);
   const result: EnsureCurrentGedResult = await ensureGedProjectCurrent(
     cwd,
     options,

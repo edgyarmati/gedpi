@@ -2,10 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { Theme } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
-
-import { welcome as welcomeColor } from "./theme.js";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { Text } from "@earendil-works/pi-tui";
 
 const WELCOME_MESSAGES: readonly string[] = [
   "Ready to turn ideas into code.",
@@ -53,7 +51,7 @@ export function renderHeader(theme: Theme): Text {
 
   const subtitle = theme.fg("muted", `— GedPi v${VERSION} —`);
   const tagline = theme.fg("muted", "plan · build · verify");
-  const greeting = welcomeColor(welcome);
+  const greeting = theme.fg("accent", welcome);
 
   const lines = [subtitle, tagline, greeting, ""];
   return new Text(lines.join("\n"), 1, 0);
