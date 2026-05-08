@@ -1,3 +1,4 @@
+import type { Dirent } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -144,10 +145,23 @@ async function loadIgnoreRules(dir: string): Promise<IgnoreRule[]> {
 
 async function walkEligibleFiles(context: WalkContext): Promise<string[]> {
   const absoluteDir = path.join(context.rootDir, context.relativeDir);
-  const [entries, localRules] = await Promise.all([
-    readdir(absoluteDir, { withFileTypes: true }),
-    loadIgnoreRules(absoluteDir),
-  ]);
+  let entries: Dirent[];
+  let localRules: IgnoreRule[] = [];
+  try {
+    [entries, localRules] = await Promise.all([
+      readdir(absoluteDir, { withFileTypes: true }),
+      loadIgnoreRules(absoluteDir),
+    ]);
+  } catch (err) {
+    if (
+      err instanceof Error &&
+      "code" in err &&
+      (err.code === "EPERM" || err.code === "EACCES")
+    ) {
+      return [];
+    }
+    throw err;
+  }
   const rules = [...context.rules, ...localRules];
   const results: string[] = [];
 
