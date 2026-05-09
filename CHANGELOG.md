@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.17.1 - 2026-05-09
+
+### Fixes
+
+- **Fixed MODULE_NOT_FOUND on `npm install`** — the launcher now uses `require.resolve` to locate the Pi CLI dependency instead of a hardcoded path, correctly handling npm dependency hoisting in local installs.
+
 ### Documentation
 
 - Updated GedPi theme and bundled extension documentation to reflect the current `amp-themes`/Pi settings integration instead of the old custom `/theme` preset picker and powerbar references.

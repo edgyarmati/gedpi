@@ -12,9 +12,12 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+const require = createRequire(import.meta.url);
 
 function writeFileAtomicSync(filePath, content) {
   const tempPath = `${filePath}.${randomBytes(6).toString("hex")}.tmp`;
@@ -51,14 +54,7 @@ export function getGedpiVersion() {
 }
 
 export function resolvePiCliPath() {
-  return path.join(
-    getGedPackageDir(),
-    "node_modules",
-    "@earendil-works",
-    "pi-coding-agent",
-    "dist",
-    "cli.js",
-  );
+  return require.resolve("@earendil-works/pi-coding-agent/dist/cli.js");
 }
 
 export function buildGedEnvironment(baseEnv = process.env) {
