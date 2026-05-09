@@ -11,10 +11,8 @@
       "./src/index.ts"
     ]
   },
-  "dependencies": {
-    "glimpseui": "^0.6.0"
-  },
   "peerDependencies": {
+    "glimpseui": "*",
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {

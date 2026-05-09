@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.17.4 - 2026-05-09
+
+### Fixes
+
+- **Removed legacy Pi transitive install warnings** — vendored `pi-diff-review` now uses GedPi's top-level `glimpseui` package instead of installing an older nested copy that pulled deprecated `@mariozechner/*` Pi packages.
+
 ## 0.17.3 - 2026-05-09
 
 ### Fixes
