@@ -54,7 +54,8 @@ export function getGedpiVersion() {
 }
 
 export function resolvePiCliPath() {
-  return require.resolve("@earendil-works/pi-coding-agent/dist/cli.js");
+  const mainPath = require.resolve("@earendil-works/pi-coding-agent");
+  return path.join(path.dirname(mainPath), "cli.js");
 }
 
 export function buildGedEnvironment(baseEnv = process.env) {
