@@ -1,6 +1,6 @@
 {
   "name": "gedpi",
-  "version": "0.17.2",
+  "version": "0.17.3",
   "description": "Single-agent Pi package that clarifies requests, documents the spec, and implements work in bounded slices.",
   "type": "module",
   "license": "MIT",
@@ -46,7 +46,7 @@
     "check": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "test": "vitest run",
+    "test": "vitest run --pool=forks --maxWorkers=1",
     "verify": "npm run check && npm run lint && npm test && npm run pack:check",
     "pack:check": "npm pack --dry-run",
     "prepublishOnly": "npm run verify"

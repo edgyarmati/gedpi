@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   realpathSync,
@@ -54,6 +55,28 @@ export function getGedpiVersion() {
 }
 
 export function resolvePiCliPath() {
+  let currentDir = getGedPackageDir();
+  while (true) {
+    const cliPath = path.join(
+      currentDir,
+      "node_modules",
+      "@earendil-works",
+      "pi-coding-agent",
+      "dist",
+      "cli.js",
+    );
+
+    if (existsSync(cliPath)) {
+      return cliPath;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      break;
+    }
+    currentDir = parentDir;
+  }
+
   const mainPath = require.resolve("@earendil-works/pi-coding-agent");
   return path.join(path.dirname(mainPath), "cli.js");
 }

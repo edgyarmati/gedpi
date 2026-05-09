@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.17.3 - 2026-05-09
+
+### Fixes
+
+- **Fixed Pi CLI resolution under package exports** — the launcher now resolves the installed Pi CLI file without relying on package root export resolution, restoring release verification on Node 24.
+- **Fixed inactive Husky checks** — the root `prepare` script now installs the repository's `.husky` hooks into Git's configured hooks directory so commit/push checks run locally.
+
 ## 0.17.2 - 2026-05-09
 
 ### Fixes
