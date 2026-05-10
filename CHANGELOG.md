@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.17.5 - 2026-05-10
+
+### Fixes
+
+- Suppressed bundled Pi changelog notices on GedPi startup after Pi dependency upgrades while keeping GedPi's own update flow intact.
+- Disabled the fixed-editor compositor extension to restore responsive typing while the no-lag redesign is investigated.
+
 ## 0.17.4 - 2026-05-09
 
 ### Fixes

@@ -1,11 +1,13 @@
 export function getGedPackageDir(): string;
 export function getGedpiVersion(): string;
 export function resolvePiCliPath(): string;
+export function getBundledPiVersion(): string | null;
 export function buildGedEnvironment(
   baseEnv?: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv;
 export function ensureQuietStartupDefault(baseEnv?: NodeJS.ProcessEnv): void;
 export function ensureDefaultTheme(baseEnv?: NodeJS.ProcessEnv): void;
+export function suppressBundledPiChangelog(baseEnv?: NodeJS.ProcessEnv): void;
 export function buildPiProcessSpec(
   argv?: string[],
   baseEnv?: NodeJS.ProcessEnv,

@@ -16,10 +16,12 @@ import {
   buildGedEnvironment,
   buildPiProcessSpec,
   ensureQuietStartupDefault,
+  getBundledPiVersion,
   getGedPackageDir,
   isGedEntrypointInvocation,
   resolvePiCliPath,
   runGed,
+  suppressBundledPiChangelog,
 } from "../bin/gedpi.js";
 
 function modeBits(mode: number): number {
@@ -37,10 +39,15 @@ describe("ged launcher", () => {
     expect(resolvePiCliPath().endsWith(path.join("dist", "cli.js"))).toBe(true);
   });
 
-  test("buildGedEnvironment preserves caller environment", () => {
+  test("getBundledPiVersion resolves the installed Pi package version", () => {
+    expect(getBundledPiVersion()).toMatch(/^\d+\.\d+\.\d+/);
+  });
+
+  test("buildGedEnvironment preserves caller environment and suppresses Pi update checks", () => {
     const env = buildGedEnvironment({ FOO: "bar" });
 
     expect(env.FOO).toBe("bar");
+    expect(env.PI_SKIP_VERSION_CHECK).toBe("1");
   });
 
   test("buildPiProcessSpec launches Node with the Pi CLI and Ged package path", () => {
@@ -102,6 +109,45 @@ describe("ged launcher", () => {
     ensureQuietStartupDefault({ PI_CODING_AGENT_DIR: agentDir });
 
     expect(modeBits((await stat(settingsPath)).mode)).toBe(0o600);
+  });
+
+  test("suppressBundledPiChangelog records the bundled Pi version", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ged-agent-pi-"));
+    const agentDir = path.join(tempDir, "agent");
+
+    suppressBundledPiChangelog({ PI_CODING_AGENT_DIR: agentDir });
+
+    const settings = JSON.parse(
+      await readFile(path.join(agentDir, "settings.json"), "utf8"),
+    ) as { lastChangelogVersion?: string; enableInstallTelemetry?: boolean };
+
+    expect(settings.lastChangelogVersion).toBe(getBundledPiVersion());
+    expect(settings.enableInstallTelemetry).toBeUndefined();
+  });
+
+  test("suppressBundledPiChangelog preserves existing settings", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ged-agent-pi-"));
+    const agentDir = path.join(tempDir, "agent");
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      path.join(agentDir, "settings.json"),
+      `${JSON.stringify({ theme: "rose", enableInstallTelemetry: true }, null, 2)}\n`,
+      "utf8",
+    );
+
+    suppressBundledPiChangelog({ PI_CODING_AGENT_DIR: agentDir });
+
+    const settings = JSON.parse(
+      await readFile(path.join(agentDir, "settings.json"), "utf8"),
+    ) as {
+      lastChangelogVersion?: string;
+      theme?: string;
+      enableInstallTelemetry?: boolean;
+    };
+
+    expect(settings.lastChangelogVersion).toBe(getBundledPiVersion());
+    expect(settings.theme).toBe("rose");
+    expect(settings.enableInstallTelemetry).toBe(true);
   });
 
   test("runGed is typed as resolving the child exit code", () => {

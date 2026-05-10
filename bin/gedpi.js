@@ -54,6 +54,22 @@ export function getGedpiVersion() {
   return pkg.version ?? "0.0.0";
 }
 
+function findNearestPackageJson(startDir) {
+  let currentDir = startDir;
+  while (true) {
+    const packagePath = path.join(currentDir, "package.json");
+    if (existsSync(packagePath)) {
+      return packagePath;
+    }
+
+    const parentDir = path.dirname(currentDir);
+    if (parentDir === currentDir) {
+      return null;
+    }
+    currentDir = parentDir;
+  }
+}
+
 export function resolvePiCliPath() {
   let currentDir = getGedPackageDir();
   while (true) {
@@ -79,6 +95,21 @@ export function resolvePiCliPath() {
 
   const mainPath = require.resolve("@earendil-works/pi-coding-agent");
   return path.join(path.dirname(mainPath), "cli.js");
+}
+
+export function getBundledPiVersion() {
+  const cliPath = resolvePiCliPath();
+  const packagePath = findNearestPackageJson(path.dirname(cliPath));
+  if (!packagePath) {
+    return null;
+  }
+
+  try {
+    const pkg = JSON.parse(readFileSync(packagePath, "utf8"));
+    return typeof pkg.version === "string" ? pkg.version : null;
+  } catch {
+    return null;
+  }
 }
 
 export function buildGedEnvironment(baseEnv = process.env) {
@@ -108,70 +139,68 @@ function resolveAgentDir(baseEnv = process.env) {
   return envDir;
 }
 
-export function ensureQuietStartupDefault(baseEnv = process.env) {
-  const agentDir = resolveAgentDir(baseEnv);
+function readAgentSettings(agentDir) {
   const settingsFile = path.join(agentDir, "settings.json");
-
   try {
-    const raw = readFileSync(settingsFile, "utf8");
-    const parsed = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed === "object" &&
-      parsed.quietStartup === undefined
-    ) {
-      writeFileAtomicSync(
-        settingsFile,
-        `${JSON.stringify({ ...parsed, quietStartup: true }, null, 2)}\n`,
-      );
-    }
+    const parsed = JSON.parse(readFileSync(settingsFile, "utf8"));
+    return parsed && typeof parsed === "object" ? parsed : {};
   } catch (error) {
     const code =
       error && typeof error === "object" && "code" in error
         ? error.code
         : undefined;
 
-    if (code !== "ENOENT") {
-      return;
-    }
-
-    mkdirSync(agentDir, { recursive: true });
-    writeFileAtomicSync(
-      settingsFile,
-      `${JSON.stringify({ quietStartup: true }, null, 2)}\n`,
-    );
+    return code === "ENOENT" ? {} : null;
   }
+}
+
+function writeAgentSettings(agentDir, settings) {
+  mkdirSync(agentDir, { recursive: true });
+  writeFileAtomicSync(
+    path.join(agentDir, "settings.json"),
+    `${JSON.stringify(settings, null, 2)}\n`,
+  );
+}
+
+export function ensureQuietStartupDefault(baseEnv = process.env) {
+  const agentDir = resolveAgentDir(baseEnv);
+  const settings = readAgentSettings(agentDir);
+  if (!settings || settings.quietStartup !== undefined) {
+    return;
+  }
+
+  writeAgentSettings(agentDir, { ...settings, quietStartup: true });
+}
+
+export function suppressBundledPiChangelog(baseEnv = process.env) {
+  const piVersion = getBundledPiVersion();
+  if (!piVersion) {
+    return;
+  }
+
+  const agentDir = resolveAgentDir(baseEnv);
+  const settings = readAgentSettings(agentDir);
+  if (!settings || settings.lastChangelogVersion === piVersion) {
+    return;
+  }
+
+  writeAgentSettings(agentDir, {
+    ...settings,
+    lastChangelogVersion: piVersion,
+  });
 }
 
 export function ensureDefaultTheme(baseEnv = process.env) {
   const agentDir = resolveAgentDir(baseEnv);
-  const settingsFile = path.join(agentDir, "settings.json");
-
-  try {
-    const raw = readFileSync(settingsFile, "utf8");
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && parsed.theme === undefined) {
-      writeFileAtomicSync(
-        settingsFile,
-        `${JSON.stringify({ ...parsed, theme: "amp-gruvbox-dark-hard" }, null, 2)}\n`,
-      );
-    }
-  } catch (error) {
-    const code =
-      error && typeof error === "object" && "code" in error
-        ? error.code
-        : undefined;
-
-    if (code !== "ENOENT") {
-      return;
-    }
-
-    mkdirSync(agentDir, { recursive: true });
-    writeFileAtomicSync(
-      settingsFile,
-      `${JSON.stringify({ quietStartup: true, theme: "amp-gruvbox-dark-hard" }, null, 2)}\n`,
-    );
+  const settings = readAgentSettings(agentDir);
+  if (!settings || settings.theme !== undefined) {
+    return;
   }
+
+  writeAgentSettings(agentDir, {
+    ...settings,
+    theme: "amp-gruvbox-dark-hard",
+  });
 }
 
 export function buildPiProcessSpec(
@@ -188,6 +217,7 @@ export function buildPiProcessSpec(
 export async function runGed(argv = process.argv.slice(2), options = {}) {
   ensureQuietStartupDefault(options.env);
   ensureDefaultTheme(options.env);
+  suppressBundledPiChangelog(options.env);
   const spec = buildPiProcessSpec(argv, options.env);
 
   return await new Promise((resolve, reject) => {

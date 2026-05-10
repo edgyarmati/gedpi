@@ -73,6 +73,12 @@ GedPi is published to npm as `gedpi`.
 - GedPi releases use `gedpi-v*` tags (e.g., `gedpi-v0.13.0`).
 - GedCode releases use `gedcode-v*` tags — they are independent.
 
+### Packaging guardrails
+
+- Do not add published `file:` dependencies that point at vendored directories already included in `files` or loaded through `pi.extensions`. Npm may install nested `node_modules` inside those vendored directories, which can break global upgrades with stale `ENOTEMPTY` removal errors.
+- For vendored extension code, include the source directory through `files`, load it via the `pi.extensions` path, and use peer dependencies for host-provided packages such as `glimpseui` and Pi APIs.
+- Before releasing packaging changes, run `npm pack --dry-run` and confirm the tarball does not include nested `node_modules`, package lockfiles from vendored directories, or dependency links to vendored packages.
+
 ### Deprecation note
 
 The previous npm package `omni-pi` is deprecated. `gedpi` is the active package.
