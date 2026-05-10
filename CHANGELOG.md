@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixes
+
+- Avoided synchronous Git status calls during Amp editor renders to reduce intermittent typing stalls.
+
 ## 0.17.5 - 2026-05-10
 
 ### Fixes
