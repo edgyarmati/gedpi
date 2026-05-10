@@ -4,7 +4,7 @@
 
 ### Fixes
 
-- Disabled the Amp editor extension on the input-lag investigation branch to test whether custom editor rendering is responsible for lingering typing and scrolling stalls.
+- Re-enabled the Amp editor with asynchronous Git status refreshes while keeping the fixed-editor compositor disabled.
 
 ## 0.17.5 - 2026-05-10
 
