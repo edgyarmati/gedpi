@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.17.6 - 2026-05-10
+
 ### Fixes
 
 - Re-enabled the Amp editor with asynchronous Git status refreshes while keeping the fixed-editor compositor disabled.
