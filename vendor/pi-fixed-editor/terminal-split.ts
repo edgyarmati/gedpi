@@ -1,4 +1,4 @@
-import { isKeyRelease, matchesKey } from "@earendil-works/pi-tui";
+import { deleteAllKittyImages, isKeyRelease, matchesKey } from "@earendil-works/pi-tui";
 
 export interface TerminalLike {
   columns: number;
@@ -32,8 +32,28 @@ function endSynchronizedOutput(): string {
   return "\x1b[?2026l";
 }
 
+function setScrollRegion(top: number, bottom: number): string {
+  return `\x1b[${top};${bottom}r`;
+}
+
 function resetScrollRegion(): string {
   return "\x1b[r";
+}
+
+function moveCursor(row: number, col: number): string {
+  return `\x1b[${row};${col}H`;
+}
+
+function clearLine(): string {
+  return "\x1b[2K";
+}
+
+function hideCursor(): string {
+  return "\x1b[?25l";
+}
+
+function showCursor(): string {
+  return "\x1b[?25h";
 }
 
 function enableMouseReporting(): string {
@@ -86,9 +106,49 @@ function parseKeyboardScrollDelta(data: string): number {
   return 0;
 }
 
-function readRows(terminal: TerminalLike): number {
+function descriptorForRows(terminal: TerminalLike): PropertyDescriptor | undefined {
+  let target: object | null = terminal;
+  while (target) {
+    const descriptor = Object.getOwnPropertyDescriptor(target, "rows");
+    if (descriptor) return descriptor;
+    target = Object.getPrototypeOf(target);
+  }
+  return undefined;
+}
+
+function readRows(terminal: TerminalLike, descriptor: PropertyDescriptor | undefined): number {
+  if (descriptor?.get) {
+    const value = descriptor.get.call(terminal);
+    return typeof value === "number" && Number.isFinite(value) ? value : 24;
+  }
   const value = Reflect.get(terminal, "rows");
   return typeof value === "number" && Number.isFinite(value) ? value : 24;
+}
+
+function buildFixedClusterPaint(
+  cluster: { lines: string[] },
+  terminalRows: number,
+  width: number,
+  showHardwareCursor: boolean,
+): string {
+  if (cluster.lines.length === 0) return "";
+
+  const startRow = Math.max(1, terminalRows - cluster.lines.length + 1);
+  let buffer = resetScrollRegion();
+
+  for (let i = 0; i < cluster.lines.length; i++) {
+    buffer += moveCursor(startRow + i, 1);
+    buffer += clearLine();
+    buffer += cluster.lines[i] ?? "";
+  }
+
+  if (showHardwareCursor) {
+    buffer += showCursor();
+  } else {
+    buffer += hideCursor();
+  }
+
+  return buffer;
 }
 
 export class TerminalSplitCompositor {
@@ -97,13 +157,16 @@ export class TerminalSplitCompositor {
   private readonly renderCluster: (width: number, terminalRows: number) => { lines: string[] };
   private readonly getShowHardwareCursor: () => boolean;
   private readonly mouseScroll: boolean;
+  private readonly rowsDescriptor: PropertyDescriptor | undefined;
   private readonly originalWrite: (data: string) => void;
+  private readonly originalDoRender: (() => void) | null;
   private readonly originalRender: ((width: number) => string[]) | null;
   private readonly patchedRenders: RenderPatch[] = [];
   private removeInputListener: (() => void) | null = null;
   private emergencyCleanup: (() => void) | null = null;
   private installed = false;
   private disposed = false;
+  private writing = false;
   private renderPassActive = false;
   private renderingCluster = false;
   private scrollOffset = 0;
@@ -121,7 +184,9 @@ export class TerminalSplitCompositor {
     this.renderCluster = options.renderCluster;
     this.getShowHardwareCursor = options.getShowHardwareCursor ?? (() => false);
     this.mouseScroll = options.mouseScroll !== false;
+    this.rowsDescriptor = descriptorForRows(options.terminal);
     this.originalWrite = options.terminal.write.bind(options.terminal);
+    this.originalDoRender = typeof options.tui.doRender === "function" ? options.tui.doRender.bind(options.tui) : null;
     this.originalRender = typeof options.tui.render === "function" ? options.tui.render.bind(options.tui) : null;
   }
 
@@ -153,12 +218,33 @@ export class TerminalSplitCompositor {
     };
     process.once("exit", this.emergencyCleanup);
 
+    if (this.rowsDescriptor?.configurable !== false) {
+      Object.defineProperty(this.terminal, "rows", {
+        configurable: true,
+        get: () => this.getScrollableRows(),
+      });
+    }
+
     if (this.originalRender) {
-      this.tui.render = (width: number) => this.renderFixedRoot(width);
+      this.tui.render = (width: number) => this.renderScrollableRoot(width);
     }
 
     if (typeof this.tui.addInputListener === "function") {
       this.removeInputListener = this.tui.addInputListener((data: string) => this.handleInput(data));
+    }
+
+    this.terminal.write = (data: string) => this.write(data);
+
+    if (this.originalDoRender) {
+      this.tui.doRender = () => {
+        this.renderPassActive = true;
+        try {
+          this.originalDoRender?.();
+          this.requestRepaint();
+        } finally {
+          this.renderPassActive = false;
+        }
+      };
     }
 
     this.installed = true;
@@ -192,8 +278,19 @@ export class TerminalSplitCompositor {
       this.emergencyCleanup = null;
     }
 
+    this.terminal.write = this.originalWrite;
+    if (this.originalDoRender) {
+      this.tui.doRender = this.originalDoRender;
+    }
     if (this.originalRender) {
       this.tui.render = this.originalRender;
+    }
+    if (this.rowsDescriptor?.configurable !== false) {
+      if (this.rowsDescriptor) {
+        Object.defineProperty(this.terminal, "rows", this.rowsDescriptor);
+      } else {
+        Reflect.deleteProperty(this.terminal, "rows");
+      }
     }
 
     this.originalWrite(
@@ -205,7 +302,18 @@ export class TerminalSplitCompositor {
   }
 
   private getRawRows(): number {
-    return Math.max(2, readRows(this.terminal));
+    return Math.max(2, readRows(this.terminal, this.rowsDescriptor));
+  }
+
+  private getScrollableRows(): number {
+    // CRITICAL: Never compute cluster height during a render operation.
+    // Components may access terminal.rows during their render(), which would
+    // trigger infinite recursion if we called renderCluster() here.
+    if (this.disposed || this.writing || this.renderPassActive || this.renderingCluster || this.hasVisibleOverlay()) {
+      return this.getRawRows();
+    }
+    const rawRows = this.getRawRows();
+    return Math.max(1, rawRows - this.lastClusterHeight);
   }
 
   private withClusterRender<T>(render: () => T): T {
@@ -218,7 +326,7 @@ export class TerminalSplitCompositor {
     }
   }
 
-  private renderFixedRoot(width: number): string[] {
+  private renderScrollableRoot(width: number): string[] {
     if (!this.originalRender || this.disposed) {
       return this.originalRender?.(width) ?? [];
     }
@@ -227,40 +335,35 @@ export class TerminalSplitCompositor {
       return this.originalRender(width);
     }
 
-    this.renderPassActive = true;
-    try {
-      const rawRows = this.getRawRows();
-      const renderWidth = Math.max(1, width);
-      const cluster = this.withClusterRender(() => this.renderCluster(renderWidth, rawRows));
-      this.lastClusterHeight = cluster.lines.length;
-      const scrollableRows = Math.max(1, rawRows - cluster.lines.length);
-      const lines = this.originalRender(renderWidth);
-      this.rootLines = lines;
+    const rawRows = this.getRawRows();
+    const renderWidth = Math.max(1, width);
+    const cluster = this.withClusterRender(() => this.renderCluster(renderWidth, rawRows));
+    this.lastClusterHeight = cluster.lines.length;
+    const scrollableRows = Math.max(1, rawRows - cluster.lines.length);
+    const lines = this.originalRender(renderWidth);
+    this.rootLines = lines;
 
-      if (this.scrollOffset > 0 && this.lastRootLineCount > 0 && lines.length > this.lastRootLineCount) {
-        this.scrollOffset += lines.length - this.lastRootLineCount;
-      }
-      this.lastRootLineCount = lines.length;
-
-      const prevMaxScroll = this.maxScrollOffset;
-      this.maxScrollOffset = Math.max(0, lines.length - scrollableRows);
-      const clampedOffset = Math.max(0, Math.min(this.scrollOffset, this.maxScrollOffset));
-      if (clampedOffset !== this.scrollOffset || this.maxScrollOffset !== prevMaxScroll) {
-        this.pendingImageCleanup = true;
-      }
-      this.scrollOffset = clampedOffset;
-
-      const start = Math.max(0, this.rootLines.length - scrollableRows - this.scrollOffset);
-      const visibleLines = this.rootLines.slice(start, start + scrollableRows);
-      while (visibleLines.length < scrollableRows) {
-        visibleLines.push("");
-      }
-
-      this.visibleScrollableRows = scrollableRows;
-      return [...visibleLines, ...cluster.lines];
-    } finally {
-      this.renderPassActive = false;
+    if (this.scrollOffset > 0 && this.lastRootLineCount > 0 && lines.length > this.lastRootLineCount) {
+      this.scrollOffset += lines.length - this.lastRootLineCount;
     }
+    this.lastRootLineCount = lines.length;
+
+    const prevMaxScroll = this.maxScrollOffset;
+    this.maxScrollOffset = Math.max(0, lines.length - scrollableRows);
+    const clampedOffset = Math.max(0, Math.min(this.scrollOffset, this.maxScrollOffset));
+    if (clampedOffset !== this.scrollOffset || this.maxScrollOffset !== prevMaxScroll) {
+      this.pendingImageCleanup = true;
+    }
+    this.scrollOffset = clampedOffset;
+
+    const start = Math.max(0, this.rootLines.length - scrollableRows - this.scrollOffset);
+    const visibleLines = this.rootLines.slice(start, start + scrollableRows);
+    while (visibleLines.length < scrollableRows) {
+      visibleLines.push("");
+    }
+
+    this.visibleScrollableRows = scrollableRows;
+    return visibleLines;
   }
 
   private handleInput(data: string): { consume?: boolean; data?: string } | undefined {
@@ -296,6 +399,65 @@ export class TerminalSplitCompositor {
   private requestRender(): void {
     if (typeof this.tui.requestRender === "function") {
       this.tui.requestRender();
+    }
+  }
+
+  private requestRepaint(): void {
+    if (this.disposed || this.hasVisibleOverlay()) return;
+    const rawRows = this.getRawRows();
+    const width = Math.max(1, this.terminal.columns || 80);
+    const cluster = this.withClusterRender(() => this.renderCluster(width, rawRows));
+    this.lastClusterHeight = cluster.lines.length;
+    if (cluster.lines.length === 0) return;
+
+    this.originalWrite(
+      beginSynchronizedOutput()
+      + buildFixedClusterPaint(cluster, rawRows, width, this.getShowHardwareCursor())
+      + endSynchronizedOutput(),
+    );
+  }
+
+  private write(data: string): void {
+    if (this.disposed || this.writing || this.hasVisibleOverlay()) {
+      this.originalWrite(data);
+      return;
+    }
+
+    this.writing = true;
+    try {
+      const rawRows = this.getRawRows();
+      const width = Math.max(1, this.terminal.columns || 80);
+      const cluster = this.withClusterRender(() => this.renderCluster(width, rawRows));
+      this.lastClusterHeight = cluster.lines.length;
+      const reservedRows = cluster.lines.length;
+
+      if (reservedRows === 0 || rawRows <= 2) {
+        this.originalWrite(data);
+        return;
+      }
+
+      const scrollBottom = Math.max(1, rawRows - reservedRows);
+      const hardwareCursorRow = typeof this.tui.hardwareCursorRow === "number"
+        ? this.tui.hardwareCursorRow
+        : typeof this.tui.cursorRow === "number"
+          ? this.tui.cursorRow
+          : 0;
+      const viewportTop = typeof this.tui.previousViewportTop === "number" ? this.tui.previousViewportTop : 0;
+      const screenRow = Math.max(1, Math.min(scrollBottom, hardwareCursorRow - viewportTop + 1));
+      const imageCleanup = this.pendingImageCleanup ? deleteAllKittyImages() : "";
+      this.pendingImageCleanup = false;
+
+      const buffer = beginSynchronizedOutput()
+        + imageCleanup
+        + setScrollRegion(1, scrollBottom)
+        + moveCursor(screenRow, 1)
+        + data
+        + buildFixedClusterPaint(cluster, rawRows, width, this.getShowHardwareCursor())
+        + endSynchronizedOutput();
+
+      this.originalWrite(buffer);
+    } finally {
+      this.writing = false;
     }
   }
 
