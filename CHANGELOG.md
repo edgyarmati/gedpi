@@ -4,7 +4,7 @@
 
 ### Fixes
 
-- Re-enabled the Amp editor with asynchronous Git status refreshes while keeping the fixed-editor compositor disabled.
+- Reworked the fixed-editor compositor to use Pi TUI's normal render pipeline instead of wrapping terminal writes, preserving the fixed input experiment without per-keystroke terminal repaint overhead.
 
 ## 0.17.5 - 2026-05-10
 
