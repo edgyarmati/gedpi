@@ -7,6 +7,11 @@
 - `/ged-agents setup` now lets users choose per-role thinking levels and persists them in generated subagent configuration.
 - RTK routing now auto-detects the `rtk` binary instead of maintaining an on/off setting, and the command is now `/rtk` for status/install.
 - Added a Pi extension setting for whether GedPi should leave verified work uncommitted, ask before committing, or commit automatically after verification.
+- Added a plan-review setting that defaults to requiring user approval before handing non-trivial draft plans to `ged-planner`.
+
+### Fixes
+
+- Planner clarification refusals now explicitly block continuation until the main agent runs grill-me and re-dispatches `ged-planner`.
 
 ## 0.17.6 - 2026-05-10
 

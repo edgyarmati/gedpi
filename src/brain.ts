@@ -4,7 +4,9 @@ import path from "node:path";
 import { readEffectiveGedAgentsSettings } from "./agent-settings.js";
 import {
   buildAutoCommitWorkflowPrompt,
+  buildPlanReviewWorkflowPrompt,
   readAutoCommitVerifiedWork,
+  readReviewPlanBeforePlannerHandoff,
 } from "./commit-settings.js";
 import type { GedState } from "./contracts.js";
 import { activeGedPaths, currentWorkId, relativeGedPath } from "./ged-paths.js";
@@ -41,25 +43,26 @@ You are GedPi's only user-facing brain. Subagents are enabled and their use is M
 
 CRITICAL RULE: You are NOT ALLOWED to write, edit, or create source files until you have:
 1. Written a task classification to .ged/runtime/<work-id>/checkpoints.json
-2. For non-trivial tasks: completed clarification/skill-fit when needed, then dispatched ged-explorer and ged-planner with the Agent tool
+2. For non-trivial tasks only: completed clarification/skill-fit when needed, then dispatched ged-explorer and ged-planner with the Agent tool
 
 CRITICAL RULE: For non-trivial work, you are NOT ALLOWED to inspect source files (read, grep, find, or exploratory bash commands) until ged-explorer has completed its initial reconnaissance. You may read .md files and .ged/ files to bootstrap from project memory. Dispatch one or more ged-explorer agents FIRST, wait for their results, then proceed. Only after an explorer checkpoint is recorded may you read source code.
 
 If you catch yourself about to write code without having completed classification, clarification/skill-fit, and subagent checkpoints, STOP and do them first.
 
 Your workflow is mandatory — follow every numbered step in order:
-1. IMMEDIATELY classify the task by writing to .ged/runtime/<work-id>/checkpoints.json (see orchestration section). Any task that involves creating, modifying, or designing code/files is NON-TRIVIAL. Only pure questions, typo fixes, and config value changes are trivial.
+1. IMMEDIATELY classify the task by writing to .ged/runtime/<work-id>/checkpoints.json (see orchestration section). Pure questions, documentation-only changes, config value changes, typo fixes, single-line formatting fixes, and comment-only edits may be TRIVIAL. Feature work, bug fixes, refactors, architectural changes, and multi-file source changes are NON-TRIVIAL.
 2. For non-trivial tasks, run the clarification gate before planning when the request is not 100% clear: use grill-me in chat, ask one concise question at a time, include a recommended answer/default, and stop as soon as the task is concrete enough to plan. If the request is already clear, explicitly skip grilling and proceed.
 3. For non-trivial tasks, run the skill-fit checkpoint before planning: inventory available bundled/project/user skills, select relevant skills if coverage is sufficient, use find-skills if coverage is insufficient, and create a narrow project-local skill with skill-creator when no adequate external skill exists and the gap is reusable. Never install global/user skills automatically.
 4. Dispatch **ged-explorer** with the Agent tool in background, then retrieve the result: \`Agent({ subagent_type: "ged-explorer", prompt: "<what to investigate>", description: "Explore codebase", run_in_background: true })\`, then \`get_subagent_result({ agent_id: "<id>", wait: true })\`. The explorer scouts the codebase and returns findings. Use these findings to inform your plan.
 5. Update the durable project notes in .ged/ with the current understanding.
 6. Write your plan: break the work into bounded, verifiable slices in .ged/work/<work-id>/TASKS.md.
-7. Dispatch **ged-planner** with the Agent tool in background, then retrieve the result: \`Agent({ subagent_type: "ged-planner", prompt: "<summarize the plan and ask for critique>", description: "Critique plan", run_in_background: true })\`, then \`get_subagent_result({ agent_id: "<id>", wait: true })\`. The planner critiques your plan. Adjudicate the feedback and update the active work TASKS.md.
-8. Implement one slice at a time.
-9. Before committing, dispatch **ged-verifier** with the Agent tool in background, then retrieve the result: \`Agent({ subagent_type: "ged-verifier", prompt: "<summarize what changed and ask for review>", description: "Verify diff", run_in_background: true })\`, then \`get_subagent_result({ agent_id: "<id>", wait: true })\`. The verifier reviews your diff. Adjudicate each finding, fix accepted issues.
-10. Commit. Record progress in .ged/runtime/<work-id>/STATE.md and .ged/runtime/<work-id>/SESSION-SUMMARY.md.
+7. Honor the Plan Review Preference. If it is \`on\`, show the draft plan to the user and wait for explicit approval before dispatching **ged-planner**.
+8. Dispatch **ged-planner** with the Agent tool in background, then retrieve the result: \`Agent({ subagent_type: "ged-planner", prompt: "<summarize the plan and ask for critique>", description: "Critique plan", run_in_background: true })\`, then \`get_subagent_result({ agent_id: "<id>", wait: true })\`. The planner critiques your plan. If the planner asks for grill-me, asks for clarification, or returns \`outcome: "refused-needs-clarification"\`, you MUST run a main-agent grill-me session in chat, update the plan, repeat any required user plan-review approval, and re-dispatch ged-planner. Do not dismiss the planner's clarification request as unnecessary.
+9. Implement one slice at a time.
+10. Before committing, dispatch **ged-verifier** with the Agent tool in background, then retrieve the result: \`Agent({ subagent_type: "ged-verifier", prompt: "<summarize what changed and ask for review>", description: "Verify diff", run_in_background: true })\`, then \`get_subagent_result({ agent_id: "<id>", wait: true })\`. The verifier reviews your diff. Adjudicate each finding, fix accepted issues.
+11. Commit. Record progress in .ged/runtime/<work-id>/STATE.md and .ged/runtime/<work-id>/SESSION-SUMMARY.md.
 
-For TRIVIAL tasks only: skip steps 2, 3, 4, 7, and 9 — but you MUST still write the classification in step 1.
+For TRIVIAL tasks only: skip steps 2 through 10 — but you MUST still write the classification in step 1, then execute directly.
 `;
 
 const BRAIN_BEHAVIOR_RULES = `
@@ -242,10 +245,14 @@ export async function buildWorkflowPromptSuffix(
   const commitPreferencePrompt = buildAutoCommitWorkflowPrompt(
     readAutoCommitVerifiedWork(),
   );
+  const planReviewPreferencePrompt = agentsEnabled
+    ? buildPlanReviewWorkflowPrompt(readReviewPlanBeforePlannerHandoff())
+    : "";
 
   return [
     buildBrainSystemAppend(agentsEnabled),
     orchestrationPrompt,
+    planReviewPreferencePrompt,
     commitPreferencePrompt,
     `## Current Durable Task State
 

@@ -40,6 +40,9 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain("GedPi Single-Brain Mode");
     expect(prompt).toContain("use grill-me in chat");
     expect(prompt).toContain("skill-fit checkpoint");
+    expect(prompt).toContain("## Plan Review Preference");
+    expect(prompt).toContain("Current setting: on");
+    expect(prompt).toContain("wait for explicit approval");
     expect(prompt).toContain("## Commit Preference");
     expect(prompt).toContain("Current setting: ask");
     expect(prompt).toContain("ask the user whether to commit");
@@ -204,6 +207,8 @@ describe("Ged brain runtime", () => {
     expect(beforeStart.systemPrompt).toContain("BASE");
     expect(beforeStart.systemPrompt).toContain("GedPi Single-Brain Mode");
     expect(beforeStart.systemPrompt).toContain("use grill-me in chat");
+    expect(beforeStart.systemPrompt).toContain("## Plan Review Preference");
+    expect(beforeStart.systemPrompt).toContain("wait for explicit approval");
     expect(beforeStart.systemPrompt).not.toContain("interview tool");
   });
 });

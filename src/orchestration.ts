@@ -81,6 +81,13 @@ export function plannerGuardMessage(validation: CheckpointValidation): string {
   if (validation.missing.includes("classification")) {
     return 'GedPi planner guard: you must classify the task before editing source files. Write your classification to .ged/runtime/<work-id>/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
   }
+  if (
+    validation.missing.some((item) =>
+      item.includes("refused-needs-clarification"),
+    )
+  ) {
+    return `GedPi planner guard: ged-planner requested more clarification. Run a main-agent grill-me session in chat, update the plan with the answers, repeat any required user plan-review approval, then re-dispatch ged-planner. Missing checkpoints: ${validation.missing.join(", ")}.`;
+  }
   return `GedPi planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner with the Agent tool, or reclassify the task as trivial.`;
 }
 
@@ -134,8 +141,8 @@ Single-writer invariant: you are the sole active-worktree writer, synthesizer, a
 
 Before any planning or implementation, classify the incoming request:
 
-- **TRIVIAL**: Questions, documentation-only changes, README edits, config tweaks, single-line formatting fixes, adding comments. Skip the subagent workflow entirely.
-- **NON-TRIVIAL**: Feature implementation, bug fixes, refactoring, multi-file changes, architectural work. Mandatory subagent checkpoints apply below.
+- **TRIVIAL**: Questions, documentation-only changes, README edits, config tweaks, single-line formatting fixes, and comment-only edits. After classification, execute directly and skip the subagent workflow entirely.
+- **NON-TRIVIAL**: Feature implementation, bug fixes, refactoring, multi-file source changes, architectural work, or anything requiring design/planning. Mandatory subagent checkpoints apply below.
 
 Write your classification and reason to .ged/runtime/<work-id>/checkpoints.json using:
 \`\`\`json
@@ -149,8 +156,9 @@ All source file edits and git commits are **structurally guarded**:
 1. **Classification is required** — If \`.ged/runtime/<work-id>/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
 2. **Trivial classification** allows immediate edits and commits — no subagent dispatches needed.
 3. **Non-trivial classification** requires clarification when ambiguous, a skill-fit checkpoint before planning, dispatching \`ged-planner\` with the \`Agent\` tool before edits, and both \`ged-planner\` + \`ged-verifier\` before \`git commit\` or \`git commit --amend\`.
-4. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
-5. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
+4. **Planner clarification refusals block continuation** — If \`ged-planner\` asks for grill-me/clarification or records \`outcome: "refused-needs-clarification"\`, you must run a main-agent grill-me session in chat, update the plan, repeat any required user plan-review approval, and re-dispatch \`ged-planner\`. Do not dismiss the planner's clarification request as unnecessary.
+5. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
+6. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
 
 These guards are implemented in the tool-call interception layer — they cannot be bypassed by instruction alone. The only way to commit without verification is to set \`agents.allowCheckpointBypass: true\` in Ged settings and include \`[skip-checkpoint]\` in the commit command.
 
@@ -162,7 +170,7 @@ When subagents are enabled and the task is non-trivial, use mandatory intelligen
 
 1. **ged-explorer** — Dispatch with the \`Agent\` tool for evidence-backed codebase discovery when relevant code context is not already known. Use before planning to understand existing patterns, dependencies, and risks.
 
-2. **ged-planner** — Dispatch with the \`Agent\` tool before finalizing or materially changing .ged/work/<work-id>/SPEC.md, TASKS.md, or TESTS.md. The planner critiques your plan and identifies missing context, edge cases, and test seams. You adjudicate the findings and write the final planning files.
+2. **ged-planner** — Before dispatching, honor the Plan Review Preference: when enabled, show the draft plan to the user and wait for explicit approval. Then dispatch with the \`Agent\` tool before finalizing or materially changing .ged/work/<work-id>/SPEC.md, TASKS.md, or TESTS.md. The planner critiques your plan and identifies missing context, edge cases, and test seams. If the planner asks for grill-me/clarification or returns \`outcome: "refused-needs-clarification"\`, run grill-me in the main chat, update the plan, repeat any required user approval, and re-dispatch ged-planner. You adjudicate the findings and write the final planning files.
 
 3. **ged-verifier** — Dispatch with the \`Agent\` tool for clean-context review before committing meaningful implementation changes. The verifier reviews your diff and tests with minimal prior assumptions. You adjudicate each finding (accept, reject, needs-user), fix accepted issues, and rerun verification.
 

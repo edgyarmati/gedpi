@@ -56,13 +56,18 @@ describe("Ged command surface", () => {
       channel: "pi-extension-settings:register",
       data: {
         name: "gedpi",
-        settings: [
+        settings: expect.arrayContaining([
           expect.objectContaining({
             id: "autoCommitVerifiedWork",
             defaultValue: "ask",
             values: ["off", "ask", "on"],
           }),
-        ],
+          expect.objectContaining({
+            id: "reviewPlanBeforePlannerHandoff",
+            defaultValue: "on",
+            values: ["off", "on"],
+          }),
+        ]),
       },
     });
   });

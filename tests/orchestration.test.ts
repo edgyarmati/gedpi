@@ -295,6 +295,31 @@ describe("checkpoint validation", () => {
     expect(result.missing).toContain("ged-planner (not auto-recorded)");
   });
 
+  it("plan validation fails when planner refused for clarification", () => {
+    const state = makeValidV2State();
+    const plannerRecord = state.planCheckpoints["ged-planner"];
+    expect(plannerRecord).toBeDefined();
+    if (!plannerRecord) return;
+
+    const refused: CheckpointState = {
+      ...state,
+      planCheckpoints: {
+        ...state.planCheckpoints,
+        "ged-planner": {
+          ...plannerRecord,
+          outcome: "refused-needs-clarification",
+        },
+      },
+    };
+
+    const result = validatePlannerCheckpoint(refused);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain(
+      "ged-planner (outcome: refused-needs-clarification)",
+    );
+    expect(validateCommitCheckpoints(refused).valid).toBe(false);
+  });
+
   it("plan validation fails when planner is blocked", () => {
     const base = initCheckpointState("non-trivial", "Feature work");
     let state: CheckpointState = {
@@ -660,6 +685,7 @@ describe("orchestration prompt", () => {
     const result = buildOrchestrationPrompt(true);
     expect(result).toContain("TRIVIAL");
     expect(result).toContain("NON-TRIVIAL");
+    expect(result).toContain("execute directly and skip the subagent workflow");
   });
 
   it("names all three mandatory checkpoints", () => {
@@ -667,6 +693,15 @@ describe("orchestration prompt", () => {
     expect(result).toContain("ged-explorer");
     expect(result).toContain("ged-planner");
     expect(result).toContain("ged-verifier");
+  });
+
+  it("requires grill-me after planner clarification refusal", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("refused-needs-clarification");
+    expect(result).toContain("run a main-agent grill-me session");
+    expect(result).toContain(
+      "Do not dismiss the planner's clarification request",
+    );
   });
 
   it("includes hard enforcement section", () => {

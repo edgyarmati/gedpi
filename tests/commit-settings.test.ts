@@ -4,13 +4,43 @@ import {
   AUTO_COMMIT_VERIFIED_WORK_DEFAULT,
   AUTO_COMMIT_VERIFIED_WORK_SETTING_ID,
   buildAutoCommitWorkflowPrompt,
+  buildPlanReviewWorkflowPrompt,
   GEDPI_EXTENSION_SETTINGS,
   GEDPI_SETTINGS_EXTENSION_NAME,
   normalizeAutoCommitVerifiedWork,
+  normalizeReviewPlanBeforePlannerHandoff,
+  REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT,
+  REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_SETTING_ID,
   readAutoCommitVerifiedWork,
+  readReviewPlanBeforePlannerHandoff,
 } from "../src/commit-settings.js";
 
 describe("commit settings", () => {
+  test("normalizes plan-review preference", () => {
+    expect(normalizeReviewPlanBeforePlannerHandoff("off")).toBe("off");
+    expect(normalizeReviewPlanBeforePlannerHandoff("on")).toBe("on");
+    expect(normalizeReviewPlanBeforePlannerHandoff("ask")).toBe("on");
+    expect(normalizeReviewPlanBeforePlannerHandoff(undefined)).toBe("on");
+    expect(normalizeReviewPlanBeforePlannerHandoff("invalid")).toBe("on");
+  });
+
+  test("reads plan-review preference via pi-extension-settings getter", () => {
+    const calls: unknown[][] = [];
+    const value = readReviewPlanBeforePlannerHandoff((...args) => {
+      calls.push(args);
+      return "off";
+    });
+
+    expect(value).toBe("off");
+    expect(calls).toEqual([
+      [
+        GEDPI_SETTINGS_EXTENSION_NAME,
+        REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_SETTING_ID,
+        REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT,
+      ],
+    ]);
+  });
+
   test("normalizes auto-commit preference", () => {
     expect(normalizeAutoCommitVerifiedWork("off")).toBe("off");
     expect(normalizeAutoCommitVerifiedWork("ask")).toBe("ask");
@@ -44,6 +74,12 @@ describe("commit settings", () => {
         defaultValue: "ask",
         values: ["off", "ask", "on"],
       }),
+      expect.objectContaining({
+        id: "reviewPlanBeforePlannerHandoff",
+        label: "Review plan before planner handoff",
+        defaultValue: "on",
+        values: ["off", "on"],
+      }),
     ]);
   });
 
@@ -56,6 +92,12 @@ describe("commit settings", () => {
     );
     expect(buildAutoCommitWorkflowPrompt("on")).toContain(
       "create a conventional git commit without asking",
+    );
+    expect(buildPlanReviewWorkflowPrompt("off")).toContain(
+      "dispatch ged-planner without asking",
+    );
+    expect(buildPlanReviewWorkflowPrompt("on")).toContain(
+      "wait for explicit approval",
     );
   });
 });
