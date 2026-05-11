@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -17,6 +17,15 @@ async function createTempProject(prefix: string): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), prefix));
 }
 
+async function enableProjectSubagents(rootDir: string): Promise<void> {
+  const settingsDir = path.join(rootDir, ".gedcode");
+  await mkdir(settingsDir, { recursive: true });
+  await writeFile(
+    path.join(settingsDir, "settings.json"),
+    JSON.stringify({ agents: { enabled: true } }),
+  );
+}
+
 describe("Ged brain runtime", () => {
   test("ensureGedReady bootstraps .ged when ged mode is enabled", async () => {
     const rootDir = await createTempProject("ged-brain-init-");
@@ -31,9 +40,10 @@ describe("Ged brain runtime", () => {
     expect(state).toContain("Run onboarding clarification");
   });
 
-  test("buildBrainSystemPromptSuffix includes the single-brain workflow and durable files", async () => {
+  test("buildBrainSystemPromptSuffix includes the subagent workflow and durable files", async () => {
     const rootDir = await createTempProject("ged-brain-prompt-");
     await ensureGedReady(rootDir);
+    await enableProjectSubagents(rootDir);
 
     const prompt = await buildBrainSystemPromptSuffix(rootDir);
 
@@ -173,8 +183,9 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain("`master`");
   });
 
-  test("gedCoreExtension always initializes and injects the full workflow prompt", async () => {
+  test("gedCoreExtension initializes and injects the subagent workflow prompt", async () => {
     const rootDir = await createTempProject("ged-brain-ext-");
+    await enableProjectSubagents(rootDir);
     const handlers = new Map<string, (...args: unknown[]) => unknown>();
 
     await gedCoreExtension({
