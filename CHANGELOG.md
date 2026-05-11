@@ -6,7 +6,8 @@
 
 - `/ged-agents setup` now lets users choose per-role thinking levels and persists them in generated subagent configuration.
 - RTK routing now auto-detects the `rtk` binary instead of maintaining an on/off setting, and the command is now `/rtk` for status/install.
-- Added a Pi extension setting for whether GedPi should leave verified work uncommitted, ask before committing, or commit automatically after verification.
+- Dropped `@juanibiapina/pi-extension-settings` dependency. Workflow preferences (auto-commit after verification, plan-review before planner handoff) are now stored in `~/.gedcode/settings.json` under a `preferences` key, with a one-time migration from the old storage file.
+- Added `/ged-settings` command with a TUI to configure GedPi workflow preferences interactively, with a plain-text fallback for non-UI sessions.
 - Added a plan-review setting that defaults to requiring user approval before handing non-trivial draft plans to `ged-planner`.
 
 ### Fixes
