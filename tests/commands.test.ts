@@ -19,6 +19,7 @@ describe("Ged command surface", () => {
     expect(createGedCommands().map((command) => command.name)).toEqual([
       "rtk",
       "ged-agents",
+      "ged-settings",
     ]);
   });
 
@@ -48,28 +49,10 @@ describe("Ged command surface", () => {
     } as never);
 
     expect(rendererRegistrations).toBeGreaterThan(0);
-    expect(commands).toEqual(["rtk", "ged-agents", "update"]);
+    expect(commands).toEqual(["rtk", "ged-agents", "ged-settings", "update"]);
     expect(events).toContain("session_start");
     expect(events).toContain("before_agent_start");
     expect(events).toContain("tool_call");
-    expect(emittedEvents).toContainEqual({
-      channel: "pi-extension-settings:register",
-      data: {
-        name: "gedpi",
-        settings: expect.arrayContaining([
-          expect.objectContaining({
-            id: "autoCommitVerifiedWork",
-            defaultValue: "ask",
-            values: ["off", "ask", "on"],
-          }),
-          expect.objectContaining({
-            id: "reviewPlanBeforePlannerHandoff",
-            defaultValue: "on",
-            values: ["off", "on"],
-          }),
-        ]),
-      },
-    });
   });
 
   test("status and skills extensions register no commands", () => {

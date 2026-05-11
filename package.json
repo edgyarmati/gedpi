@@ -61,7 +61,6 @@
   },
   "pi": {
     "extensions": [
-      "./node_modules/@juanibiapina/pi-extension-settings/dist/index.js",
       "./extensions/ged-core/index.ts",
       "./extensions/ged-memory/index.ts",
       "./node_modules/glimpseui/pi-extension/index.ts",
@@ -90,7 +89,6 @@
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.131",
     "@earendil-works/pi-coding-agent": "^0.74.0",
-    "@juanibiapina/pi-extension-settings": "^0.6.1",
     "@tintinweb/pi-subagents": "^0.7.0",
     "amp-themes": "^0.2.17",
     "glimpseui": "^0.8.0",

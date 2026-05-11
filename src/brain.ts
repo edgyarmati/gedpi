@@ -1,12 +1,13 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 
-import { readEffectiveGedAgentsSettings } from "./agent-settings.js";
+import {
+  readEffectiveGedAgentsSettings,
+  readGedPreferences,
+} from "./agent-settings.js";
 import {
   buildAutoCommitWorkflowPrompt,
   buildPlanReviewWorkflowPrompt,
-  readAutoCommitVerifiedWork,
-  readReviewPlanBeforePlannerHandoff,
 } from "./commit-settings.js";
 import type { GedState } from "./contracts.js";
 import { activeGedPaths, currentWorkId, relativeGedPath } from "./ged-paths.js";
@@ -241,13 +242,20 @@ export async function buildWorkflowPromptSuffix(
     options,
   ).catch(() => null);
   const agentsEnabled = agentSettings?.enabled ?? false;
+
   const orchestrationPrompt = buildOrchestrationPrompt(agentsEnabled);
-  const commitPreferencePrompt = buildAutoCommitWorkflowPrompt(
-    readAutoCommitVerifiedWork(),
+  const preferences = await readGedPreferences(options.homeDir).catch(
+    () => null,
   );
-  const planReviewPreferencePrompt = agentsEnabled
-    ? buildPlanReviewWorkflowPrompt(readReviewPlanBeforePlannerHandoff())
-    : "";
+  const commitPreferencePrompt = buildAutoCommitWorkflowPrompt(
+    preferences?.autoCommitVerifiedWork ?? "ask",
+  );
+  const planReviewPreferencePrompt =
+    agentsEnabled && preferences
+      ? buildPlanReviewWorkflowPrompt(
+          preferences.reviewPlanBeforePlannerHandoff,
+        )
+      : "";
 
   return [
     buildBrainSystemAppend(agentsEnabled),
@@ -272,10 +280,11 @@ ${clipSection(tests, 1200)}`,
 
 export async function buildBrainSystemPromptSuffix(
   cwd: string,
+  options: { homeDir?: string } = {},
 ): Promise<string> {
   const workId = await currentWorkId(cwd);
   const branchNudge = buildBranchNudge(workId);
   const passive = await buildPassiveGedPromptSuffix(cwd);
-  const workflow = await buildWorkflowPromptSuffix(cwd);
+  const workflow = await buildWorkflowPromptSuffix(cwd, options);
   return [branchNudge, passive, workflow].filter(Boolean).join("\n\n");
 }

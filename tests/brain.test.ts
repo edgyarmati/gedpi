@@ -2,8 +2,7 @@ import { execSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import gedCoreExtension from "../extensions/ged-core/index.js";
 import {
   buildBrainSystemPromptSuffix,
@@ -26,7 +25,33 @@ async function enableProjectSubagents(rootDir: string): Promise<void> {
   );
 }
 
+async function createTempHomeWithPreferences(
+  prefs: Record<string, string>,
+): Promise<string> {
+  const homeDir = await mkdtemp(path.join(os.tmpdir(), "ged-home-"));
+  const gedcodeDir = path.join(homeDir, ".gedcode");
+  await mkdir(gedcodeDir, { recursive: true });
+  await writeFile(
+    path.join(gedcodeDir, "settings.json"),
+    JSON.stringify({ preferences: prefs }),
+  );
+  return homeDir;
+}
+
 describe("Ged brain runtime", () => {
+  let testHomeDir: string;
+
+  beforeEach(async () => {
+    testHomeDir = await createTempHomeWithPreferences({
+      autoCommitVerifiedWork: "ask",
+      reviewPlanBeforePlannerHandoff: "on",
+    });
+  });
+
+  afterEach(async () => {
+    // Cleanup handled by OS tmp dirs.
+  });
+
   test("ensureGedReady bootstraps .ged when ged mode is enabled", async () => {
     const rootDir = await createTempProject("ged-brain-init-");
 
@@ -45,7 +70,9 @@ describe("Ged brain runtime", () => {
     await ensureGedReady(rootDir);
     await enableProjectSubagents(rootDir);
 
-    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+    const prompt = await buildBrainSystemPromptSuffix(rootDir, {
+      homeDir: testHomeDir,
+    });
 
     expect(prompt).toContain("GedPi Single-Brain Mode");
     expect(prompt).toContain("use grill-me in chat");
@@ -131,7 +158,9 @@ describe("Ged brain runtime", () => {
     const rootDir = await createTempProject("ged-brain-nudge-");
     await ensureGedReady(rootDir);
 
-    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+    const prompt = await buildBrainSystemPromptSuffix(rootDir, {
+      homeDir: testHomeDir,
+    });
 
     expect(prompt).toContain("## ⚠️ Branch Hygiene");
     expect(prompt).toContain("No named Git branch");
@@ -150,7 +179,9 @@ describe("Ged brain runtime", () => {
     execSync("git commit --allow-empty -m 'initial'", { cwd: rootDir });
     await ensureGedReady(rootDir);
 
-    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+    const prompt = await buildBrainSystemPromptSuffix(rootDir, {
+      homeDir: testHomeDir,
+    });
 
     expect(prompt).not.toContain("## ⚠️ Branch Hygiene");
   });
@@ -163,7 +194,9 @@ describe("Ged brain runtime", () => {
     execSync("git commit --allow-empty -m 'initial'", { cwd: rootDir });
     await ensureGedReady(rootDir);
 
-    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+    const prompt = await buildBrainSystemPromptSuffix(rootDir, {
+      homeDir: testHomeDir,
+    });
 
     expect(prompt).toContain("## ⚠️ Branch Hygiene");
     expect(prompt).toContain("`main`");
@@ -177,7 +210,9 @@ describe("Ged brain runtime", () => {
     execSync("git commit --allow-empty -m 'initial'", { cwd: rootDir });
     await ensureGedReady(rootDir);
 
-    const prompt = await buildBrainSystemPromptSuffix(rootDir);
+    const prompt = await buildBrainSystemPromptSuffix(rootDir, {
+      homeDir: testHomeDir,
+    });
 
     expect(prompt).toContain("## ⚠️ Branch Hygiene");
     expect(prompt).toContain("`master`");

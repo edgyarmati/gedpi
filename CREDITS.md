@@ -16,7 +16,7 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
   - Guided Q&A interface for user clarification
 - [amp-themes](https://www.npmjs.com/package/amp-themes)
   - Theme files, editor chrome, user-message styling, and bundled `pi-tool-display`
-- [@juanibiapina/pi-extension-settings](https://www.npmjs.com/package/@juanibiapina/pi-extension-settings) by Juani Biapina
+
   - Settings persistence for Pi extensions
 
 ## Workflow and orchestration inspiration

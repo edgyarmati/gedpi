@@ -31,7 +31,7 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `@tintinweb/pi-subagents` — read-only scout, planner, and verifier subagent tools
 - `pi-diff-review` — diff review surface
 - `pi-prompt-template-model` — prompt template / model wiring
-- `pi-extension-settings` — settings persistence
+- `agent-settings.ts` — preferences persistence in `~/.gedcode/settings.json`
 - `amp-themes` — theme files plus editor and user-message styling selected through Pi settings
 - `pi-tool-display` — tool display renderer bundled through `amp-themes`
 - `pi-fixed-editor` — keeps the input box pinned while chat history scrolls

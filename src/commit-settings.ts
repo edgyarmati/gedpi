@@ -1,81 +1,18 @@
-import type { SettingDefinition } from "@juanibiapina/pi-extension-settings";
-import { getSetting } from "@juanibiapina/pi-extension-settings";
-
 export type AutoCommitVerifiedWork = "off" | "ask" | "on";
 export type ReviewPlanBeforePlannerHandoff = "off" | "on";
 
-export const AUTO_COMMIT_VERIFIED_WORK_DEFAULT: AutoCommitVerifiedWork = "ask";
-export const REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT: ReviewPlanBeforePlannerHandoff =
-  "on";
-export const GEDPI_SETTINGS_EXTENSION_NAME = "gedpi";
-export const AUTO_COMMIT_VERIFIED_WORK_SETTING_ID = "autoCommitVerifiedWork";
-export const REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_SETTING_ID =
-  "reviewPlanBeforePlannerHandoff";
-
-export const GEDPI_EXTENSION_SETTINGS: SettingDefinition[] = [
-  {
-    id: AUTO_COMMIT_VERIFIED_WORK_SETTING_ID,
-    label: "Commit after verification",
-    description:
-      "Controls whether GedPi commits verified work: off leaves changes uncommitted, ask prompts first, on commits after successful verification.",
-    defaultValue: AUTO_COMMIT_VERIFIED_WORK_DEFAULT,
-    values: ["off", "ask", "on"],
-  },
-  {
-    id: REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_SETTING_ID,
-    label: "Review plan before planner handoff",
-    description:
-      "Controls whether GedPi requires user approval of the draft plan before dispatching ged-planner for non-trivial work.",
-    defaultValue: REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT,
-    values: ["off", "on"],
-  },
-];
-
-export type GetSettingFn = (
-  extensionName: string,
-  settingId: string,
-  defaultValue?: string,
-) => string | undefined;
-
-export function normalizeAutoCommitVerifiedWork(
-  value: unknown,
-): AutoCommitVerifiedWork {
-  return value === "off" || value === "on" || value === "ask"
-    ? value
-    : AUTO_COMMIT_VERIFIED_WORK_DEFAULT;
-}
-
-export function readAutoCommitVerifiedWork(
-  getter: GetSettingFn = getSetting,
-): AutoCommitVerifiedWork {
-  return normalizeAutoCommitVerifiedWork(
-    getter(
-      GEDPI_SETTINGS_EXTENSION_NAME,
-      AUTO_COMMIT_VERIFIED_WORK_SETTING_ID,
-      AUTO_COMMIT_VERIFIED_WORK_DEFAULT,
-    ),
-  );
-}
-
-export function normalizeReviewPlanBeforePlannerHandoff(
-  value: unknown,
-): ReviewPlanBeforePlannerHandoff {
-  return value === "off" || value === "on"
-    ? value
-    : REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT;
-}
-
-export function readReviewPlanBeforePlannerHandoff(
-  getter: GetSettingFn = getSetting,
-): ReviewPlanBeforePlannerHandoff {
-  return normalizeReviewPlanBeforePlannerHandoff(
-    getter(
-      GEDPI_SETTINGS_EXTENSION_NAME,
-      REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_SETTING_ID,
-      REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT,
-    ),
-  );
-}
+export {
+  AUTO_COMMIT_DEFAULT,
+  AUTO_COMMIT_ID,
+  DEFAULT_PREFERENCES,
+  type GedPreferences,
+  normalizeAutoCommitVerifiedWork,
+  normalizeReviewPlanBeforePlannerHandoff,
+  PREFERENCE_DEFINITIONS,
+  type PreferenceDefinition,
+  REVIEW_PLAN_DEFAULT,
+  REVIEW_PLAN_ID,
+} from "./preferences.js";
 
 export function buildAutoCommitWorkflowPrompt(
   preference: AutoCommitVerifiedWork,

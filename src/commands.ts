@@ -1,6 +1,8 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 // Pi UI context type alias for the command handler
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
+import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
+import { Container, SettingsList } from "@earendil-works/pi-tui";
 import {
   type AgentModelConfig,
   formatGedAgentsStatus,
@@ -11,12 +13,15 @@ import {
   type ModelAvailability,
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
+  readGedPreferences,
   readGedRuntimeSettings,
   syncGedSubagentRuntimeConfig,
   writeGedAgentsSettings,
+  writeGedPreference,
 } from "./agent-settings.js";
 import { pickModel } from "./fuzzy-picker.js";
 import type { AppCommandContext, AppCommandDefinition } from "./pi.js";
+import { PREFERENCE_DEFINITIONS } from "./preferences.js";
 import { executeRtkCommand } from "./rtk.js";
 
 // ─── Curated defaults for non-UI fallback ──────────────────────────────
@@ -491,6 +496,66 @@ async function executeGedAgentsCommand(
   return "Usage: /ged-agents [status|models|setup|on|off|model] [--project|--global]";
 }
 
+async function executeGedSettingsCommand(
+  context: AppCommandContext,
+): Promise<string> {
+  const prefs = await readGedPreferences();
+
+  // Non-UI fallback: return current values and file path.
+  if (!context.runtime?.ctx.hasUI) {
+    return [
+      "GedPi Preferences",
+      `  Commit after verification: ${prefs.autoCommitVerifiedWork}`,
+      `  Review plan before planner handoff: ${prefs.reviewPlanBeforePlannerHandoff}`,
+      "",
+      `Stored in: ${globalGedSettingsPath()}`,
+    ].join("\n");
+  }
+
+  const ctx = context.runtime.ctx;
+  await ctx.ui.custom((_tui, _theme, _kb, done) => {
+    const container = new Container();
+    const items = PREFERENCE_DEFINITIONS.map((def) => ({
+      id: def.id,
+      label: def.label,
+      description: def.description,
+      currentValue: prefs[def.id as keyof typeof prefs] ?? def.defaultValue,
+      values: def.values,
+    }));
+
+    const settingsList = new SettingsList(
+      items,
+      Math.min(items.length + 2, 15),
+      getSettingsListTheme(),
+      (id, newValue) => {
+        void writeGedPreference(id, newValue).catch(() => {
+          ctx.ui.notify(`Failed to save preference "${id}"`, "error");
+        });
+      },
+      () => {
+        done(undefined);
+      },
+    );
+
+    container.addChild(settingsList);
+
+    return {
+      render(width: number) {
+        return container.render(width);
+      },
+      invalidate() {
+        container.invalidate();
+      },
+      handleInput(data: string) {
+        settingsList.handleInput?.(data);
+        _tui.requestRender();
+      },
+    };
+  });
+
+  return "";
+}
+
 export function createGedCommands(): AppCommandDefinition[] {
   return [
     {
@@ -514,6 +579,14 @@ export function createGedCommands(): AppCommandDefinition[] {
           context.args,
           context,
         );
+      },
+    },
+    {
+      name: "ged-settings",
+      description:
+        "Configure GedPi workflow preferences (commit behavior, plan review)",
+      async execute(context) {
+        return await executeGedSettingsCommand(context);
       },
     },
   ];

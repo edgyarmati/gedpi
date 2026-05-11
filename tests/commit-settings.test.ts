@@ -1,18 +1,15 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  AUTO_COMMIT_VERIFIED_WORK_DEFAULT,
-  AUTO_COMMIT_VERIFIED_WORK_SETTING_ID,
+  AUTO_COMMIT_DEFAULT,
+  AUTO_COMMIT_ID,
   buildAutoCommitWorkflowPrompt,
   buildPlanReviewWorkflowPrompt,
-  GEDPI_EXTENSION_SETTINGS,
-  GEDPI_SETTINGS_EXTENSION_NAME,
   normalizeAutoCommitVerifiedWork,
   normalizeReviewPlanBeforePlannerHandoff,
-  REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT,
-  REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_SETTING_ID,
-  readAutoCommitVerifiedWork,
-  readReviewPlanBeforePlannerHandoff,
+  PREFERENCE_DEFINITIONS,
+  REVIEW_PLAN_DEFAULT,
+  REVIEW_PLAN_ID,
 } from "../src/commit-settings.js";
 
 describe("commit settings", () => {
@@ -24,23 +21,6 @@ describe("commit settings", () => {
     expect(normalizeReviewPlanBeforePlannerHandoff("invalid")).toBe("on");
   });
 
-  test("reads plan-review preference via pi-extension-settings getter", () => {
-    const calls: unknown[][] = [];
-    const value = readReviewPlanBeforePlannerHandoff((...args) => {
-      calls.push(args);
-      return "off";
-    });
-
-    expect(value).toBe("off");
-    expect(calls).toEqual([
-      [
-        GEDPI_SETTINGS_EXTENSION_NAME,
-        REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_SETTING_ID,
-        REVIEW_PLAN_BEFORE_PLANNER_HANDOFF_DEFAULT,
-      ],
-    ]);
-  });
-
   test("normalizes auto-commit preference", () => {
     expect(normalizeAutoCommitVerifiedWork("off")).toBe("off");
     expect(normalizeAutoCommitVerifiedWork("ask")).toBe("ask");
@@ -49,38 +29,28 @@ describe("commit settings", () => {
     expect(normalizeAutoCommitVerifiedWork("invalid")).toBe("ask");
   });
 
-  test("reads auto-commit preference via pi-extension-settings getter", () => {
-    const calls: unknown[][] = [];
-    const value = readAutoCommitVerifiedWork((...args) => {
-      calls.push(args);
-      return "on";
-    });
-
-    expect(value).toBe("on");
-    expect(calls).toEqual([
-      [
-        GEDPI_SETTINGS_EXTENSION_NAME,
-        AUTO_COMMIT_VERIFIED_WORK_SETTING_ID,
-        AUTO_COMMIT_VERIFIED_WORK_DEFAULT,
-      ],
-    ]);
-  });
-
-  test("exports pi-extension-settings definition", () => {
-    expect(GEDPI_EXTENSION_SETTINGS).toEqual([
+  test("exports preference definitions for UI rendering", () => {
+    expect(PREFERENCE_DEFINITIONS).toEqual([
       expect.objectContaining({
-        id: "autoCommitVerifiedWork",
+        id: AUTO_COMMIT_ID,
         label: "Commit after verification",
-        defaultValue: "ask",
+        defaultValue: AUTO_COMMIT_DEFAULT,
         values: ["off", "ask", "on"],
       }),
       expect.objectContaining({
-        id: "reviewPlanBeforePlannerHandoff",
+        id: REVIEW_PLAN_ID,
         label: "Review plan before planner handoff",
-        defaultValue: "on",
+        defaultValue: REVIEW_PLAN_DEFAULT,
         values: ["off", "on"],
       }),
     ]);
+  });
+
+  test("re-exports constants", () => {
+    expect(AUTO_COMMIT_ID).toBe("autoCommitVerifiedWork");
+    expect(REVIEW_PLAN_ID).toBe("reviewPlanBeforePlannerHandoff");
+    expect(AUTO_COMMIT_DEFAULT).toBe("ask");
+    expect(REVIEW_PLAN_DEFAULT).toBe("on");
   });
 
   test("builds prompt instructions for each preference", () => {

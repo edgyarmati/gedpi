@@ -3,6 +3,13 @@ import os from "node:os";
 import path from "node:path";
 
 import { writeFileAtomic } from "./atomic.js";
+import {
+  AUTO_COMMIT_ID,
+  type GedPreferences,
+  normalizeAutoCommitVerifiedWork,
+  normalizeReviewPlanBeforePlannerHandoff,
+  REVIEW_PLAN_ID,
+} from "./preferences.js";
 import { ensureIgnoredInGitignore } from "./standards.js";
 
 export const GED_AGENT_ROLES = [
@@ -170,6 +177,131 @@ export async function writeGedAgentsSettings(
   };
   await mkdir(path.dirname(filePath), { recursive: true });
   await writeFileAtomic(filePath, `${JSON.stringify(next, null, 2)}\n`);
+}
+
+/**
+ * Read effective GedPi workflow preferences.
+ * Falls back to defaults for any missing or invalid keys.
+ * On first read, migrates values from the old pi-extension-settings
+ * file (~/.pi/agent/settings-extensions.json) if present.
+ */
+export async function readGedPreferences(
+  homeDir?: string,
+): Promise<GedPreferences> {
+  const settingsPath = globalGedSettingsPath(homeDir);
+  const raw = await readJson(settingsPath);
+  const stored = isRecord(raw.preferences) ? raw.preferences : {};
+
+  const prefs: GedPreferences = {
+    autoCommitVerifiedWork: normalizeAutoCommitVerifiedWork(
+      stored.autoCommitVerifiedWork,
+    ),
+    reviewPlanBeforePlannerHandoff: normalizeReviewPlanBeforePlannerHandoff(
+      stored.reviewPlanBeforePlannerHandoff,
+    ),
+  };
+
+  // One-time migration: if any preference key is missing, try the old
+  // pi-extension-settings file to fill in only the missing keys.
+  const needAutoCommit = stored.autoCommitVerifiedWork === undefined;
+  const needReviewPlan = stored.reviewPlanBeforePlannerHandoff === undefined;
+  if (needAutoCommit || needReviewPlan) {
+    const migrated = await migrateLegacyPreferences(homeDir ?? os.homedir());
+    if (migrated) {
+      let shouldWrite = false;
+      if (needAutoCommit && migrated.autoCommitVerifiedWork !== undefined) {
+        prefs.autoCommitVerifiedWork = normalizeAutoCommitVerifiedWork(
+          migrated.autoCommitVerifiedWork,
+        );
+        shouldWrite = true;
+      }
+      if (
+        needReviewPlan &&
+        migrated.reviewPlanBeforePlannerHandoff !== undefined
+      ) {
+        prefs.reviewPlanBeforePlannerHandoff =
+          normalizeReviewPlanBeforePlannerHandoff(
+            migrated.reviewPlanBeforePlannerHandoff,
+          );
+        shouldWrite = true;
+      }
+      if (shouldWrite) {
+        await writeRawSettings(settingsPath, (next) => {
+          const prefsObj: Record<string, unknown> =
+            next.preferences && isRecord(next.preferences)
+              ? next.preferences
+              : {};
+          if (needAutoCommit) {
+            prefsObj[AUTO_COMMIT_ID] = prefs.autoCommitVerifiedWork;
+          }
+          if (needReviewPlan) {
+            prefsObj[REVIEW_PLAN_ID] = prefs.reviewPlanBeforePlannerHandoff;
+          }
+          next.preferences = prefsObj;
+          return next;
+        });
+      }
+    }
+  }
+
+  return prefs;
+}
+
+/**
+ * Write a single preference key, preserving agents and other top-level fields.
+ */
+export async function writeGedPreference(
+  key: string,
+  value: string,
+  homeDir?: string,
+): Promise<void> {
+  const settingsPath = globalGedSettingsPath(homeDir);
+  await writeRawSettings(settingsPath, (next) => {
+    if (!next.preferences || !isRecord(next.preferences)) {
+      next.preferences = {};
+    }
+    (next.preferences as Record<string, unknown>)[key] = value;
+    return next;
+  });
+}
+
+async function writeRawSettings(
+  filePath: string,
+  update: (next: Record<string, unknown>) => Record<string, unknown>,
+): Promise<void> {
+  const existing = await readJson(filePath);
+  const next = update(existing);
+  await mkdir(path.dirname(filePath), { recursive: true });
+  await writeFileAtomic(filePath, `${JSON.stringify(next, null, 2)}\n`);
+}
+
+interface LegacyPreferences {
+  autoCommitVerifiedWork?: unknown;
+  reviewPlanBeforePlannerHandoff?: unknown;
+}
+
+async function migrateLegacyPreferences(
+  homeDir: string,
+): Promise<LegacyPreferences | null> {
+  const legacyPath = path.join(
+    homeDir,
+    ".pi",
+    "agent",
+    "settings-extensions.json",
+  );
+  try {
+    const raw = await readJson(legacyPath);
+    const gedpi = raw.gedpi;
+    if (isRecord(gedpi)) {
+      return {
+        autoCommitVerifiedWork: gedpi.autoCommitVerifiedWork,
+        reviewPlanBeforePlannerHandoff: gedpi.reviewPlanBeforePlannerHandoff,
+      };
+    }
+  } catch {
+    // File doesn't exist or is unreadable — no legacy values to migrate.
+  }
+  return null;
 }
 
 export function formatGedAgentsStatus(
