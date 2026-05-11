@@ -2,6 +2,10 @@ import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { readEffectiveGedAgentsSettings } from "./agent-settings.js";
+import {
+  buildAutoCommitWorkflowPrompt,
+  readAutoCommitVerifiedWork,
+} from "./commit-settings.js";
 import type { GedState } from "./contracts.js";
 import { activeGedPaths, currentWorkId, relativeGedPath } from "./ged-paths.js";
 import { buildOrchestrationPrompt } from "./orchestration.js";
@@ -235,10 +239,14 @@ export async function buildWorkflowPromptSuffix(
   ).catch(() => null);
   const agentsEnabled = agentSettings?.enabled ?? false;
   const orchestrationPrompt = buildOrchestrationPrompt(agentsEnabled);
+  const commitPreferencePrompt = buildAutoCommitWorkflowPrompt(
+    readAutoCommitVerifiedWork(),
+  );
 
   return [
     buildBrainSystemAppend(agentsEnabled),
     orchestrationPrompt,
+    commitPreferencePrompt,
     `## Current Durable Task State
 
 ${renderStateSummary(state)}

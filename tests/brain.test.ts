@@ -40,6 +40,9 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain("GedPi Single-Brain Mode");
     expect(prompt).toContain("use grill-me in chat");
     expect(prompt).toContain("skill-fit checkpoint");
+    expect(prompt).toContain("## Commit Preference");
+    expect(prompt).toContain("Current setting: ask");
+    expect(prompt).toContain("ask the user whether to commit");
     expect(prompt).toContain("use find-skills if coverage is insufficient");
     expect(prompt).not.toContain("interview tool");
     expect(prompt).toContain(

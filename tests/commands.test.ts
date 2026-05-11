@@ -26,6 +26,7 @@ describe("Ged command surface", () => {
     let rendererRegistrations = 0;
     const commands: string[] = [];
     const events: string[] = [];
+    const emittedEvents: Array<{ channel: string; data: unknown }> = [];
 
     await gedCoreExtension({
       registerMessageRenderer() {
@@ -38,6 +39,12 @@ describe("Ged command surface", () => {
       on(event: string) {
         events.push(event);
       },
+      events: {
+        emit(channel: string, data: unknown) {
+          emittedEvents.push({ channel, data });
+        },
+        on() {},
+      },
     } as never);
 
     expect(rendererRegistrations).toBeGreaterThan(0);
@@ -45,6 +52,19 @@ describe("Ged command surface", () => {
     expect(events).toContain("session_start");
     expect(events).toContain("before_agent_start");
     expect(events).toContain("tool_call");
+    expect(emittedEvents).toContainEqual({
+      channel: "pi-extension-settings:register",
+      data: {
+        name: "gedpi",
+        settings: [
+          expect.objectContaining({
+            id: "autoCommitVerifiedWork",
+            defaultValue: "ask",
+            values: ["off", "ask", "on"],
+          }),
+        ],
+      },
+    });
   });
 
   test("status and skills extensions register no commands", () => {

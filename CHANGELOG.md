@@ -6,6 +6,7 @@
 
 - `/ged-agents setup` now lets users choose per-role thinking levels and persists them in generated subagent configuration.
 - RTK routing now auto-detects the `rtk` binary instead of maintaining an on/off setting, and the command is now `/rtk` for status/install.
+- Added a Pi extension setting for whether GedPi should leave verified work uncommitted, ask before committing, or commit automatically after verification.
 
 ## 0.17.6 - 2026-05-10
 

@@ -11,6 +11,10 @@ import {
   ensureGedReady,
 } from "../../src/brain.js";
 import { createGedCommands } from "../../src/commands.js";
+import {
+  GEDPI_EXTENSION_SETTINGS,
+  GEDPI_SETTINGS_EXTENSION_NAME,
+} from "../../src/commit-settings.js";
 import { renderHeader } from "../../src/header.js";
 import {
   consumePlannerCheckpoint,
@@ -103,6 +107,11 @@ export default async function gedCoreExtension(
     void recordGedSubagentCheckpoint(activeCwd, subagentName).catch(() => {
       // Non-fatal — lifecycle events should not break the subagent runtime.
     });
+  });
+
+  api.events?.emit("pi-extension-settings:register", {
+    name: GEDPI_SETTINGS_EXTENSION_NAME,
+    settings: GEDPI_EXTENSION_SETTINGS,
   });
 
   registerGedMessageRenderer(api);
