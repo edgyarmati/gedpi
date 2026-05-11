@@ -43,6 +43,19 @@ Bundled defaults now include `find-skills`, `skill-creator`, and `brainstorming`
 
 Always document plans and progress. Before making changes, state what you intend to do. After completing tasks, summarize what was done.
 
+### Updating workflow prompts and agent contracts
+
+When changing Ged's workflow, update the durable documentation and generated prompt sources together so new sessions inherit the same rules:
+
+- `src/brain.ts` controls the text appended to the main agent system prompt.
+- `src/orchestration.ts` controls the detailed subagent orchestration contract and guard messages.
+- `src/agent-settings.ts` controls the bundled `ged-explorer`, `ged-planner`, and `ged-verifier` runtime agent prompts generated into `.pi/agents/`.
+- `src/commit-settings.ts` controls user-configurable workflow preferences that are also appended to the system prompt.
+- `AGENTS.md` documents the intended workflow for future coding sessions.
+- Keep GedCode parity in mind when prompt/checkpoint behavior is duplicated there.
+
+For non-trivial work, the main agent must run the first clarification/sufficiency pass before drafting a plan. Use grill-me in chat when goal, users/audience, scope, constraints, relevant context, risks, tests, or success criteria are unclear. If the request is already clear, synthesize that evidence instead of asking unnecessary questions. After the draft plan is approved when `reviewPlanBeforePlannerHandoff` is on, the planner subagent judges semantic sufficiency across the entire handoff; it must not require an exact `## Grill-me evidence` heading. If the planner says information is missing, the main agent must run grill-me for those gaps, update the plan, repeat required plan approval, and re-dispatch the planner.
+
 The Ged workflow is always active:
 - lazily initialize or migrate `.ged/` on the first real agent turn
 - discover external standards files such as `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `.cursor/rules/**/*.mdc`, `.cursorrules`, `.windsurf/rules/**`, and `.continue/rules/**`

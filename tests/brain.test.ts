@@ -39,10 +39,17 @@ describe("Ged brain runtime", () => {
 
     expect(prompt).toContain("GedPi Single-Brain Mode");
     expect(prompt).toContain("use grill-me in chat");
+    expect(prompt).toContain(
+      "Do not dispatch ged-planner before this first-pass clarification/sufficiency check",
+    );
+    expect(prompt).toContain("synthesize the clarification evidence");
     expect(prompt).toContain("skill-fit checkpoint");
     expect(prompt).toContain("## Plan Review Preference");
     expect(prompt).toContain("Current setting: on");
     expect(prompt).toContain("wait for explicit approval");
+    expect(prompt).toContain(
+      "judging semantic sufficiency across the whole dispatch",
+    );
     expect(prompt).toContain("## Commit Preference");
     expect(prompt).toContain("Current setting: ask");
     expect(prompt).toContain("ask the user whether to commit");

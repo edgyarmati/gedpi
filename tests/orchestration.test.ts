@@ -704,6 +704,16 @@ describe("orchestration prompt", () => {
     );
   });
 
+  it("requires main-agent sufficiency before planning and semantic planner handoff", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain("Before drafting a non-trivial plan");
+    expect(result).toContain("main-agent sufficiency check");
+    expect(result).toContain(
+      "judges semantic sufficiency across the entire dispatch",
+    );
+    expect(result).toContain("must not require an exact evidence heading");
+  });
+
   it("includes hard enforcement section", () => {
     const result = buildOrchestrationPrompt(true);
     expect(result).toContain("Classification is required");

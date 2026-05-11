@@ -162,9 +162,20 @@ describe("Ged optional agent settings", () => {
     expect(explorer).toContain("extensions: false");
     expect(explorer).toContain("prompt_mode: replace");
     expect(explorer).toContain("run_in_background: true");
-    await expect(
-      readFile(path.join(rootDir, ".pi", "agents", "ged-planner.md"), "utf8"),
-    ).resolves.toContain("model: openai/gpt-5.5");
+    const planner = await readFile(
+      path.join(rootDir, ".pi", "agents", "ged-planner.md"),
+      "utf8",
+    );
+    expect(planner).toContain("model: openai/gpt-5.5");
+    expect(planner).toContain(
+      "semantic sufficiency across the entire dispatch",
+    );
+    expect(planner).toContain(
+      "Do not demand a specific `## Grill-me evidence` block",
+    );
+    expect(planner).not.toContain(
+      "Does the orchestrator's dispatch include a `## Grill-me evidence` block",
+    );
     expect(explorer).toContain("Never edit files");
     expect(settings.subagents).toMatchObject({
       agentOverrides: { reviewer: { disabled: true } },

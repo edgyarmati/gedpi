@@ -252,7 +252,7 @@ export function parseCheckpointState(raw) {
 /**
  * Check whether the planner checkpoint exists for non-trivial work.
  * v2 requirements: clarification completed + explorer (auto, completed or skipped)
- * + planner (auto, completed, outcome: "planned"). Trivial work skips all checks.
+ * + planner (auto, completed, not explicitly refused). Trivial work skips all checks.
  * Returns valid=false for null state (classification is required before edits).
  * @param {CheckpointState | null} state
  * @returns {CheckpointValidation}

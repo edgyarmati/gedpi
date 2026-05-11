@@ -12,6 +12,7 @@
 ### Fixes
 
 - Planner clarification refusals now explicitly block continuation until the main agent runs grill-me and re-dispatches `ged-planner`.
+- Planner prompts now judge semantic sufficiency across the whole handoff instead of requiring an exact `## Grill-me evidence` block.
 
 ## 0.17.6 - 2026-05-10
 
