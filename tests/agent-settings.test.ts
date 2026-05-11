@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 import {
   cleanAgentsSettings,
+  formatGedAgentsStatus,
   modelCandidates,
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
@@ -168,6 +169,75 @@ describe("Ged optional agent settings", () => {
     expect(settings.subagents).toMatchObject({
       agentOverrides: { reviewer: { disabled: true } },
     });
+  });
+
+  test("runtime sync writes configured thinking levels", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      models: {
+        "ged-planner": {
+          model: "openai/gpt-5.5",
+          fallback: ["anthropic/claude-opus-4.7"],
+          thinking: "high",
+        },
+        "ged-verifier": {
+          model: "anthropic/claude-opus-4.7",
+          thinking: "off",
+        },
+      },
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir);
+
+    await expect(
+      readFile(path.join(rootDir, ".pi", "agents", "ged-planner.md"), "utf8"),
+    ).resolves.toContain("thinking: high");
+    await expect(
+      readFile(path.join(rootDir, ".pi", "agents", "ged-verifier.md"), "utf8"),
+    ).resolves.toContain("thinking: off");
+  });
+
+  test("runtime sync ignores invalid thinking levels", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      models: {
+        "ged-planner": { model: "openai/gpt-5.5", thinking: "bogus" },
+      },
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir);
+
+    const planner = await readFile(
+      path.join(rootDir, ".pi", "agents", "ged-planner.md"),
+      "utf8",
+    );
+    expect(planner).not.toContain("thinking: bogus");
+  });
+
+  test("status reports configured thinking including off", () => {
+    expect(
+      formatGedAgentsStatus({
+        enabled: true,
+        models: {
+          "ged-planner": { model: "openai/gpt-5.5", thinking: "off" },
+        },
+        allowCheckpointBypass: false,
+      }),
+    ).toContain("- ged-planner: openai/gpt-5.5 [thinking: off]");
+  });
+
+  test("status ignores invalid thinking levels", () => {
+    expect(
+      formatGedAgentsStatus({
+        enabled: true,
+        models: {
+          "ged-planner": { model: "openai/gpt-5.5", thinking: "bogus" },
+        },
+        allowCheckpointBypass: false,
+      }),
+    ).toContain("- ged-planner: openai/gpt-5.5\n");
   });
 
   test("runtime sync writes the first available fallback model", async () => {

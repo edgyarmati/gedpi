@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+- `/ged-agents setup` now lets users choose per-role thinking levels and persists them in generated subagent configuration.
+
 ## 0.17.6 - 2026-05-10
 
 ### Fixes

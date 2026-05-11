@@ -13,6 +13,15 @@ export const GED_AGENT_ROLES = [
 
 export type GedAgentRole = (typeof GED_AGENT_ROLES)[number];
 
+const ALLOWED_THINKING_LEVELS = new Set([
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+]);
+
 export type AgentModelConfig =
   | string
   | ({ model: string; fallback?: string[] } & Record<string, unknown>);
@@ -220,7 +229,10 @@ function thinkingLevel(
 ): string | undefined {
   if (!value || typeof value === "string") return undefined;
   const thinking = value.thinking;
-  if (typeof thinking === "string" && thinking !== "off") return thinking;
+  if (typeof thinking === "string") {
+    const normalized = thinking.trim();
+    if (ALLOWED_THINKING_LEVELS.has(normalized)) return normalized;
+  }
   return undefined;
 }
 

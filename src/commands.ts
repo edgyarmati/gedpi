@@ -2,6 +2,7 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 // Pi UI context type alias for the command handler
 import type { ModelRegistry } from "@earendil-works/pi-coding-agent";
 import {
+  type AgentModelConfig,
   formatGedAgentsStatus,
   GED_AGENT_ROLES,
   type GedAgentRole,
@@ -23,6 +24,24 @@ import { executeRtkCommand } from "./rtk.js";
 const DEFAULT_EXPLORER = "deepseek/deepseek-v4-flash";
 const DEFAULT_PLANNER = "openai/gpt-5.5";
 const DEFAULT_VERIFIER = "anthropic/claude-opus-4.7";
+
+const THINKING_LEVELS = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+] as const;
+
+type ThinkingLevel = (typeof THINKING_LEVELS)[number];
+type ThinkingChoice = ThinkingLevel | "inherit";
+type ThinkingPickerResult = ThinkingChoice | "cancel";
+
+type RoleSetupConfig = {
+  model: string;
+  thinking?: ThinkingLevel;
+};
 
 // ─── Scope helpers ─────────────────────────────────────────────────────
 
@@ -82,6 +101,28 @@ function modelAvailabilityFromRegistry(
 
 // ─── Settings I/O ──────────────────────────────────────────────────────
 
+function withThinking(
+  config: { model: string; fallback: string[] },
+  thinking: ThinkingLevel | undefined,
+): AgentModelConfig {
+  return thinking ? { ...config, thinking } : config;
+}
+
+function formatRoleSetup(config: RoleSetupConfig): string {
+  return config.thinking
+    ? `${config.model} [thinking: ${config.thinking}]`
+    : `${config.model} [thinking: inherit/default]`;
+}
+
+function formatThinkingTag(config: AgentModelConfig | undefined): string {
+  if (!config || typeof config === "string") return "";
+  if (typeof config.thinking !== "string") return "";
+  const thinking = config.thinking.trim();
+  return THINKING_LEVELS.includes(thinking as ThinkingLevel)
+    ? ` [thinking: ${thinking}]`
+    : "";
+}
+
 async function setAgentModel(
   cwd: string,
   targetPath: string,
@@ -128,9 +169,9 @@ async function applyAgentConfig(
   cwd: string,
   targetPath: string,
   config: {
-    explorer?: string;
-    planner?: string;
-    verifier?: string;
+    explorer?: RoleSetupConfig;
+    planner?: RoleSetupConfig;
+    verifier?: RoleSetupConfig;
   },
   availability?: ModelAvailability,
 ): Promise<string> {
@@ -138,37 +179,48 @@ async function applyAgentConfig(
   const existing = await readGedRuntimeSettings(filePath);
   const next: GedAgentsSettings = { ...(existing.agents ?? {}), enabled: true };
 
-  const models: Partial<
-    Record<GedAgentRole, string | { model: string; fallback: string[] }>
-  > = {};
+  const models: Partial<Record<GedAgentRole, AgentModelConfig>> = {};
 
   function buildConfig(
-    primary: string | undefined,
-  ): string | { model: string; fallback: string[] } | undefined {
-    if (!primary) return undefined;
+    roleConfig: RoleSetupConfig | undefined,
+  ): AgentModelConfig | undefined {
+    if (!roleConfig) return undefined;
+    const primary = roleConfig.model;
     const provider = primary.split("/")[0];
     if (provider === "openai") {
-      return {
-        model: primary,
-        fallback: ["anthropic/claude-opus-4.7", "deepseek/deepseek-v4-pro"],
-      };
+      return withThinking(
+        {
+          model: primary,
+          fallback: ["anthropic/claude-opus-4.7", "deepseek/deepseek-v4-pro"],
+        },
+        roleConfig.thinking,
+      );
     }
     if (provider === "anthropic") {
-      return {
-        model: primary,
-        fallback: ["openai/gpt-5.5", "deepseek/deepseek-v4-pro"],
-      };
+      return withThinking(
+        {
+          model: primary,
+          fallback: ["openai/gpt-5.5", "deepseek/deepseek-v4-pro"],
+        },
+        roleConfig.thinking,
+      );
     }
     if (provider === "deepseek") {
-      return {
+      return withThinking(
+        {
+          model: primary,
+          fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
+        },
+        roleConfig.thinking,
+      );
+    }
+    return withThinking(
+      {
         model: primary,
         fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
-      };
-    }
-    return {
-      model: primary,
-      fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
-    };
+      },
+      roleConfig.thinking,
+    );
   }
 
   if (config.explorer) {
@@ -185,10 +237,7 @@ async function applyAgentConfig(
   }
 
   if (Object.keys(models).length > 0) {
-    next.models = models as Record<
-      GedAgentRole,
-      string | { model: string; fallback?: string[] }
-    >;
+    next.models = models;
   }
 
   await writeGedAgentsSettings(filePath, next);
@@ -198,9 +247,9 @@ async function applyAgentConfig(
   const lines = [
     `Ged subagents enabled for this ${scopeLabel}.`,
     "",
-    config.explorer ? `- Explorer: ${config.explorer}` : "",
-    config.planner ? `- Planner: ${config.planner}` : "",
-    config.verifier ? `- Verifier: ${config.verifier}` : "",
+    config.explorer ? `- Explorer: ${formatRoleSetup(config.explorer)}` : "",
+    config.planner ? `- Planner: ${formatRoleSetup(config.planner)}` : "",
+    config.verifier ? `- Verifier: ${formatRoleSetup(config.verifier)}` : "",
     "- Fallback chains: enabled",
     "",
     "Run `/ged-agents status` to review.",
@@ -221,9 +270,9 @@ function formatModelsList(
     const label = config
       ? typeof config === "string"
         ? config
-        : `${config.model}${config.fallback && config.fallback.length > 0 ? ` → ${config.fallback.join(" → ")}` : ""}`
+        : `${config.model}${config.fallback && config.fallback.length > 0 ? ` → ${config.fallback.join(" → ")}` : ""}${formatThinkingTag(config)}`
       : effective.defaultModel
-        ? `inherit (${typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model})`
+        ? `inherit (${typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model}${formatThinkingTag(effective.defaultModel)})`
         : "inherit (orchestrator)";
     const source = config
       ? "role override"
@@ -234,7 +283,7 @@ function formatModelsList(
   }
 
   lines.push(
-    `- **default**: ${effective.defaultModel ? (typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model) : "inherit orchestrator"}`,
+    `- **default**: ${effective.defaultModel ? `${typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model}${formatThinkingTag(effective.defaultModel)}` : "inherit orchestrator"}`,
   );
   lines.push("");
   lines.push("Change: `/ged-agents model <role> <model-id> [--project]`");
@@ -259,6 +308,32 @@ function formatCompactSetup(): string {
 }
 
 // ─── Interactive wizard ────────────────────────────────────────────────
+async function pickThinkingLevel(
+  ui: NonNullable<AppCommandContext["runtime"]>["ctx"]["ui"],
+  title: string,
+): Promise<ThinkingPickerResult> {
+  if (!ui) return "cancel";
+  const choice = await ui.select(title, [
+    "Inherit/default",
+    "Off",
+    "Minimal",
+    "Low",
+    "Medium",
+    "High",
+    "XHigh",
+    "Cancel",
+  ]);
+  if (!choice || choice === "Cancel") return "cancel";
+  if (choice === "Inherit/default") return "inherit";
+  return choice.toLowerCase() as ThinkingLevel;
+}
+
+function selectedThinking(
+  choice: ThinkingPickerResult,
+): ThinkingLevel | undefined {
+  return choice === "inherit" || choice === "cancel" ? undefined : choice;
+}
+
 async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const ui = ctx.runtime?.ctx.ui;
   const registry = ctx.runtime?.ctx.modelRegistry;
@@ -278,23 +353,35 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   const targetPath = scopeChoice === "This project only" ? "PROJECT" : "GLOBAL";
   const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
 
-  // Step 2–4: Live fuzzy-search model pickers
+  // Step 2–4: Live fuzzy-search model pickers with thinking choices
   const explorerModel = await pickModel(ui, registry, "Explorer model");
   if (explorerModel === null) return "Setup cancelled.";
+  const explorerThinking = await pickThinkingLevel(
+    ui,
+    "Explorer thinking level",
+  );
+  if (explorerThinking === "cancel") return "Setup cancelled.";
 
   const plannerModel = await pickModel(ui, registry, "Planner model");
   if (plannerModel === null) return "Setup cancelled.";
+  const plannerThinking = await pickThinkingLevel(ui, "Planner thinking level");
+  if (plannerThinking === "cancel") return "Setup cancelled.";
 
   const verifierModel = await pickModel(ui, registry, "Verifier model");
   if (verifierModel === null) return "Setup cancelled.";
+  const verifierThinking = await pickThinkingLevel(
+    ui,
+    "Verifier thinking level",
+  );
+  if (verifierThinking === "cancel") return "Setup cancelled.";
 
   // Step 5: Confirmation
   const summary = [
     `Scope: ${scopeLabel}`,
     "",
-    `Explorer: ${formatModelRef(explorerModel)}`,
-    `Planner: ${formatModelRef(plannerModel)}`,
-    `Verifier: ${formatModelRef(verifierModel)}`,
+    `Explorer: ${formatRoleSetup({ model: formatModelRef(explorerModel), thinking: selectedThinking(explorerThinking) })}`,
+    `Planner: ${formatRoleSetup({ model: formatModelRef(plannerModel), thinking: selectedThinking(plannerThinking) })}`,
+    `Verifier: ${formatRoleSetup({ model: formatModelRef(verifierModel), thinking: selectedThinking(verifierThinking) })}`,
     "",
     "Fallback chains will be enabled automatically.",
   ].join("\n");
@@ -309,9 +396,18 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
     ctx.cwd,
     targetPath,
     {
-      explorer: formatModelRef(explorerModel),
-      planner: formatModelRef(plannerModel),
-      verifier: formatModelRef(verifierModel),
+      explorer: {
+        model: formatModelRef(explorerModel),
+        thinking: selectedThinking(explorerThinking),
+      },
+      planner: {
+        model: formatModelRef(plannerModel),
+        thinking: selectedThinking(plannerThinking),
+      },
+      verifier: {
+        model: formatModelRef(verifierModel),
+        thinking: selectedThinking(verifierThinking),
+      },
     },
     modelAvailabilityFromRegistry(registry),
   );

@@ -8,6 +8,7 @@ import gedSkillsExtension from "../extensions/ged-skills/index.js";
 import gedStatusExtension from "../extensions/ged-status/index.js";
 import {
   projectGedSettingsPath,
+  readGedRuntimeSettings,
   writeGedAgentsSettings,
 } from "../src/agent-settings.js";
 import { createGedCommands } from "../src/commands.js";
@@ -138,6 +139,28 @@ describe("Ged command surface", () => {
     expect(result).toContain("Change:");
   });
 
+  test("ged-agents models shows configured thinking levels", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    await writeGedAgentsSettings(projectGedSettingsPath(cwd), {
+      enabled: true,
+      defaultModel: { model: "openai/gpt-5-mini", thinking: "minimal" },
+      models: {
+        "ged-planner": { model: "openai/gpt-5.5", thinking: "low" },
+      },
+    });
+
+    const result = await command?.execute({ cwd, args: ["models"] });
+
+    expect(result).toContain("ged-planner");
+    expect(result).toContain("openai/gpt-5.5 [thinking: low]");
+    expect(result).toContain(
+      "default**: openai/gpt-5-mini [thinking: minimal]",
+    );
+  });
+
   test("ged-agents model sets per-role model", async () => {
     const command = createGedCommands().find(
       (candidate) => candidate.name === "ged-agents",
@@ -199,6 +222,116 @@ describe("Ged command surface", () => {
     });
 
     expect(result).toContain("Unknown role");
+  });
+
+  test("ged-agents setup stores selected thinking levels", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    const models = [
+      { provider: "deepseek", id: "deepseek-v4-flash", name: "DeepSeek" },
+      { provider: "openai", id: "gpt-5.5", name: "GPT" },
+      { provider: "anthropic", id: "claude-opus-4.7", name: "Claude" },
+    ];
+    const selectResponses = [
+      "This project only",
+      "Inherit/default",
+      "Low",
+      "Off",
+    ];
+    let customIndex = 0;
+
+    const result = await command?.execute({
+      cwd,
+      args: ["setup"],
+      runtime: {
+        pi: {} as never,
+        ctx: {
+          hasUI: true,
+          ui: {
+            select: async () => selectResponses.shift(),
+            custom: async () => models[customIndex++],
+            confirm: async (_title: string, summary: string) => {
+              expect(summary).toContain(
+                "Explorer: deepseek/deepseek-v4-flash [thinking: inherit/default]",
+              );
+              expect(summary).toContain(
+                "Planner: openai/gpt-5.5 [thinking: low]",
+              );
+              expect(summary).toContain(
+                "Verifier: anthropic/claude-opus-4.7 [thinking: off]",
+              );
+              return true;
+            },
+            notify: () => {},
+          },
+          modelRegistry: {
+            getAvailable: () => models,
+            find: (provider: string, id: string) =>
+              models.find(
+                (model) => model.provider === provider && model.id === id,
+              ),
+          },
+        } as never,
+      },
+    });
+
+    expect(result).toContain("Planner: openai/gpt-5.5 [thinking: low]");
+    expect(result).toContain(
+      "Verifier: anthropic/claude-opus-4.7 [thinking: off]",
+    );
+
+    const settings = await readGedRuntimeSettings(projectGedSettingsPath(cwd));
+    expect(settings.agents?.models?.["ged-explorer"]).toEqual({
+      model: "deepseek/deepseek-v4-flash",
+      fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
+    });
+    expect(settings.agents?.models?.["ged-planner"]).toMatchObject({
+      model: "openai/gpt-5.5",
+      thinking: "low",
+    });
+    expect(settings.agents?.models?.["ged-verifier"]).toMatchObject({
+      model: "anthropic/claude-opus-4.7",
+      thinking: "off",
+    });
+  });
+
+  test("ged-agents setup cancels without writing at thinking selection", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    const models = [{ provider: "openai", id: "gpt-5.5", name: "GPT" }];
+
+    const result = await command?.execute({
+      cwd,
+      args: ["setup"],
+      runtime: {
+        pi: {} as never,
+        ctx: {
+          hasUI: true,
+          ui: {
+            select: async (title: string) =>
+              title === "Set up Ged subagents" ? "This project only" : "Cancel",
+            custom: async () => models[0],
+            confirm: async () => true,
+            notify: () => {},
+          },
+          modelRegistry: {
+            getAvailable: () => models,
+            find: () => models[0],
+          },
+        } as never,
+      },
+    });
+
+    expect(result).toBe("Setup cancelled.");
+    await expect(
+      readGedRuntimeSettings(projectGedSettingsPath(cwd)),
+    ).resolves.toEqual({
+      agents: {},
+    });
   });
 
   test("ged-agents setup returns compact commands in non-UI mode", async () => {
