@@ -93,7 +93,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/push` | Push the current branch, with automatic recovery flow if the first push fails |
 | `/settings` | Open Pi settings, including theme selection from bundled `amp-themes` themes |
 | `/update` | Check for GedPi updates |
-| `/ged-rtk` | Install RTK and control Ged's bash-side RTK routing (status, install, on, off) |
+| `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |
 | `/ged-agents` | Configure optional read-only Ged subagents (status, setup, on, off) |
 
 ### Auto-Updater

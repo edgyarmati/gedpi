@@ -1,4 +1,4 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -10,7 +10,7 @@ import {
   executeRtkCommand,
   registerRtkBashRouting,
 } from "../src/rtk.js";
-import { readRtkMode, saveRtkMode } from "../src/theme.js";
+import { ensurePiSettings } from "../src/theme.js";
 
 describe("RTK integration", () => {
   test("detectRtk reports installed version and path", async () => {
@@ -49,8 +49,8 @@ describe("RTK integration", () => {
     });
   });
 
-  test("executeRtkCommand enables auto mode when RTK is installed", async () => {
-    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-rtk-on-"));
+  test("executeRtkCommand reports automatic routing for old on/off subcommands", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-rtk-auto-"));
 
     const message = await executeRtkCommand(
       ["on"],
@@ -71,11 +71,27 @@ describe("RTK integration", () => {
       },
     );
 
-    expect(message).toContain("RTK routing is now ON");
-    expect(readRtkMode(cwd)).toBe("auto");
+    expect(message).toContain("RTK routing is automatic now");
   });
 
-  test("registerRtkBashRouting rewrites bash commands only in auto mode", async () => {
+  test("ensurePiSettings removes stale rtkMode settings", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-rtk-settings-"));
+    await mkdir(path.join(cwd, ".pi"), { recursive: true });
+    await writeFile(
+      path.join(cwd, ".pi", "settings.json"),
+      `${JSON.stringify({ quietStartup: false, rtkMode: "off" }, null, 2)}\n`,
+    );
+
+    await ensurePiSettings(cwd);
+
+    const settings = JSON.parse(
+      await readFile(path.join(cwd, ".pi", "settings.json"), "utf8"),
+    ) as Record<string, unknown>;
+    expect(settings.rtkMode).toBeUndefined();
+    expect(settings.quietStartup).toBe(false);
+  });
+
+  test("registerRtkBashRouting rewrites bash commands automatically", async () => {
     const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-rtk-rewrite-"));
     const handlers = new Map<
       string,
@@ -102,30 +118,34 @@ describe("RTK integration", () => {
       input: { command: "git status" },
     };
 
-    saveRtkMode(cwd, "off");
-    await handler?.(bashEvent, { cwd });
-    expect(bashEvent.input.command).toBe("git status");
-
-    await executeRtkCommand(
-      ["on"],
-      {
-        cwd,
-        hasUI: true,
-        ui: {
-          confirm: async () => true,
-          notify() {},
-          setStatus() {},
-        },
-      } as never,
-      async (command) => {
-        if (command === "rtk") {
-          return { stdout: "rtk 0.28.2\n", stderr: "", code: 0 };
-        }
-        return { stdout: "/usr/local/bin/rtk\n", stderr: "", code: 0 };
-      },
-    );
-
     await handler?.(bashEvent, { cwd });
     expect(bashEvent.input.command).toBe("rtk git status");
+  });
+
+  test("registerRtkBashRouting leaves bash commands unchanged when RTK declines", async () => {
+    const handlers = new Map<
+      string,
+      (event: unknown, ctx: { cwd: string }) => Promise<void>
+    >();
+
+    registerRtkBashRouting(
+      {
+        on(
+          event: string,
+          handler: (event: unknown, ctx: { cwd: string }) => Promise<void>,
+        ) {
+          handlers.set(event, handler);
+        },
+      } as never,
+      async () => ({ stdout: "", stderr: "missing", code: 1 }),
+    );
+
+    const bashEvent = {
+      toolName: "bash",
+      input: { command: "git status" },
+    };
+
+    await handlers.get("tool_call")?.(bashEvent, { cwd: process.cwd() });
+    expect(bashEvent.input.command).toBe("git status");
   });
 });

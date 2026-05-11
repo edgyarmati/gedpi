@@ -17,7 +17,7 @@ import { rewriteCommandWithRtk } from "../src/rtk.js";
 describe("Ged command surface", () => {
   test("createGedCommands exposes GedPi commands", () => {
     expect(createGedCommands().map((command) => command.name)).toEqual([
-      "ged-rtk",
+      "rtk",
       "ged-agents",
     ]);
   });
@@ -41,7 +41,7 @@ describe("Ged command surface", () => {
     } as never);
 
     expect(rendererRegistrations).toBeGreaterThan(0);
-    expect(commands).toEqual(["ged-rtk", "ged-agents", "update"]);
+    expect(commands).toEqual(["rtk", "ged-agents", "update"]);
     expect(events).toContain("session_start");
     expect(events).toContain("before_agent_start");
     expect(events).toContain("tool_call");

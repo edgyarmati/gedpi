@@ -494,12 +494,12 @@ async function executeGedAgentsCommand(
 export function createGedCommands(): AppCommandDefinition[] {
   return [
     {
-      name: "ged-rtk",
+      name: "rtk",
       description:
-        "Install RTK and control Ged's bash-side RTK routing (status, install, on, off)",
+        "Install RTK and check Ged's automatic bash-side RTK routing",
       async execute(context) {
         if (!context.runtime) {
-          return "The /ged-rtk command is only available inside GedPi interactive sessions.";
+          return "The /rtk command is only available inside GedPi interactive sessions.";
         }
         return await executeRtkCommand(context.args, context.runtime.ctx);
       },

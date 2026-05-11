@@ -6,12 +6,9 @@ import { writeFileAtomicSync } from "./atomic.js";
 
 // ── Persistence (.pi/settings.json) ─────────────────────────────
 
-export type RtkMode = "off" | "auto";
-
 interface PiSettings {
   quietStartup?: boolean;
   theme?: string;
-  rtkMode?: RtkMode;
   [key: string]: unknown;
 }
 
@@ -59,20 +56,17 @@ export async function ensurePiSettings(cwd: string): Promise<void> {
     modified = true;
   }
 
+  // RTK routing is now automatic when the `rtk` binary is installed, so
+  // remove the old persisted opt-in/opt-out setting if present.
+  if ("rtkMode" in existing) {
+    delete existing.rtkMode;
+    modified = true;
+  }
+
   if (modified) {
     await mkdir(path.join(cwd, ".pi"), { recursive: true });
     writeSettings(cwd, existing);
   }
-}
-
-export function readRtkMode(cwd: string): RtkMode {
-  const saved = readSettings(cwd).rtkMode;
-  return saved === "off" ? "off" : "auto";
-}
-
-export function saveRtkMode(cwd: string, mode: RtkMode): void {
-  const settings = readSettings(cwd);
-  writeSettings(cwd, { ...settings, rtkMode: mode });
 }
 
 // ── ANSI helpers ─────────────────────────────────────────────────

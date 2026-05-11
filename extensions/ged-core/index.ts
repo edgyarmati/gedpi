@@ -41,15 +41,10 @@ import {
   warmRepoMap,
 } from "../../src/repo-map-runtime.js";
 import {
-  formatRtkModeStatus,
   refreshRtkStatusIndicator,
   registerRtkBashRouting,
 } from "../../src/rtk.js";
-import {
-  ensurePiSettings,
-  formatGedStatus,
-  readRtkMode,
-} from "../../src/theme.js";
+import { ensurePiSettings, formatGedStatus } from "../../src/theme.js";
 import { registerUpdater } from "../../src/updater.js";
 import type { CheckpointAgent } from "../../src/vendor/shared-checkpoints.js";
 import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
@@ -146,7 +141,6 @@ export default async function gedCoreExtension(
     ctx.ui.setTitle("GedPi");
     ctx.ui.setHeader((_tui, theme) => renderHeader(theme));
     ctx.ui.setStatus("gedpi", formatGedStatus());
-    ctx.ui.setStatus("rtk", formatRtkModeStatus(readRtkMode(ctx.cwd), false));
     await refreshRtkStatusIndicator(ctx);
     void warmRepoMap(ctx.cwd);
   });

@@ -9,8 +9,6 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 
-import { type RtkMode, readRtkMode, saveRtkMode } from "./theme.js";
-
 const execFile = promisify(execFileCb);
 const RTK_REWRITE_TIMEOUT_MS = 2_000;
 const RTK_INSTALL_TIMEOUT_MS = 180_000;
@@ -35,17 +33,13 @@ export interface InstallPlan {
 }
 
 export interface RtkRuntimeStatus {
-  mode: RtkMode;
   installed: boolean;
   version?: string;
   path?: string;
 }
 
-export function formatRtkModeStatus(mode: RtkMode, installed: boolean): string {
-  if (mode !== "auto") {
-    return "\x1b[2mRTK OFF\x1b[0m";
-  }
-  return installed ? "RTK AUTO" : "\x1b[33mRTK AUTO (missing)\x1b[0m";
+export function formatRtkStatusIndicator(installed: boolean): string {
+  return installed ? "RTK" : "\x1b[33mRTK missing\x1b[0m";
 }
 
 export const defaultExecFile: ExecFileFn = async (
@@ -102,7 +96,7 @@ async function resolveCommandPath(
 export async function detectRtk(
   cwd: string,
   exec: ExecFileFn = defaultExecFile,
-): Promise<Omit<RtkRuntimeStatus, "mode">> {
+): Promise<RtkRuntimeStatus> {
   const versionResult = await exec("rtk", ["--version"], {
     cwd,
     timeout: 5_000,
@@ -123,11 +117,7 @@ export async function getRtkStatus(
   cwd: string,
   exec: ExecFileFn = defaultExecFile,
 ): Promise<RtkRuntimeStatus> {
-  const detected = await detectRtk(cwd, exec);
-  return {
-    mode: readRtkMode(cwd),
-    ...detected,
-  };
+  return await detectRtk(cwd, exec);
 }
 
 export async function rewriteCommandWithRtk(
@@ -245,14 +235,10 @@ async function runInstallPlan(
   });
 }
 
-function formatMode(mode: RtkMode): string {
-  return mode === "auto" ? "auto" : "off";
-}
-
 function formatStatus(status: RtkRuntimeStatus): string {
   const lines = [
-    `Mode: ${formatMode(status.mode)}`,
     `Installed: ${status.installed ? "yes" : "no"}`,
+    `Active: ${status.installed ? "yes" : "no"}`,
   ];
   if (status.version) lines.push(`Version: ${status.version}`);
   if (status.path) lines.push(`Path: ${status.path}`);
@@ -269,7 +255,7 @@ function formatMissingInstall(plan: InstallPlan | null): string {
   if (!plan) {
     return [
       "RTK is not installed and no supported installer was detected automatically.",
-      "Install RTK manually from https://github.com/rtk-ai/rtk and then run /ged-rtk on.",
+      "Install RTK manually from https://github.com/rtk-ai/rtk and then run /rtk status.",
     ].join("\n");
   }
 
@@ -277,7 +263,7 @@ function formatMissingInstall(plan: InstallPlan | null): string {
     "RTK is not installed yet.",
     `Recommended installer: ${plan.label}`,
     `Command: ${plan.command}`,
-    "Run /ged-rtk install to install it and enable Ged's bash-side RTK routing.",
+    "Run /rtk install to install it. Ged will use it automatically for supported bash tool calls.",
   ].join("\n");
 }
 
@@ -286,10 +272,7 @@ export async function refreshRtkStatusIndicator(
   exec: ExecFileFn = defaultExecFile,
 ): Promise<void> {
   const detected = await detectRtk(ctx.cwd, exec);
-  ctx.ui.setStatus(
-    "rtk",
-    formatRtkModeStatus(readRtkMode(ctx.cwd), detected.installed),
-  );
+  ctx.ui.setStatus("rtk", formatRtkStatusIndicator(detected.installed));
 }
 
 export async function executeRtkCommand(
@@ -309,30 +292,16 @@ export async function executeRtkCommand(
     return formatStatus(status);
   }
 
-  if (subcommand === "off" || subcommand === "disable") {
-    saveRtkMode(cwd, "off");
+  if (["on", "enable", "off", "disable"].includes(subcommand)) {
     await refreshRtkStatusIndicator(ctx, exec);
-    return "RTK routing is now OFF. Ged will stop rewriting bash tool calls through RTK.";
-  }
-
-  if (subcommand === "on" || subcommand === "enable") {
-    const installed = await detectRtk(cwd, exec);
-    if (!installed.installed) {
-      const plan = await buildInstallPlan(cwd, exec);
-      await refreshRtkStatusIndicator(ctx, exec);
-      return formatMissingInstall(plan);
-    }
-    saveRtkMode(cwd, "auto");
-    await refreshRtkStatusIndicator(ctx, exec);
-    return `RTK routing is now ON for bash tool calls.${installed.version ? ` Detected RTK ${installed.version}.` : ""}`;
+    return "RTK routing is automatic now. Install RTK to enable routing, or remove it from PATH to disable routing.";
   }
 
   if (subcommand === "install") {
     const existing = await detectRtk(cwd, exec);
     if (existing.installed) {
-      saveRtkMode(cwd, "auto");
       await refreshRtkStatusIndicator(ctx, exec);
-      return `RTK is already installed${existing.version ? ` (${existing.version})` : ""}. Ged will use it for supported bash tool calls.`;
+      return `RTK is already installed${existing.version ? ` (${existing.version})` : ""}. Ged will use it automatically for supported bash tool calls.`;
     }
 
     const plan = await buildInstallPlan(cwd, exec);
@@ -343,7 +312,7 @@ export async function executeRtkCommand(
     const confirmed = ctx.hasUI
       ? await ctx.ui.confirm(
           "Install RTK?",
-          `GedPi will run:\n\n${plan.command}\n\nThen it will enable RTK for supported bash tool calls.`,
+          `GedPi will run:\n\n${plan.command}\n\nThen it will use RTK automatically for supported bash tool calls.`,
         )
       : false;
 
@@ -369,18 +338,17 @@ export async function executeRtkCommand(
       await refreshRtkStatusIndicator(ctx, exec);
       return [
         `RTK installer ran, but Ged still cannot find the \`rtk\` binary in PATH from ${cwd}.`,
-        "Restart your shell if the installer changed PATH, then run /ged-rtk on.",
+        "Restart your shell if the installer changed PATH, then run /rtk status.",
       ].join("\n\n");
     }
 
-    saveRtkMode(cwd, "auto");
     await refreshRtkStatusIndicator(ctx, exec);
-    return `Installed RTK${installed.version ? ` ${installed.version}` : ""} and enabled Ged's bash-side RTK routing.`;
+    return `Installed RTK${installed.version ? ` ${installed.version}` : ""}. Ged will use it automatically for supported bash tool calls.`;
   }
 
   return [
-    `Unknown /ged-rtk subcommand: ${subcommand}`,
-    "Available subcommands: status, install, on, off",
+    `Unknown /rtk subcommand: ${subcommand}`,
+    "Available subcommands: status, install",
   ].join("\n");
 }
 
@@ -390,7 +358,6 @@ export function registerRtkBashRouting(
 ): void {
   api.on("tool_call", async (event, ctx) => {
     if (!isToolCallEventType("bash", event)) return;
-    if (readRtkMode(ctx.cwd) !== "auto") return;
 
     const rewritten = await rewriteCommandWithRtk(
       event.input.command,
