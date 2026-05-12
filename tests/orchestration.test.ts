@@ -6,10 +6,12 @@ import { writeFileAtomic } from "../src/atomic.js";
 import { buildWorkflowPromptSuffix } from "../src/brain.js";
 import {
   buildOrchestrationPrompt,
+  closeCheckpointState,
   detectRecentCommits,
   detectSubagentDispatch,
   initCheckpointState,
   invalidateVerifierCheckpoints,
+  markCheckpointVerified,
   readCheckpointState,
   recordAutoCheckpoint,
   recordCheckpoint,
@@ -65,7 +67,8 @@ function makeValidV2State(
 describe("checkpoint types", () => {
   it("CheckpointState has expected shape", () => {
     const state: CheckpointState = {
-      schemaVersion: 2,
+      schemaVersion: 3,
+      lifecycleStatus: "active",
       classification: "non-trivial",
       classificationReason: "Feature implementation spanning multiple files",
       planCheckpoints: {},
@@ -77,7 +80,8 @@ describe("checkpoint types", () => {
 
   it("trivial classification skips checkpoint tracking", () => {
     const state: CheckpointState = {
-      schemaVersion: 2,
+      schemaVersion: 3,
+      lifecycleStatus: "active",
       classification: "trivial",
       classificationReason: "README update",
       planCheckpoints: {},
@@ -152,7 +156,8 @@ describe("checkpoint state management", () => {
 
   it("initializes checkpoint state with classification and schemaVersion", () => {
     const state = initCheckpointState("non-trivial", "Multi-file feature");
-    expect(state.schemaVersion).toBe(2);
+    expect(state.schemaVersion).toBe(3);
+    expect(state.lifecycleStatus).toBe("active");
     expect(state.classification).toBe("non-trivial");
     expect(state.classificationReason).toBe("Multi-file feature");
     expect(state.planCheckpoints).toEqual({});
@@ -164,6 +169,25 @@ describe("checkpoint state management", () => {
     await writeCheckpointState(tmpDir, state);
     const loaded = await readCheckpointState(tmpDir);
     expect(loaded).toEqual(state);
+  });
+
+  it("normalizes v2 checkpoints without lifecycle to active v3", async () => {
+    await mkdir(path.join(tmpDir, ".ged", "runtime", "root"), {
+      recursive: true,
+    });
+    await writeFileAtomic(
+      path.join(tmpDir, ".ged", "runtime", "root", "checkpoints.json"),
+      `${JSON.stringify({
+        schemaVersion: 2,
+        classification: "trivial",
+        classificationReason: "Legacy checkpoint",
+        planCheckpoints: {},
+        taskCheckpoints: {},
+      })}\n`,
+    );
+    const loaded = await readCheckpointState(tmpDir);
+    expect(loaded?.schemaVersion).toBe(3);
+    expect(loaded?.lifecycleStatus).toBe("active");
   });
 
   it("records a plan checkpoint", () => {
@@ -258,6 +282,50 @@ describe("checkpoint state management", () => {
 });
 
 describe("checkpoint validation", () => {
+  it("closed lifecycle blocks planner and commit validation", () => {
+    const state = closeCheckpointState(makeValidV2State("trivial"));
+    const planner = validatePlannerCheckpoint(state);
+    const commit = validateCommitCheckpoints(state);
+    expect(planner.valid).toBe(false);
+    expect(planner.missing).toContain("checkpoint lifecycle closed");
+    expect(commit.valid).toBe(false);
+    expect(commit.missing).toContain("checkpoint lifecycle closed");
+  });
+
+  it("verified lifecycle returns to active when verifier checkpoints are invalidated", () => {
+    let state = makeValidV2State();
+    state = recordAutoCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-07T10:20:00Z",
+        status: "completed",
+        blocksCommit: false,
+      },
+      "auto",
+    );
+    const verified = markCheckpointVerified(state);
+    expect(verified.lifecycleStatus).toBe("verified");
+    const invalidated = invalidateVerifierCheckpoints(verified);
+    expect(invalidated.lifecycleStatus).toBe("active");
+    expect(
+      invalidated.taskCheckpoints.auto?.["ged-verifier"]?.blocksCommit,
+    ).toBe(true);
+  });
+
+  it("closed lifecycle is not reopened by auto checkpoint recording or invalidation", () => {
+    const closed = closeCheckpointState(makeValidV2State());
+    const recorded = recordAutoCheckpoint(closed, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:20:00Z",
+      status: "completed",
+    });
+    expect(recorded).toBe(closed);
+    expect(invalidateVerifierCheckpoints(closed).lifecycleStatus).toBe(
+      "closed",
+    );
+  });
+
   it("plan validation passes with valid v2 state", () => {
     const state = makeValidV2State();
     const result = validatePlannerCheckpoint(state);
@@ -825,7 +893,7 @@ describe("orchestration integration", () => {
     await rm(tmpDir, { recursive: true, force: true });
   });
 
-  it("full non-trivial v2 workflow: classification → clarification → explorer → planner → verifier → commit", async () => {
+  it("full non-trivial v3 workflow: classification → clarification → explorer → planner → verifier → commit", async () => {
     let state = initCheckpointState("non-trivial", "Add user authentication");
 
     // Step 1: Before clarification, planner validation fails
@@ -890,7 +958,8 @@ describe("orchestration integration", () => {
     expect(validateCommitCheckpoints(state).valid).toBe(true);
 
     const persisted = await readCheckpointState(tmpDir);
-    expect(persisted?.schemaVersion).toBe(2);
+    expect(persisted?.schemaVersion).toBe(3);
+    expect(persisted?.lifecycleStatus).toBe("active");
     expect(persisted?.classification).toBe("non-trivial");
     expect(persisted?.planCheckpoints["ged-explorer"]?.source).toBe("auto");
     expect(persisted?.planCheckpoints["ged-planner"]?.source).toBe("auto");

@@ -13,13 +13,16 @@ import {
 import { createGedCommands } from "../../src/commands.js";
 import { renderHeader } from "../../src/header.js";
 import {
+  closeCheckpointState,
   consumePlannerCheckpoint,
   detectSubagentDispatch,
   hasExplorerClearedInspection,
   hasSkipCheckpointMarker,
   invalidateVerifierCheckpoints,
+  isCheckpointClosed,
   isGitCommitCommand,
   isSafePreExplorerRead,
+  markCheckpointVerified,
   plannerGuardMessage,
   readCheckpointState,
   readCheckpointStateOrMigrationError,
@@ -60,7 +63,8 @@ async function recordGedSubagentCheckpoint(
   let state = await readCheckpointState(cwd);
   if (!state) {
     state = {
-      schemaVersion: 2,
+      schemaVersion: 3,
+      lifecycleStatus: "active",
       classification: "non-trivial",
       classificationReason: "Subagent dispatched — auto-classified",
       planCheckpoints: {},
@@ -69,7 +73,7 @@ async function recordGedSubagentCheckpoint(
   }
   const isTaskAgent =
     subagentName === "ged-explorer" || subagentName === "ged-verifier";
-  const next = recordAutoCheckpoint(
+  const recorded = recordAutoCheckpoint(
     state,
     {
       agent: subagentName as CheckpointAgent,
@@ -81,6 +85,10 @@ async function recordGedSubagentCheckpoint(
     },
     isTaskAgent ? "auto" : undefined,
   );
+  const next =
+    subagentName === "ged-verifier"
+      ? markCheckpointVerified(recorded)
+      : recorded;
   await writeCheckpointState(cwd, next);
 }
 
@@ -208,7 +216,10 @@ export default async function gedCoreExtension(
 
     if (sourceInspectingTool) {
       const state = await readCheckpointState(ctx.cwd);
-      if (state && state.classification === "non-trivial") {
+      if (
+        state &&
+        (state.classification === "non-trivial" || isCheckpointClosed(state))
+      ) {
         // Check if explorer has cleared source inspection
         if (!hasExplorerClearedInspection(state)) {
           // Allow .md files and .ged/ paths unconditionally
@@ -223,8 +234,9 @@ export default async function gedCoreExtension(
           if (!targetPath || !isSafePreExplorerRead(targetPath)) {
             api.sendMessage({
               customType: "ged-checkpoint-blocked",
-              content:
-                "GedPi explorer-first guard: for non-trivial work, source file inspection (read/grep/find) is blocked until ged-explorer has completed its initial reconnaissance. Dispatch ged-explorer with the Agent tool first. Only .md and .ged/ files may be read before explorer runs.",
+              content: isCheckpointClosed(state)
+                ? "GedPi checkpoint guard: previous task is closed. Classify the current task first before inspecting source files. Only .md and .ged/ files may be read for recovery."
+                : "GedPi explorer-first guard: for non-trivial work, source file inspection (read/grep/find) is blocked until ged-explorer has completed its initial reconnaissance. Dispatch ged-explorer with the Agent tool first. Only .md and .ged/ files may be read before explorer runs.",
               display: true,
               details: {
                 title: "explorer-first-guard",
@@ -233,8 +245,9 @@ export default async function gedCoreExtension(
             });
             return {
               block: true,
-              reason:
-                "GedPi explorer-first guard: dispatch ged-explorer before inspecting source files.",
+              reason: isCheckpointClosed(state)
+                ? "GedPi checkpoint guard: classify the current task before inspecting source files."
+                : "GedPi explorer-first guard: dispatch ged-explorer before inspecting source files.",
             };
           }
         }
@@ -281,8 +294,9 @@ export default async function gedCoreExtension(
 
       // Auto-escalation: if classified as trivial but touching >1 source file,
       // reclassify to non-trivial and persist. This triggers the planner guard
-      // on subsequent writes until ged-planner is dispatched.
-      if (state?.classification === "trivial") {
+      // on subsequent writes until ged-planner is dispatched. Closed checkpoints
+      // must not be mutated; validation below reports the recovery path.
+      if (state?.classification === "trivial" && !isCheckpointClosed(state)) {
         touchedSourceFiles.add(filePath);
         if (shouldAutoEscalate(state.classification, [...touchedSourceFiles])) {
           state = {
@@ -343,14 +357,25 @@ export default async function gedCoreExtension(
           return { block: true, reason: verifierGuardMessage(validation) };
         }
 
-        // Consume the planner checkpoint so the next source edit requires
-        // fresh planning — even for sequential slices of the same plan.
-        if (state && state.classification === "non-trivial") {
-          const consumed = consumePlannerCheckpoint(state);
-          await writeCheckpointState(ctx.cwd, consumed);
-        }
+        // Closing happens in the tool_result handler after the bash tool succeeds.
       }
     }
+  });
+
+  api.on("tool_result", async (event, ctx) => {
+    if (event.toolName !== "bash" || event.isError) return;
+    const input = event.input as Record<string, unknown>;
+    const command = input.command;
+    if (typeof command !== "string" || !isGitCommitCommand(command)) return;
+    const state = await readCheckpointState(ctx.cwd);
+    if (!state) return;
+    const validation = validateCommitCheckpoints(state);
+    if (!validation.valid) return;
+    const consumed =
+      state.classification === "non-trivial"
+        ? consumePlannerCheckpoint(state)
+        : state;
+    await writeCheckpointState(ctx.cwd, closeCheckpointState(consumed));
   });
 
   // ─── Turn end post-hoc checkpoint warning removed ───────────────

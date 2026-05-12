@@ -8,6 +8,7 @@ export type PlanCheckpointAgent = "ged-explorer" | "ged-planner";
 export type TaskCheckpointAgent = "ged-explorer" | "ged-verifier";
 export type CheckpointSource = "auto" | "manual";
 export type CheckpointStatus = "completed" | "skipped" | "blocked" | "failed";
+export type CheckpointLifecycleStatus = "active" | "verified" | "closed";
 export type PlannerOutcome = "planned" | "refused-needs-clarification";
 
 export interface CheckpointRecord {
@@ -37,6 +38,7 @@ export interface ClarificationRecord {
 
 export interface CheckpointState {
   schemaVersion: number;
+  lifecycleStatus: CheckpointLifecycleStatus;
   classification: TaskClassification;
   classificationReason: string;
   clarification?: ClarificationRecord;
@@ -95,6 +97,9 @@ export function recordAutoCheckpoint(
 export function consumePlannerCheckpoint(
   state: CheckpointState,
 ): CheckpointState;
+export function isCheckpointClosed(state: CheckpointState | null): boolean;
+export function markCheckpointVerified(state: CheckpointState): CheckpointState;
+export function closeCheckpointState(state: CheckpointState): CheckpointState;
 export function invalidateVerifierCheckpoints(
   state: CheckpointState,
 ): CheckpointState;

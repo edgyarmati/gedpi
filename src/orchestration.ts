@@ -14,13 +14,16 @@ import {
 
 export {
   checkSchemaVersion,
+  closeCheckpointState,
   consumePlannerCheckpoint,
   hasExplorerClearedInspection,
   hasSkipCheckpointMarker,
   initCheckpointState,
   invalidateVerifierCheckpoints,
+  isCheckpointClosed,
   isGitCommitCommand,
   isSafePreExplorerRead,
+  markCheckpointVerified,
   parseCheckpointState,
   recordAutoCheckpoint,
   recordCheckpoint,
@@ -79,7 +82,10 @@ export async function writeCheckpointState(
 
 export function plannerGuardMessage(validation: CheckpointValidation): string {
   if (validation.missing.includes("classification")) {
-    return 'GedPi planner guard: you must classify the task before editing source files. Write your classification to .ged/runtime/<work-id>/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+    return 'GedPi planner guard: you must classify the task before editing source files. Write your classification to .ged/runtime/<work-id>/checkpoints.json first. Example: {"schemaVersion": 3, "lifecycleStatus": "active", "classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+  }
+  if (validation.missing.includes("checkpoint lifecycle closed")) {
+    return "GedPi planner guard: previous task is closed. Classify the current task first before inspecting or editing source files.";
   }
   if (
     validation.missing.some((item) =>
@@ -93,7 +99,10 @@ export function plannerGuardMessage(validation: CheckpointValidation): string {
 
 export function verifierGuardMessage(validation: CheckpointValidation): string {
   if (validation.missing.includes("classification")) {
-    return 'GedPi verifier guard: you must classify the task before committing. Write your classification to .ged/runtime/<work-id>/checkpoints.json first. Example: {"classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+    return 'GedPi verifier guard: you must classify the task before committing. Write your classification to .ged/runtime/<work-id>/checkpoints.json first. Example: {"schemaVersion": 3, "lifecycleStatus": "active", "classification": "trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}';
+  }
+  if (validation.missing.includes("checkpoint lifecycle closed")) {
+    return "GedPi verifier guard: previous task is closed. Classify the current task first before committing.";
   }
   if (validation.missing.includes("ged-planner")) {
     return `GedPi verifier guard: non-trivial work requires dispatching ged-planner and ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch the missing subagents before running git commit.`;
@@ -146,7 +155,7 @@ Before any planning or implementation, classify the incoming request:
 
 Write your classification and reason to .ged/runtime/<work-id>/checkpoints.json using:
 \`\`\`json
-{"classification": "trivial|non-trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}
+{"schemaVersion": 3, "lifecycleStatus": "active", "classification": "trivial|non-trivial", "classificationReason": "...", "planCheckpoints": {}, "taskCheckpoints": {}}
 \`\`\`
 
 ### Hard enforcement (structural guards)

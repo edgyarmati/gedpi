@@ -12,6 +12,7 @@
 
 ### Fixes
 
+- Closed completed checkpoint tasks after commit so stale `.ged/runtime/<work-id>/checkpoints.json` state cannot authorize later work without fresh classification.
 - Planner clarification refusals now explicitly block continuation until the main agent runs grill-me and re-dispatches `ged-planner`.
 - Planner prompts now judge semantic sufficiency across the whole handoff instead of requiring an exact `## Grill-me evidence` block.
 

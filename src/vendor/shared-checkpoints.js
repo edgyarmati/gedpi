@@ -6,6 +6,8 @@
  *
  * Schema v2 adds: source provenance, clarification evidence, explorer-first
  * enforcement, planner outcome tracking, and blocked/failed statuses.
+ * Schema v3 adds: task lifecycle status so completed tasks cannot authorize
+ * later guarded tool use on the same branch.
  */
 
 // ─── JSDoc type definitions ─────────────────────────────────────────────
@@ -32,6 +34,10 @@
 
 /**
  * @typedef {"completed" | "skipped" | "blocked" | "failed"} CheckpointStatus
+ */
+
+/**
+ * @typedef {"active" | "verified" | "closed"} CheckpointLifecycleStatus
  */
 
 /**
@@ -69,6 +75,7 @@
 /**
  * @typedef {Object} CheckpointState
  * @property {number} schemaVersion
+ * @property {CheckpointLifecycleStatus} lifecycleStatus
  * @property {TaskClassification} classification
  * @property {string} classificationReason
  * @property {ClarificationRecord} [clarification]
@@ -85,7 +92,9 @@
 
 // ─── Schema version ─────────────────────────────────────────────────────
 
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
+const MIN_SUPPORTED_SCHEMA_VERSION = 2;
+const CLOSED_CHECKPOINT_MISSING = "checkpoint lifecycle closed";
 
 // ─── Initializers ───────────────────────────────────────────────────────
 
@@ -97,6 +106,7 @@ const CURRENT_SCHEMA_VERSION = 2;
 export function initCheckpointState(classification, classificationReason) {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
+    lifecycleStatus: "active",
     classification,
     classificationReason,
     planCheckpoints: {},
@@ -121,7 +131,7 @@ export function checkSchemaVersion(raw) {
     const version =
       typeof parsed.schemaVersion === "number" ? parsed.schemaVersion : null;
 
-    if (version === null || version < 2) {
+    if (version === null || version < MIN_SUPPORTED_SCHEMA_VERSION) {
       return {
         ok: false,
         version,
@@ -220,9 +230,14 @@ function validateClarificationEvidence(evidence) {
 function isValidCheckpointState(value) {
   if (typeof value !== "object" || value === null) return false;
   const obj = /** @type {Record<string, unknown>} */ (value);
+  const lifecycleStatus = obj.lifecycleStatus ?? "active";
   return (
     typeof obj.schemaVersion === "number" &&
-    obj.schemaVersion === CURRENT_SCHEMA_VERSION &&
+    obj.schemaVersion >= MIN_SUPPORTED_SCHEMA_VERSION &&
+    obj.schemaVersion <= CURRENT_SCHEMA_VERSION &&
+    (lifecycleStatus === "active" ||
+      lifecycleStatus === "verified" ||
+      lifecycleStatus === "closed") &&
     (obj.classification === "trivial" ||
       obj.classification === "non-trivial") &&
     typeof obj.classificationReason === "string" &&
@@ -243,7 +258,12 @@ export function parseCheckpointState(raw) {
   if (typeof raw !== "string") return null;
   try {
     const parsed = JSON.parse(raw);
-    return isValidCheckpointState(parsed) ? parsed : null;
+    if (!isValidCheckpointState(parsed)) return null;
+    return {
+      ...parsed,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      lifecycleStatus: parsed.lifecycleStatus ?? "active",
+    };
   } catch {
     return null;
   }
@@ -264,6 +284,14 @@ export function validatePlannerCheckpoint(state) {
       missing: ["classification"],
       warning:
         "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before inspecting or editing source files.",
+    };
+  }
+  if (isCheckpointClosed(state)) {
+    return {
+      valid: false,
+      missing: [CLOSED_CHECKPOINT_MISSING],
+      warning:
+        "Previous task is closed; classify the current task before using guarded tools.",
     };
   }
   if (state.classification === "trivial") {
@@ -341,6 +369,14 @@ export function validateVerifierCheckpoint(state, taskId) {
         "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before committing.",
     };
   }
+  if (isCheckpointClosed(state)) {
+    return {
+      valid: false,
+      missing: [CLOSED_CHECKPOINT_MISSING],
+      warning:
+        "Previous task is closed; classify the current task before using guarded tools.",
+    };
+  }
   if (state.classification === "trivial") {
     return { valid: true, missing: [] };
   }
@@ -370,6 +406,14 @@ export function validateAllVerifierCheckpoints(state) {
       missing: ["classification"],
       warning:
         "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before committing.",
+    };
+  }
+  if (isCheckpointClosed(state)) {
+    return {
+      valid: false,
+      missing: [CLOSED_CHECKPOINT_MISSING],
+      warning:
+        "Previous task is closed; classify the current task before using guarded tools.",
     };
   }
   if (state.classification === "trivial") {
@@ -412,6 +456,14 @@ export function validateCommitCheckpoints(state) {
         "No checkpoint state found — classify the task and write .ged/runtime/<work-id>/checkpoints.json before committing.",
     };
   }
+  if (isCheckpointClosed(state)) {
+    return {
+      valid: false,
+      missing: [CLOSED_CHECKPOINT_MISSING],
+      warning:
+        "Previous task is closed; classify the current task before using guarded tools.",
+    };
+  }
   if (state.classification === "trivial") {
     return { valid: true, missing: [] };
   }
@@ -440,6 +492,7 @@ export function validateCommitCheckpoints(state) {
  */
 export function hasExplorerClearedInspection(state) {
   if (!state) return false;
+  if (isCheckpointClosed(state)) return false;
   if (state.classification === "trivial") return true;
   const explorerRecord = state.planCheckpoints["ged-explorer"];
   if (!explorerRecord) return false;
@@ -482,6 +535,7 @@ export function isSafePreExplorerRead(filePath) {
  * @returns {CheckpointState}
  */
 export function recordCheckpoint(state, record, taskId) {
+  if (isCheckpointClosed(state)) return state;
   if (taskId) {
     return {
       ...state,
@@ -532,6 +586,33 @@ export function consumePlannerCheckpoint(state) {
 }
 
 /**
+ * @param {CheckpointState | null} state
+ * @returns {boolean}
+ */
+export function isCheckpointClosed(state) {
+  return state?.lifecycleStatus === "closed";
+}
+
+/**
+ * Mark the current task as verified and ready for commit.
+ * @param {CheckpointState} state
+ * @returns {CheckpointState}
+ */
+export function markCheckpointVerified(state) {
+  if (isCheckpointClosed(state)) return state;
+  return { ...state, lifecycleStatus: "verified" };
+}
+
+/**
+ * Close the checkpoint after the task is committed/done.
+ * @param {CheckpointState} state
+ * @returns {CheckpointState}
+ */
+export function closeCheckpointState(state) {
+  return { ...state, lifecycleStatus: "closed" };
+}
+
+/**
  * Invalidate all verifier checkpoints by setting blocksCommit: true.
  * This should be called whenever source files are edited after a verifier run,
  * forcing re-verification before the next commit.
@@ -554,6 +635,7 @@ export function invalidateVerifierCheckpoints(state) {
   }
   return {
     ...state,
+    lifecycleStatus: isCheckpointClosed(state) ? "closed" : "active",
     taskCheckpoints: nextTaskCheckpoints,
   };
 }
