@@ -6,6 +6,7 @@
 
 - Brainstorming skill rewritten from Claude Code copy to GedPi-native: outputs to `.ged/work/<work-id>/SPEC.md`, feeds into `ged-planning` instead of `writing-plans`, integrates with `ged-explorer` subagent for codebase discovery, and drops the Claude Code-specific Visual Companion.
 - Find-skills skill rewritten from Claude Code copy to GedPi-native: presents as part of the skill-fit checkpoint, routes installations through `.ged/project-skills/` instead of `npx skills add -g`, and defers to `skill-creator` when no external skill fits.
+- Skill-creator skill rewritten from Claude Code copy to GedPi-native with a lean project-local skill focus. Replaces the 460-line eval-heavy version (Python scripts, benchmark viewer, blind comparison, `claude -p` calls) with a concise creation workflow for `.ged/project-skills/`. Removes 61KB of dead eval infrastructure.
 - `/ged-agents setup` now lets users choose per-role thinking levels and persists them in generated subagent configuration.
 - RTK routing now auto-detects the `rtk` binary instead of maintaining an on/off setting, and the command is now `/rtk` for status/install.
 - Dropped `@juanibiapina/pi-extension-settings` dependency. Workflow preferences (auto-commit after verification, plan-review before planner handoff) are now stored in `~/.gedcode/settings.json` under a `preferences` key, with a one-time migration from the old storage file.
