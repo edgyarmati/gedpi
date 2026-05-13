@@ -32,7 +32,7 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `pi-diff-review` — diff review surface
 - `pi-prompt-template-model` — prompt template / model wiring
 - `@plannotator/pi-extension` — visual plan/code review UI used by the `plannotator` draft-plan review preference
-- `agent-settings.ts` — preferences persistence in `~/.gedcode/settings.json`
+- `agent-settings.ts` — preferences persistence in `~/.gedoc/settings.json`
 - `amp-themes` — theme files plus editor and user-message styling selected through Pi settings
 - `pi-tool-display` — tool display renderer bundled through `amp-themes`
 - `pi-fixed-editor` — keeps the input box pinned while chat history scrolls
@@ -53,7 +53,7 @@ When changing Ged's workflow, update the durable documentation and generated pro
 - `src/agent-settings.ts` controls the bundled `ged-explorer`, `ged-planner`, and `ged-verifier` runtime agent prompts generated into `.pi/agents/`.
 - `src/commit-settings.ts` controls user-configurable workflow preferences that are also appended to the system prompt.
 - `AGENTS.md` documents the intended workflow for future coding sessions.
-- Keep GedCode parity in mind when prompt/checkpoint behavior is duplicated there.
+- Keep GedOC parity in mind when prompt/checkpoint behavior is duplicated there.
 
 For non-trivial work, the main agent must run the first clarification/sufficiency pass before drafting a plan. Use grill-me in chat when goal, users/audience, scope, constraints, relevant context, risks, tests, or success criteria are unclear. If the request is already clear, synthesize that evidence instead of asking unnecessary questions. Honor `reviewPlanBeforePlannerHandoff` before planner handoff: `off` skips separate human draft-plan approval, `chat` requests approval in chat, and `plannotator` uses Plannotator's visual review when available with chat approval as the fallback. After the draft plan is approved when required, the planner subagent judges semantic sufficiency across the entire handoff; it must not require an exact `## Grill-me evidence` heading. If the planner says information is missing, the main agent must run grill-me for those gaps, update the plan, repeat required plan approval, and re-dispatch the planner.
 
@@ -85,7 +85,7 @@ GedPi is published to npm as `gedpi`.
 ### Tag format
 
 - GedPi releases use `gedpi-v*` tags (e.g., `gedpi-v0.13.0`).
-- GedCode releases use `gedcode-v*` tags — they are independent.
+- GedOC releases use `gedoc-v*` tags — they are independent.
 
 ### Packaging guardrails
 

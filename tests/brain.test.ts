@@ -17,7 +17,7 @@ async function createTempProject(prefix: string): Promise<string> {
 }
 
 async function enableProjectSubagents(rootDir: string): Promise<void> {
-  const settingsDir = path.join(rootDir, ".gedcode");
+  const settingsDir = path.join(rootDir, ".gedoc");
   await mkdir(settingsDir, { recursive: true });
   await writeFile(
     path.join(settingsDir, "settings.json"),
@@ -29,10 +29,10 @@ async function createTempHomeWithPreferences(
   prefs: Record<string, string>,
 ): Promise<string> {
   const homeDir = await mkdtemp(path.join(os.tmpdir(), "ged-home-"));
-  const gedcodeDir = path.join(homeDir, ".gedcode");
-  await mkdir(gedcodeDir, { recursive: true });
+  const gedocDir = path.join(homeDir, ".gedoc");
+  await mkdir(gedocDir, { recursive: true });
   await writeFile(
-    path.join(gedcodeDir, "settings.json"),
+    path.join(gedocDir, "settings.json"),
     JSON.stringify({ preferences: prefs }),
   );
   return homeDir;

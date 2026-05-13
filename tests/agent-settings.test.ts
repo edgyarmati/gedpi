@@ -56,7 +56,7 @@ describe("Ged optional agent settings", () => {
     const rootDir = await tempDir("ged-agent-settings-root-");
     const homeDir = await tempDir("ged-agent-settings-home-");
     await writeGedAgentsSettings(
-      path.join(homeDir, ".gedcode", "settings.json"),
+      path.join(homeDir, ".gedoc", "settings.json"),
       {
         enabled: true,
         defaultModel: "openai/gpt-5-mini",
@@ -319,7 +319,7 @@ describe("Ged optional agent settings", () => {
     expect(planner).not.toContain("model:");
   });
 
-  test("runtime sync gitignores project gedcode settings in git repos", async () => {
+  test("runtime sync gitignores project gedoc settings in git repos", async () => {
     const rootDir = await tempDir("ged-agent-sync-root-");
     await mkdir(path.join(rootDir, ".git"));
     await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
@@ -330,7 +330,7 @@ describe("Ged optional agent settings", () => {
 
     await expect(
       readFile(path.join(rootDir, ".gitignore"), "utf8"),
-    ).resolves.toContain(".gedcode/");
+    ).resolves.toContain(".gedoc/");
   });
 
   test("runtime sync removes Ged roles when disabled", async () => {

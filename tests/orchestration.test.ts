@@ -836,9 +836,9 @@ describe("brain orchestration integration", () => {
   });
 
   it("includes orchestration prompt when agents enabled", async () => {
-    await mkdir(path.join(tmpDir, ".gedcode"), { recursive: true });
+    await mkdir(path.join(tmpDir, ".gedoc"), { recursive: true });
     await writeFileAtomic(
-      path.join(tmpDir, ".gedcode", "settings.json"),
+      path.join(tmpDir, ".gedoc", "settings.json"),
       JSON.stringify({ agents: { enabled: true } }),
     );
     const suffix = await buildWorkflowPromptSuffix(tmpDir);
@@ -847,9 +847,9 @@ describe("brain orchestration integration", () => {
   });
 
   it("omits orchestration prompt when agents disabled", async () => {
-    await mkdir(path.join(tmpDir, ".gedcode"), { recursive: true });
+    await mkdir(path.join(tmpDir, ".gedoc"), { recursive: true });
     await writeFileAtomic(
-      path.join(tmpDir, ".gedcode", "settings.json"),
+      path.join(tmpDir, ".gedoc", "settings.json"),
       JSON.stringify({ agents: { enabled: false } }),
     );
     const suffix = await buildWorkflowPromptSuffix(tmpDir);

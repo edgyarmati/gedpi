@@ -1,5 +1,5 @@
 /**
- * Shared checkpoint state types and validation for GedCode and GedPi.
+ * Shared checkpoint state types and validation for GedOC and GedPi.
  *
  * Both packages use the same .ged/runtime/<work-id>/checkpoints.json schema
  * to ensure the .ged/ memory format stays interchangeable.
@@ -143,7 +143,7 @@ export function checkSchemaVersion(raw) {
       return {
         ok: false,
         version,
-        error: `Checkpoint file uses unknown schema v${version}. Update GedPi/GedCode to a version that supports this schema.`,
+        error: `Checkpoint file uses unknown schema v${version}. Update GedPi/GedOC to a version that supports this schema.`,
       };
     }
     return { ok: true, version: CURRENT_SCHEMA_VERSION, error: null };

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is the implementation handoff for bringing the current GedCode orchestration model back into GedPi.
+This is the implementation handoff for bringing the current GedOC orchestration model back into GedPi.
 
 The rule to preserve is:
 
@@ -10,7 +10,7 @@ The rule to preserve is:
 
 This replaces any older worker-subagent direction. GedPi should not reintroduce a writer worker, planner owner, expert writer, or shared-worktree multi-agent swarm.
 
-## Final decisions from GedCode
+## Final decisions from GedOC
 
 - The primary `gedpi` / GedPi brain is the only active-worktree writer and decision owner.
 - Optional subagents are read-only intelligence contributors only.
@@ -30,8 +30,8 @@ Agent settings should live outside `.ged/`, because `.ged/` is durable workflow 
 
 Use:
 
-- global settings: `~/.gedcode/settings.json` or GedPi's equivalent global config path;
-- project override: `.gedcode/settings.json`, gitignored;
+- global settings: `~/.gedoc/settings.json` or GedPi's equivalent global config path;
+- project override: `.gedoc/settings.json`, gitignored;
 - never `.ged/` for model settings.
 
 The current settings shape supports string models and richer model objects:
@@ -245,11 +245,11 @@ Status display should:
 - Show checkpoint policy: active for non-trivial changes when enabled, inactive when disabled.
 - Show model recommendations path if present.
 
-## Environment isolation warning from GedCode
+## Environment isolation warning from GedOC
 
-GedCode isolates OpenCode by launching it with `XDG_CONFIG_HOME=~/.config/gedcode`. That successfully protects the user's normal OpenCode config, but it leaked into child shell tools and made unrelated CLIs such as `gh` miss their normal auth config.
+GedOC isolates OpenCode by launching it with `XDG_CONFIG_HOME=~/.config/gedoc`. That successfully protects the user's normal OpenCode config, but it leaked into child shell tools and made unrelated CLIs such as `gh` miss their normal auth config.
 
-GedCode fixed this by having the plugin detect the GedCode-overridden `XDG_CONFIG_HOME` and prefix bash tool commands with `env -u XDG_CONFIG_HOME` so user CLIs see their normal config while OpenCode continues using the isolated config for its own config loading.
+GedOC fixed this by having the plugin detect the GedOC-overridden `XDG_CONFIG_HOME` and prefix bash tool commands with `env -u XDG_CONFIG_HOME` so user CLIs see their normal config while OpenCode continues using the isolated config for its own config loading.
 
 If GedPi adds similar isolation, apply the same fix:
 
@@ -279,7 +279,7 @@ Acceptance criterion: `gh auth status` and similar user CLIs should see the user
 - Mandatory checkpoint guidance appears in agent prompts and command templates.
 - Skip-with-reason guidance appears in agent prompts and command templates.
 - Tool subprocesses do not inherit runtime config isolation in a way that breaks user CLI auth.
-- `env -u XDG_CONFIG_HOME` prefix is applied to tool shell commands when GedCode-style isolation is detected.
+- `env -u XDG_CONFIG_HOME` prefix is applied to tool shell commands when GedOC-style isolation is detected.
 
 ## Success criteria
 

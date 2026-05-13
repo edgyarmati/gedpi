@@ -1,5 +1,5 @@
 /**
- * Shared checkpoint state types and validation for GedCode and GedPi.
+ * Shared checkpoint state types and validation for GedOC and GedPi.
  */
 
 export type TaskClassification = "trivial" | "non-trivial";

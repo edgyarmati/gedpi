@@ -11,7 +11,7 @@
 - Skill-creator skill rewritten from Claude Code copy to GedPi-native with a lean project-local skill focus. Replaces the 460-line eval-heavy version (Python scripts, benchmark viewer, blind comparison, `claude -p` calls) with a concise creation workflow for `.ged/project-skills/`. Removes 61KB of dead eval infrastructure.
 - `/ged-agents setup` now lets users choose per-role thinking levels and persists them in generated subagent configuration.
 - RTK routing now auto-detects the `rtk` binary instead of maintaining an on/off setting, and the command is now `/rtk` for status/install.
-- Dropped `@juanibiapina/pi-extension-settings` dependency. Workflow preferences (auto-commit after verification, plan-review before planner handoff) are now stored in `~/.gedcode/settings.json` under a `preferences` key, with a one-time migration from the old storage file.
+- Dropped `@juanibiapina/pi-extension-settings` dependency. Workflow preferences (auto-commit after verification, plan-review before planner handoff) are now stored in `~/.gedoc/settings.json` under a `preferences` key, with a one-time migration from the old storage file.
 - Added `/ged-settings` command with a TUI to configure GedPi workflow preferences interactively, with a plain-text fallback for non-UI sessions.
 - Added a plan-review setting that defaults to requiring user approval before handing non-trivial draft plans to `ged-planner`.
 - Bundled `@plannotator/pi-extension` by default and expanded draft-plan review into three modes: no extra review, chat approval, or Plannotator visual approval. Legacy `on` settings now map to chat approval.
@@ -87,8 +87,8 @@
 
 ### Fixes
 
-- **Null-branch warning in GedCode** — `buildBranchNudge(null)` now correctly emits the root namespace warning for detached HEAD (previously returned empty string).
-- **GedCode verifier guard message** — updated to handle the new "(auto-recorded)" suffix in missing checkpoint entries.
+- **Null-branch warning in GedOC** — `buildBranchNudge(null)` now correctly emits the root namespace warning for detached HEAD (previously returned empty string).
+- **GedOC verifier guard message** — updated to handle the new "(auto-recorded)" suffix in missing checkpoint entries.
 
 ## 0.15.3 - 2026-05-06
 
@@ -123,7 +123,7 @@
 
 ### Dependencies
 
-- Extracted `@ged/shared-checkpoints` into a shared package used by both GedPi and GedCode for interchangeable checkpoint state.
+- Extracted `@ged/shared-checkpoints` into a shared package used by both GedPi and GedOC for interchangeable checkpoint state.
 
 ## 0.14.0 - 2026-05-05
 
@@ -155,7 +155,7 @@
 ### Features
 
 - **Hard enforcement of planner and verifier checkpoints** — write/edit to source files is now structurally blocked until ged-planner has been dispatched for non-trivial work, and git commit is blocked until ged-verifier has been dispatched. Guards are implemented in the tool-call interception layer and cannot be bypassed by prompt instructions alone. Escape hatch available via `allowCheckpointBypass` setting.
-- **Shared checkpoint package** (`@ged/shared-checkpoints`) — extracted checkpoint state types, validation, git commit detection, and auto-recording into a shared package used by both GedCode and GedPi. Ensures .ged/ memory format stays interchangeable.
+- **Shared checkpoint package** (`@ged/shared-checkpoints`) — extracted checkpoint state types, validation, git commit detection, and auto-recording into a shared package used by both GedOC and GedPi. Ensures .ged/ memory format stays interchangeable.
 - **Auto-recording of subagent dispatches** — when a Task tool dispatches ged-explorer, ged-planner, or ged-verifier, the checkpoint is automatically recorded without relying on the agent to write it manually.
 - Strengthened orchestration prompt with prescriptive mandatory subagent dispatch instructions and exact tool-call formats.
 - Updated ASCII logo to wider GEDPI design and simplified header subtitle.
@@ -163,7 +163,7 @@
 
 ### Fixes
 
-- Fixed orchestration test that leaked real user settings when no `.gedcode/settings.json` existed in the test directory.
+- Fixed orchestration test that leaked real user settings when no `.gedoc/settings.json` existed in the test directory.
 
 ### Documentation
 

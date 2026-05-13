@@ -76,7 +76,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
 | **@plannotator/pi-extension** | Browser-based plan/code review UI; GedPi uses it for the optional visual draft-plan approval mode |
-| **~/.gedcode/settings.json** | GedPi workflow preferences (commit behavior, draft-plan review) via `/ged-settings` command |
+| **~/.gedoc/settings.json** | GedPi workflow preferences (commit behavior, draft-plan review) via `/ged-settings` command |
 | **amp-themes** | Bundled theme files plus editor and user-message styling, selected through Pi settings |
 | **pi-tool-display** | Tool display renderer bundled through `amp-themes` |
 | **pi-fixed-editor** | Keeps the input box pinned at the bottom while chat history scrolls |

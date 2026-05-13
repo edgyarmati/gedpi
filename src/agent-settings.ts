@@ -60,11 +60,11 @@ export interface EffectiveGedAgentsSettings {
 }
 
 export function globalGedSettingsPath(homeDir = os.homedir()): string {
-  return path.join(homeDir, ".gedcode", "settings.json");
+  return path.join(homeDir, ".gedoc", "settings.json");
 }
 
 export function projectGedSettingsPath(rootDir: string): string {
-  return path.join(rootDir, ".gedcode", "settings.json");
+  return path.join(rootDir, ".gedoc", "settings.json");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -124,14 +124,33 @@ export function cleanAgentsSettings(value: unknown): GedAgentsSettings {
   return settings;
 }
 
-async function readJson(filePath: string): Promise<Record<string, unknown>> {
+function legacyGedocSettingsPath(filePath: string): string | null {
+  const marker = `${path.sep}.gedoc${path.sep}settings.json`;
+  return filePath.endsWith(marker)
+    ? `${filePath.slice(0, -marker.length)}${path.sep}.gedcode${path.sep}settings.json`
+    : null;
+}
+
+async function readJsonExact(
+  filePath: string,
+): Promise<Record<string, unknown> | null> {
   try {
     const raw = await readFile(filePath, "utf8");
     const parsed = JSON.parse(raw) as unknown;
     return isRecord(parsed) ? parsed : {};
   } catch {
-    return {};
+    return null;
   }
+}
+
+async function readJson(filePath: string): Promise<Record<string, unknown>> {
+  const current = await readJsonExact(filePath);
+  if (current) return current;
+  const legacyPath = legacyGedocSettingsPath(filePath);
+  if (legacyPath) {
+    return (await readJsonExact(legacyPath)) ?? {};
+  }
+  return {};
 }
 
 export async function readGedRuntimeSettings(
@@ -457,6 +476,7 @@ export async function syncGedSubagentRuntimeConfig(
   rootDir: string,
   options: SyncGedSubagentRuntimeOptions = {},
 ): Promise<void> {
+  await ensureIgnoredInGitignore(rootDir, ".gedoc/");
   await ensureIgnoredInGitignore(rootDir, ".gedcode/");
   const effective = await readEffectiveGedAgentsSettings(rootDir);
   const agentsDir = path.join(rootDir, ".pi", "agents");
