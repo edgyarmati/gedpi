@@ -1,164 +1,198 @@
 ---
 name: brainstorming
-description: "You MUST use this before any creative work - creating features, building components, adding functionality, or modifying behavior. Explores user intent, requirements and design before implementation."
+description: "Design exploration before planning — flesh out approaches, architecture, and trade-offs before committing to a plan. Use when the task involves creative design decisions, multiple possible approaches, or architectural choices that need user input. Triggers include \"design\", \"approach\", \"architecture\", \"options\", \"trade-offs\", \"how should I build\", \"explore\", \"creative\", \"brainstorm\""
 ---
 
-# Brainstorming Ideas Into Designs
+# Brainstorming: Design Exploration Before Planning
 
-Help turn ideas into fully formed designs and specs through natural collaborative dialogue.
+GedPi's pre-planning creative exploration phase. Use this skill **after** requirements are clear (via `grill-me` or the user's own specification) but **before** formal implementation planning (`ged-planning`).
 
-Start by understanding the current project context, then ask questions one at a time to refine the idea. Once you understand what you're building, present the design and get user approval.
+## When to Use Brainstorming vs. Other Skills
+
+| Phase | Skill | Purpose |
+|---|---|---|
+| Requirements clarity | `grill-me` | What needs to be built |
+| **Design exploration** | **brainstorming** | **How to build it — approaches, architecture, trade-offs** |
+| Implementation plan | `ged-planning` | Concrete task breakdown and verification plan |
+| Execution | `ged-execution` | Do the next task |
+
+Use brainstorming when the request involves:
+- Choosing between multiple implementation approaches
+- Architectural or structural decisions
+- Component design, data model design, API design
+- User experience or workflow design
+- Any situation where the "how" isn't obvious and needs exploration
+
+**Don't** use brainstorming when:
+- The approach is already clear and just needs execution → go straight to `ged-planning`
+- Requirements are unclear → use `grill-me` first
 
 <HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until you have presented a design and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
+Do NOT invoke `ged-planning`, `ged-execution`, write any code, scaffold any project, or take any implementation action until the design is approved and recorded in `.ged/work/<work-id>/SPEC.md`.
 </HARD-GATE>
-
-## Anti-Pattern: "This Is Too Simple To Need A Design"
-
-Every project goes through this process. A todo list, a single-function utility, a config change — all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
 
 ## Checklist
 
-You MUST create a task for each of these items and complete them in order:
+Work through these in order:
 
-1. **Explore project context** — check files, docs, recent commits
-2. **Offer visual companion** (if topic will involve visual questions) — this is its own message, not combined with a clarifying question. See the Visual Companion section below.
-3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
-4. **Propose 2-3 approaches** — with trade-offs and your recommendation
-5. **Present design** — in sections scaled to their complexity, get user approval after each section
-6. **Write design doc** — save to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md` and commit
-7. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)
-8. **User reviews written spec** — ask user to review the spec file before proceeding
-9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
+1. **Understand current context** — read `.ged/PROJECT.md`, `.ged/ARCHITECTURE.md`, `.ged/DECISIONS.md`, and any existing `.ged/work/<work-id>/SPEC.md`. If live codebase context is needed, dispatch `ged-explorer` subagent for targeted discovery.
+2. **Identify the design decisions to make** — what are the open questions? What needs user input before implementation can proceed?
+3. **Propose 2-3 approaches** — with trade-offs and your recommendation. Scale depth to the complexity of the decision.
+4. **Present design** — once the approach is settled, flesh out the design. Cover architecture, components, data flow, key interfaces.
+5. **Get user approval** — confirm each section before moving on.
+6. **Write design to SPEC.md** — record the approved design in `.ged/work/<work-id>/SPEC.md`.
+7. **Promote durable decisions** — record any lasting architectural choices in `.ged/DECISIONS.md`.
+8. **Transition to planning** — invoke `ged-planning` to break the design into implementation tasks.
 
 ## Process Flow
 
 ```dot
-digraph brainstorming {
-    "Explore project context" [shape=box];
-    "Visual questions ahead?" [shape=diamond];
-    "Offer Visual Companion\n(own message, no other content)" [shape=box];
-    "Ask clarifying questions" [shape=box];
-    "Propose 2-3 approaches" [shape=box];
+digraph brainstorming_gedpi {
+    "Understand context" [shape=box];
+    "Need codebase evidence?" [shape=diamond];
+    "Dispatch ged-explorer\nfor targeted discovery" [shape=box, style=dashed];
+    "Identify design decisions" [shape=box];
+    "Propose 2-3 approaches\nwith trade-offs" [shape=box];
     "Present design sections" [shape=box];
-    "User approves design?" [shape=diamond];
-    "Write design doc" [shape=box];
-    "Spec self-review\n(fix inline)" [shape=box];
-    "User reviews spec?" [shape=diamond];
-    "Invoke writing-plans skill" [shape=doublecircle];
+    "User approves?" [shape=diamond];
+    "Write approved design\nto .ged/work/<work-id>/SPEC.md" [shape=box];
+    "Record durable decisions\nin .ged/DECISIONS.md" [shape=box, style=dashed];
+    "Transition to\n ged-planning skill" [shape=doublecircle];
 
-    "Explore project context" -> "Visual questions ahead?";
-    "Visual questions ahead?" -> "Offer Visual Companion\n(own message, no other content)" [label="yes"];
-    "Visual questions ahead?" -> "Ask clarifying questions" [label="no"];
-    "Offer Visual Companion\n(own message, no other content)" -> "Ask clarifying questions";
-    "Ask clarifying questions" -> "Propose 2-3 approaches";
-    "Propose 2-3 approaches" -> "Present design sections";
-    "Present design sections" -> "User approves design?";
-    "User approves design?" -> "Present design sections" [label="no, revise"];
-    "User approves design?" -> "Write design doc" [label="yes"];
-    "Write design doc" -> "Spec self-review\n(fix inline)";
-    "Spec self-review\n(fix inline)" -> "User reviews spec?";
-    "User reviews spec?" -> "Write design doc" [label="changes requested"];
-    "User reviews spec?" -> "Invoke writing-plans skill" [label="approved"];
+    "Understand context" -> "Need codebase evidence?";
+    "Need codebase evidence?" -> "Dispatch ged-explorer\nfor targeted discovery" [label="yes"];
+    "Need codebase evidence?" -> "Identify design decisions" [label="no"];
+    "Dispatch ged-explorer\nfor targeted discovery" -> "Identify design decisions";
+    "Identify design decisions" -> "Propose 2-3 approaches\nwith trade-offs";
+    "Propose 2-3 approaches\nwith trade-offs" -> "Present design sections";
+    "Present design sections" -> "User approves?";
+    "User approves?" -> "Present design sections" [label="no, revise"];
+    "User approves?" -> "Write approved design\nto .ged/work/<work-id>/SPEC.md" [label="yes"];
+    "Write approved design\nto .ged/work/<work-id>/SPEC.md" -> "Record durable decisions\nin .ged/DECISIONS.md";
+    "Record durable decisions\nin .ged/DECISIONS.md" -> "Transition to\n ged-planning skill";
 }
 ```
 
-**The terminal state is invoking writing-plans.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans.
-
 ## The Process
 
-**Understanding the idea:**
+### 1. Understand current context
 
-- Check out the current project state first (files, docs, recent commits)
-- Before asking detailed questions, assess scope: if the request describes multiple independent subsystems (e.g., "build a platform with chat, file storage, billing, and analytics"), flag this immediately. Don't spend questions refining details of a project that needs to be decomposed first.
-- If the project is too large for a single spec, help the user decompose into sub-projects: what are the independent pieces, how do they relate, what order should they be built? Then brainstorm the first sub-project through the normal design flow. Each sub-project gets its own spec → plan → implementation cycle.
-- For appropriately-scoped projects, ask questions one at a time to refine the idea
-- Prefer multiple choice questions when possible, but open-ended is fine too
-- Only one question per message - if a topic needs more exploration, break it into multiple questions
-- Focus on understanding: purpose, constraints, success criteria
+Read the project's durable memory first:
+- `.ged/PROJECT.md` — goals, constraints, success criteria
+- `.ged/ARCHITECTURE.md` — current system shape
+- `.ged/DECISIONS.md` — prior decisions that constrain this design
+- `.ged/work/<work-id>/SPEC.md` — any existing spec for the current work item
 
-**Exploring approaches:**
+If the design depends on understanding existing code (e.g., "what does the extension API look like?", "how is X currently implemented?"), dispatch `ged-explorer` as a background subagent:
+```
+Agent({ subagent_type: "ged-explorer", prompt: "Investigate how X works and what interfaces exist", description: "Explore codebase for design context", run_in_background: true })
+```
+Wait for the result before proposing approaches. Do not manually grep/find the codebase during the explore phase — let the explorer do it.
 
-- Propose 2-3 different approaches with trade-offs
-- Present options conversationally with your recommendation and reasoning
-- Lead with your recommended option and explain why
+### 2. Identify the design decisions
 
-**Presenting the design:**
+Before jumping to solutions, list the open questions:
+- What are the axes of choice?
+- What's fixed vs. flexible?
+- What constraints narrow the options?
+- What risks should the design address?
 
-- Once you believe you understand what you're building, present the design
-- Scale each section to its complexity: a few sentences if straightforward, up to 200-300 words if nuanced
-- Ask after each section whether it looks right so far
-- Cover: architecture, components, data flow, error handling, testing
-- Be ready to go back and clarify if something doesn't make sense
+If any of these are really requirement questions (not design questions), redirect to `grill-me` or check if the user already answered them.
 
-**Design for isolation and clarity:**
+### 3. Propose approaches
 
-- Break the system into smaller units that each have one clear purpose, communicate through well-defined interfaces, and can be understood and tested independently
-- For each unit, you should be able to answer: what does it do, how do you use it, and what does it depend on?
-- Can someone understand what a unit does without reading its internals? Can you change the internals without breaking consumers? If not, the boundaries need work.
-- Smaller, well-bounded units are also easier for you to work with - you reason better about code you can hold in context at once, and your edits are more reliable when files are focused. When a file grows large, that's often a signal that it's doing too much.
+Present 2-3 different approaches with trade-offs. For each:
+- What it is, at a high level
+- Key trade-offs (complexity vs. flexibility, performance vs. clarity, etc.)
+- How well it fits the project's existing patterns and constraints
 
-**Working in existing codebases:**
+Lead with your recommended option and explain why. If an approach is clearly wrong given the project's constraints, say so and explain.
 
-- Explore the current structure before proposing changes. Follow existing patterns.
-- Where existing code has problems that affect the work (e.g., a file that's grown too large, unclear boundaries, tangled responsibilities), include targeted improvements as part of the design - the way a good developer improves code they're working in.
-- Don't propose unrelated refactoring. Stay focused on what serves the current goal.
+Scale to the decision:
+- **A simple component decision**: a few sentences per approach
+- **An architectural choice**: a paragraph per approach with concrete implications
+- **A complex system design**: a structured comparison (pros/cons/risks per approach)
 
-## After the Design
+### 4. Present the design
 
-**Documentation:**
+Once the approach is chosen, flesh out the design. Cover what matters for this decision:
 
-- Write the validated design (spec) to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`
-  - (User preferences for spec location override this default)
-- Use elements-of-style:writing-clearly-and-concisely skill if available
-- Commit the design document to git
+- **Architecture** — how components relate, boundaries, data flow
+- **Key interfaces** — APIs, events, data structures
+- **Integration points** — how it connects to existing code
+- **Error handling and edge cases** — what happens when things go wrong
+- **Testing strategy** — how to verify it works
 
-**Spec Self-Review:**
-After writing the spec document, look at it with fresh eyes:
+Scale each section to its complexity. A straightforward function might need a sentence; a new subsystem needs more. Present incrementally — ask the user to confirm each section before moving to the next.
 
-1. **Placeholder scan:** Any "TBD", "TODO", incomplete sections, or vague requirements? Fix them.
-2. **Internal consistency:** Do any sections contradict each other? Does the architecture match the feature descriptions?
-3. **Scope check:** Is this focused enough for a single implementation plan, or does it need decomposition?
-4. **Ambiguity check:** Could any requirement be interpreted two different ways? If so, pick one and make it explicit.
+**Design principles to apply:**
+- **Isolation** — each unit has one clear purpose, communicates through well-defined interfaces, can be understood and tested independently
+- **Signal over ceremony** — if a section is straightforward, keep it short. Don't pad.
+- **YAGNI** — remove unnecessary features. If a question doesn't need to be answered now, defer it.
+- **Patterns over novelty** — follow existing project conventions unless there's a reason not to
+- **Targeted improvement** — if existing code has problems relevant to this design, include fixes. Don't propose unrelated refactoring.
 
-Fix any issues inline. No need to re-review — just fix and move on.
+### 5. Get user approval
 
-**User Review Gate:**
-After the spec review loop passes, ask the user to review the written spec before proceeding:
+Ask after each design section whether it looks right. Be ready to go back and revise.
 
-> "Spec written and committed to `<path>`. Please review it and let me know if you want to make any changes before we start writing out the implementation plan."
+This is the hard gate: no implementation before the design is approved.
 
-Wait for the user's response. If they request changes, make them and re-run the spec review loop. Only proceed once the user approves.
+### 6. Write the design to SPEC.md
 
-**Implementation:**
+Record the approved design in `.ged/work/<work-id>/SPEC.md`. The spec should be:
 
-- Invoke the writing-plans skill to create a detailed implementation plan
-- Do NOT invoke any other skill. writing-plans is the next step.
+- **Concise but complete** — someone who reads it should understand what to build and why
+- **Decision-focused** — capture what was decided and why alternatives were rejected
+- **Implementation-referenced** — call out specific files, interfaces, and patterns
+
+Structure:
+```markdown
+# SPEC: [Design Title]
+
+## Goal
+What problem does this solve?
+
+## Approach
+Which approach was chosen and why.
+
+## Design
+- Architecture / component breakdown
+- Key interfaces and data flow
+- Integration points
+- Error handling / edge cases
+
+## Open Questions
+Anything deferred or still unresolved.
+
+## Testing Strategy
+How to verify the implementation.
+```
+
+### 7. Record durable decisions
+
+If the design makes lasting architectural decisions that future work should respect, add them to `.ged/DECISIONS.md`:
+
+```
+- Date: YYYY-MM-DD
+  - Decision: [the decision]
+  - Why: [the rationale]
+  - Impact: [what it means for future work]
+```
+
+### 8. Transition to planning
+
+Once the design is approved and recorded:
+> "Design approved and written to `.ged/work/<work-id>/SPEC.md`. Ready to break this into implementation tasks. Let me invoke `ged-planning` to create the task breakdown."
+
+Then dispatch or invoke `ged-planning` to decompose the spec into `TASKS.md` and `TESTS.md`.
 
 ## Key Principles
 
-- **One question at a time** - Don't overwhelm with multiple questions
-- **Multiple choice preferred** - Easier to answer than open-ended when possible
-- **YAGNI ruthlessly** - Remove unnecessary features from all designs
-- **Explore alternatives** - Always propose 2-3 approaches before settling
-- **Incremental validation** - Present design, get approval before moving on
-- **Be flexible** - Go back and clarify when something doesn't make sense
-
-## Visual Companion
-
-A browser-based companion for showing mockups, diagrams, and visual options during brainstorming. Available as a tool — not a mode. Accepting the companion means it's available for questions that benefit from visual treatment; it does NOT mean every question goes through the browser.
-
-**Offering the companion:** When you anticipate that upcoming questions will involve visual content (mockups, layouts, diagrams), offer it once for consent:
-> "Some of what we're working on might be easier to explain if I can show it to you in a web browser. I can put together mockups, diagrams, comparisons, and other visuals as we go. This feature is still new and can be token-intensive. Want to try it? (Requires opening a local URL)"
-
-**This offer MUST be its own message.** Do not combine it with clarifying questions, context summaries, or any other content. The message should contain ONLY the offer above and nothing else. Wait for the user's response before continuing. If they decline, proceed with text-only brainstorming.
-
-**Per-question decision:** Even after the user accepts, decide FOR EACH QUESTION whether to use the browser or the terminal. The test: **would the user understand this better by seeing it than reading it?**
-
-- **Use the browser** for content that IS visual — mockups, wireframes, layout comparisons, architecture diagrams, side-by-side visual designs
-- **Use the terminal** for content that is text — requirements questions, conceptual choices, tradeoff lists, A/B/C/D text options, scope decisions
-
-A question about a UI topic is not automatically a visual question. "What does personality mean in this context?" is a conceptual question — use the terminal. "Which wizard layout works better?" is a visual question — use the browser.
-
-If they agree to the companion, read the detailed guide before proceeding:
-`skills/brainstorming/visual-companion.md`
+- **One question at a time** — don't overwhelm with multiple design questions. Walk through systematically.
+- **Approach first, details second** — settle on the "how" before diving into specifics.
+- **Explore alternatives** — always consider at least 2 approaches before settling.
+- **YAGNI ruthlessly** — if it's not needed for the current work item, leave it out.
+- **Incremental validation** — present each section, get approval, move on.
+- **Be flexible** — go back and revise when new information surfaces.
+- **Design up to the point of confidence** — the spec should be clear enough to plan from, not a comprehensive implementation reference.
