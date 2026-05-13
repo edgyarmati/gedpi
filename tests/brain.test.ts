@@ -44,7 +44,7 @@ describe("Ged brain runtime", () => {
   beforeEach(async () => {
     testHomeDir = await createTempHomeWithPreferences({
       autoCommitVerifiedWork: "ask",
-      reviewPlanBeforePlannerHandoff: "on",
+      reviewPlanBeforePlannerHandoff: "plannotator",
     });
   });
 
@@ -82,8 +82,11 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain("synthesize the clarification evidence");
     expect(prompt).toContain("skill-fit checkpoint");
     expect(prompt).toContain("## Plan Review Preference");
-    expect(prompt).toContain("Current setting: on");
-    expect(prompt).toContain("wait for explicit approval");
+    expect(prompt).toContain(
+      "Current setting: Review with Plannotator (plannotator)",
+    );
+    expect(prompt).toContain("request Plannotator plan review");
+    expect(prompt).toContain("fall back to chat approval");
     expect(prompt).toContain(
       "judging semantic sufficiency across the whole dispatch",
     );
@@ -261,7 +264,7 @@ describe("Ged brain runtime", () => {
     expect(beforeStart.systemPrompt).toContain("GedPi Single-Brain Mode");
     expect(beforeStart.systemPrompt).toContain("use grill-me in chat");
     expect(beforeStart.systemPrompt).toContain("## Plan Review Preference");
-    expect(beforeStart.systemPrompt).toContain("wait for explicit approval");
+    expect(beforeStart.systemPrompt).toContain("Review in chat (chat)");
     expect(beforeStart.systemPrompt).not.toContain("interview tool");
   });
 });

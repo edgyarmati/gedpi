@@ -31,6 +31,7 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `@tintinweb/pi-subagents` — read-only scout, planner, and verifier subagent tools
 - `pi-diff-review` — diff review surface
 - `pi-prompt-template-model` — prompt template / model wiring
+- `@plannotator/pi-extension` — visual plan/code review UI used by the `plannotator` draft-plan review preference
 - `agent-settings.ts` — preferences persistence in `~/.gedcode/settings.json`
 - `amp-themes` — theme files plus editor and user-message styling selected through Pi settings
 - `pi-tool-display` — tool display renderer bundled through `amp-themes`
@@ -54,7 +55,7 @@ When changing Ged's workflow, update the durable documentation and generated pro
 - `AGENTS.md` documents the intended workflow for future coding sessions.
 - Keep GedCode parity in mind when prompt/checkpoint behavior is duplicated there.
 
-For non-trivial work, the main agent must run the first clarification/sufficiency pass before drafting a plan. Use grill-me in chat when goal, users/audience, scope, constraints, relevant context, risks, tests, or success criteria are unclear. If the request is already clear, synthesize that evidence instead of asking unnecessary questions. After the draft plan is approved when `reviewPlanBeforePlannerHandoff` is on, the planner subagent judges semantic sufficiency across the entire handoff; it must not require an exact `## Grill-me evidence` heading. If the planner says information is missing, the main agent must run grill-me for those gaps, update the plan, repeat required plan approval, and re-dispatch the planner.
+For non-trivial work, the main agent must run the first clarification/sufficiency pass before drafting a plan. Use grill-me in chat when goal, users/audience, scope, constraints, relevant context, risks, tests, or success criteria are unclear. If the request is already clear, synthesize that evidence instead of asking unnecessary questions. Honor `reviewPlanBeforePlannerHandoff` before planner handoff: `off` skips separate human draft-plan approval, `chat` requests approval in chat, and `plannotator` uses Plannotator's visual review when available with chat approval as the fallback. After the draft plan is approved when required, the planner subagent judges semantic sufficiency across the entire handoff; it must not require an exact `## Grill-me evidence` heading. If the planner says information is missing, the main agent must run grill-me for those gaps, update the plan, repeat required plan approval, and re-dispatch the planner.
 
 The Ged workflow is always active:
 - lazily initialize or migrate `.ged/` on the first real agent turn

@@ -21,7 +21,10 @@ import {
 } from "./agent-settings.js";
 import { pickModel } from "./fuzzy-picker.js";
 import type { AppCommandContext, AppCommandDefinition } from "./pi.js";
-import { PREFERENCE_DEFINITIONS } from "./preferences.js";
+import {
+  formatPreferenceValue,
+  PREFERENCE_DEFINITIONS,
+} from "./preferences.js";
 import { executeRtkCommand } from "./rtk.js";
 
 // ─── Curated defaults for non-UI fallback ──────────────────────────────
@@ -505,8 +508,8 @@ async function executeGedSettingsCommand(
   if (!context.runtime?.ctx.hasUI) {
     return [
       "GedPi Preferences",
-      `  Commit after verification: ${prefs.autoCommitVerifiedWork}`,
-      `  Review plan before planner handoff: ${prefs.reviewPlanBeforePlannerHandoff}`,
+      `  Commit after verification: ${formatPreferenceValue("autoCommitVerifiedWork", prefs.autoCommitVerifiedWork)} (${prefs.autoCommitVerifiedWork})`,
+      `  Draft plan review: ${formatPreferenceValue("reviewPlanBeforePlannerHandoff", prefs.reviewPlanBeforePlannerHandoff)} (${prefs.reviewPlanBeforePlannerHandoff})`,
       "",
       `Stored in: ${globalGedSettingsPath()}`,
     ].join("\n");

@@ -15,10 +15,18 @@ import {
 describe("commit settings", () => {
   test("normalizes plan-review preference", () => {
     expect(normalizeReviewPlanBeforePlannerHandoff("off")).toBe("off");
-    expect(normalizeReviewPlanBeforePlannerHandoff("on")).toBe("on");
-    expect(normalizeReviewPlanBeforePlannerHandoff("ask")).toBe("on");
-    expect(normalizeReviewPlanBeforePlannerHandoff(undefined)).toBe("on");
-    expect(normalizeReviewPlanBeforePlannerHandoff("invalid")).toBe("on");
+    expect(normalizeReviewPlanBeforePlannerHandoff("chat")).toBe("chat");
+    expect(normalizeReviewPlanBeforePlannerHandoff("plannotator")).toBe(
+      "plannotator",
+    );
+    expect(normalizeReviewPlanBeforePlannerHandoff("on")).toBe("chat");
+    expect(normalizeReviewPlanBeforePlannerHandoff("ask")).toBe("plannotator");
+    expect(normalizeReviewPlanBeforePlannerHandoff(undefined)).toBe(
+      "plannotator",
+    );
+    expect(normalizeReviewPlanBeforePlannerHandoff("invalid")).toBe(
+      "plannotator",
+    );
   });
 
   test("normalizes auto-commit preference", () => {
@@ -39,9 +47,9 @@ describe("commit settings", () => {
       }),
       expect.objectContaining({
         id: REVIEW_PLAN_ID,
-        label: "Review plan before planner handoff",
+        label: "Draft plan review",
         defaultValue: REVIEW_PLAN_DEFAULT,
-        values: ["off", "on"],
+        values: ["off", "chat", "plannotator"],
       }),
     ]);
   });
@@ -50,7 +58,7 @@ describe("commit settings", () => {
     expect(AUTO_COMMIT_ID).toBe("autoCommitVerifiedWork");
     expect(REVIEW_PLAN_ID).toBe("reviewPlanBeforePlannerHandoff");
     expect(AUTO_COMMIT_DEFAULT).toBe("ask");
-    expect(REVIEW_PLAN_DEFAULT).toBe("on");
+    expect(REVIEW_PLAN_DEFAULT).toBe("plannotator");
   });
 
   test("builds prompt instructions for each preference", () => {
@@ -66,8 +74,17 @@ describe("commit settings", () => {
     expect(buildPlanReviewWorkflowPrompt("off")).toContain(
       "dispatch ged-planner without asking",
     );
-    expect(buildPlanReviewWorkflowPrompt("on")).toContain(
-      "wait for explicit approval",
+    expect(buildPlanReviewWorkflowPrompt("chat")).toContain(
+      "show the plan to the user in chat",
+    );
+    expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
+      "request Plannotator plan review",
+    );
+    expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
+      "fall back to chat approval",
+    );
+    expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
+      "auto-approval because UI/assets are unavailable",
     );
   });
 });

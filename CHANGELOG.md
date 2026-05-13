@@ -12,6 +12,7 @@
 - Dropped `@juanibiapina/pi-extension-settings` dependency. Workflow preferences (auto-commit after verification, plan-review before planner handoff) are now stored in `~/.gedcode/settings.json` under a `preferences` key, with a one-time migration from the old storage file.
 - Added `/ged-settings` command with a TUI to configure GedPi workflow preferences interactively, with a plain-text fallback for non-UI sessions.
 - Added a plan-review setting that defaults to requiring user approval before handing non-trivial draft plans to `ged-planner`.
+- Bundled `@plannotator/pi-extension` by default and expanded draft-plan review into three modes: no extra review, chat approval, or Plannotator visual approval. Legacy `on` settings now map to chat approval.
 
 ### Fixes
 

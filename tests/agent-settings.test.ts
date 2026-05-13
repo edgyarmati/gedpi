@@ -9,9 +9,11 @@ import {
   modelCandidates,
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
+  readGedPreferences,
   selectAgentModel,
   syncGedSubagentRuntimeConfig,
   writeGedAgentsSettings,
+  writeGedPreference,
 } from "../src/agent-settings.js";
 
 async function tempDir(prefix: string): Promise<string> {
@@ -19,6 +21,24 @@ async function tempDir(prefix: string): Promise<string> {
 }
 
 describe("Ged optional agent settings", () => {
+  test("reads plan-review preference modes with legacy on as chat", async () => {
+    const homeDir = await tempDir("ged-preferences-home-");
+    await writeGedPreference("reviewPlanBeforePlannerHandoff", "on", homeDir);
+
+    await expect(readGedPreferences(homeDir)).resolves.toMatchObject({
+      reviewPlanBeforePlannerHandoff: "chat",
+    });
+
+    await writeGedPreference(
+      "reviewPlanBeforePlannerHandoff",
+      "plannotator",
+      homeDir,
+    );
+    await expect(readGedPreferences(homeDir)).resolves.toMatchObject({
+      reviewPlanBeforePlannerHandoff: "plannotator",
+    });
+  });
+
   test("defaults to disabled with no configured models", async () => {
     const rootDir = await tempDir("ged-agent-settings-root-");
     const homeDir = await tempDir("ged-agent-settings-home-");

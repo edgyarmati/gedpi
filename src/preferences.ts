@@ -1,12 +1,12 @@
 export interface GedPreferences {
   autoCommitVerifiedWork: "off" | "ask" | "on";
-  reviewPlanBeforePlannerHandoff: "off" | "on";
+  reviewPlanBeforePlannerHandoff: "off" | "chat" | "plannotator";
 }
 
 export const AUTO_COMMIT_DEFAULT: GedPreferences["autoCommitVerifiedWork"] =
   "ask";
 export const REVIEW_PLAN_DEFAULT: GedPreferences["reviewPlanBeforePlannerHandoff"] =
-  "on";
+  "plannotator";
 
 export const AUTO_COMMIT_ID = "autoCommitVerifiedWork";
 export const REVIEW_PLAN_ID = "reviewPlanBeforePlannerHandoff";
@@ -27,7 +27,38 @@ export function normalizeAutoCommitVerifiedWork(
 export function normalizeReviewPlanBeforePlannerHandoff(
   value: unknown,
 ): GedPreferences["reviewPlanBeforePlannerHandoff"] {
-  return value === "off" || value === "on" ? value : REVIEW_PLAN_DEFAULT;
+  if (value === "off" || value === "chat" || value === "plannotator") {
+    return value;
+  }
+  // Backward compatibility: the previous binary "on" setting meant
+  // explicit chat approval before ged-planner handoff.
+  if (value === "on") return "chat";
+  return REVIEW_PLAN_DEFAULT;
+}
+
+export function formatPreferenceValue(id: string, value: string): string {
+  if (id === REVIEW_PLAN_ID) {
+    const labels: Record<
+      GedPreferences["reviewPlanBeforePlannerHandoff"],
+      string
+    > = {
+      off: "No review",
+      chat: "Review in chat",
+      plannotator: "Review with Plannotator",
+    };
+    return labels[normalizeReviewPlanBeforePlannerHandoff(value)];
+  }
+
+  if (id === AUTO_COMMIT_ID) {
+    const labels: Record<GedPreferences["autoCommitVerifiedWork"], string> = {
+      off: "Never",
+      ask: "Ask first",
+      on: "After verification",
+    };
+    return labels[normalizeAutoCommitVerifiedWork(value)];
+  }
+
+  return value;
 }
 
 export interface PreferenceDefinition {
@@ -49,10 +80,10 @@ export const PREFERENCE_DEFINITIONS: PreferenceDefinition[] = [
   },
   {
     id: REVIEW_PLAN_ID,
-    label: "Review plan before planner handoff",
+    label: "Draft plan review",
     description:
-      "Controls whether GedPi requires user approval of the draft plan before dispatching ged-planner for non-trivial work.",
+      "Choose how GedPi gets human approval before handing a non-trivial draft plan to ged-planner: no extra review, chat approval, or Plannotator's visual annotation UI.",
     defaultValue: REVIEW_PLAN_DEFAULT,
-    values: ["off", "on"],
+    values: ["off", "chat", "plannotator"],
   },
 ];
