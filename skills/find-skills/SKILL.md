@@ -1,148 +1,157 @@
 ---
 name: find-skills
-description: Helps users discover and install agent skills when they ask questions like "how do I do X", "find a skill for X", "is there a skill that can...", or express interest in extending capabilities. This skill should be used when the user is looking for functionality that might exist as an installable skill.
+description: "Discover external skills during GedPi's skill-fit checkpoint. When the current bundled, project, and user skills don't cover a task's needs, search the open ecosystem via npx skills, evaluate candidates, and install through GedPi's project-skill mechanism. Triggers include \"how do I do X\", \"find a skill for X\", \"is there a skill for X\", \"skill for\", \"need a skill\", \"search for skills\", \"skill-fit\", \"ecosystem\""
 ---
 
-# Find Skills
+# Find Skills: Ecosystem Discovery for GedPi's Skill-Fit Checkpoint
 
-This skill helps you discover and install skills from the open agent skills ecosystem.
+Part of GedPi's skill-fit workflow. Use **after** `grill-me` (if needed) and **before** `skill-creator`. The flow is:
 
-## Ged skill-fit checkpoint
+```
+inventory → find-skills (gap) → skill-creator (no fit) → plan
+```
 
-For Ged non-trivial tasks, use this skill during the skill-fit checkpoint when bundled/project/user skills do not sufficiently cover the clarified task. First inventory available skills and decide what expertise is missing. Search only for the gap.
+Resist the urge to skip straight to `skill-creator` when an off-the-shelf skill exists. Conversely, don't exhaustively search when the gap is narrow and project-specific — go straight to `skill-creator`.
 
-Do not install global/user skills automatically during Ged's normal workflow. Recommend external skills to the user, or use `skill-creator` to create a narrow project-local skill when no adequate external skill exists and the gap is reusable.
+## When to Use
 
-## When to Use This Skill
+### During the skill-fit checkpoint (non-trivial tasks)
 
-Use this skill when the user:
+When the inventory of bundled/project/user skills doesn't cover the clarified task, search the ecosystem for an existing skill before creating one from scratch.
 
-- Asks "how do I do X" where X might be a common task with an existing skill
-- Says "find a skill for X" or "is there a skill for X"
-- Asks "can you do X" where X is a specialized capability
-- Expresses interest in extending agent capabilities
-- Wants to search for tools, templates, or workflows
-- Mentions they wish they had help with a specific domain (design, testing, deployment, etc.)
+### When the user asks directly
 
-## What is the Skills CLI?
+Use this when the user asks for help with a specific domain or capability — anything from "how do I write tests for this" to "I need a skill for React patterns."
 
-The Skills CLI (`npx skills`) is the package manager for the open agent skills ecosystem. Skills are modular packages that extend agent capabilities with specialized knowledge, workflows, and tools.
+## How GedPi Discovers Skills
 
-**Key commands:**
+GedPi loads skills from three tiers, in this priority order (last wins on name conflicts):
 
-- `npx skills find [query]` - Search for skills interactively or by keyword
-- `npx skills add <package>` - Install a skill from GitHub or other sources
-- `npx skills check` - Check for skill updates
-- `npx skills update` - Update all installed skills
+| Tier | Location | Source |
+|---|---|---|
+| Bundled | `skills/<name>/SKILL.md` | Shipped with GedPi |
+| Project | `.ged/project-skills/<name>/SKILL.md` | Managed per-project via GedPi workflow |
+| User | `~/.agents/skills/<name>/SKILL.md` | `npx skills add -g` or manual |
 
-**Browse skills at:** https://skills.sh/
+Use `npx skills list` to see what's globally available, and check `.ged/SKILLS.md` for what's currently installed/recommended in the project.
 
-## How to Help Users Find Skills
+## The Skill-Fit Checkpoint
 
-### Step 1: Understand What They Need
+During non-trivial task planning, before drafting the plan:
 
-When a user asks for help with something, identify:
+1. **Inventory** what's available — bundled, project-scoped, and user skills.
+2. **Select** relevant skills if coverage is already sufficient — skip the rest.
+3. **Search** with this skill if coverage has gaps — search only for the missing capability.
+4. **Create** with `skill-creator` if no adequate skill exists and the gap is reusable at the project level.
+5. **Proceed** to planning.
 
-1. The domain (e.g., React, testing, design, deployment)
-2. The specific task (e.g., writing tests, creating animations, reviewing PRs)
-3. Whether this is a common enough task that a skill likely exists
+**Never install global/user skills automatically.** The GedPi workflow installs skills into `.ged/project-skills/` (project-scoped, cleaned up when tasks are done). External installation requires user consent.
 
-### Step 2: Check the Leaderboard First
+## How to Search the Ecosystem
 
-Before running a CLI search, check the [skills.sh leaderboard](https://skills.sh/) to see if a well-known skill already exists for the domain. The leaderboard ranks skills by total installs, surfacing the most popular and battle-tested options.
+### 1. Check the leaderboard first
 
-For example, top skills for web development include:
-- `vercel-labs/agent-skills` — React, Next.js, web design (100K+ installs each)
-- `anthropics/skills` — Frontend design, document processing (100K+ installs)
+Browse [skills.sh](https://skills.sh/) to see top-ranked skills. High install counts (>1K) signal battle-tested packages.
 
-### Step 3: Search for Skills
-
-If the leaderboard doesn't cover the user's need, run the find command:
+### 2. Run the CLI search
 
 ```bash
 npx skills find [query]
 ```
 
-For example:
+Queries should focus on the **missing capability**, not the general domain:
 
-- User asks "how do I make my React app faster?" → `npx skills find react performance`
-- User asks "can you help me with PR reviews?" → `npx skills find pr review`
-- User asks "I need to create a changelog" → `npx skills find changelog`
+| Too broad | Better |
+|---|---|
+| `npx skills find react` | `npx skills find react performance` |
+| `npx skills find testing` | `npx skills find playwright e2e` |
+| `npx skills find python` | `npx skills find python testing` |
 
-### Step 4: Verify Quality Before Recommending
+### 3. Evaluate each result
 
-**Do not recommend a skill based solely on search results.** Always verify:
+| Check | What to look for |
+|---|---|
+| Install count | ≥1K is solid, <100 is risky |
+| Source reputation | Vercel Labs, established OSS authors |
+| GitHub stars on source repo | <100 stars → skepticism |
+| Content quality | Does the SKILL.md describe concrete patterns or vague advice? |
 
-1. **Install count** — Prefer skills with 1K+ installs. Be cautious with anything under 100.
-2. **Source reputation** — Official sources (`vercel-labs`, `anthropics`, `microsoft`) are more trustworthy than unknown authors.
-3. **GitHub stars** — Check the source repository. A skill from a repo with <100 stars should be treated with skepticism.
+Only flag a skill as viable if its SKILL.md content meaningfully fills the gap. A skill that's tangentially related but doesn't actually help with the task at hand is noise.
 
-### Step 5: Present Options to the User
+## How to Install
 
-When you find relevant skills, present them to the user with:
+There are three paths depending on context:
 
-1. The skill name and what it does
-2. The install count and source
-3. The install command they can run
-4. A link to learn more at skills.sh
+### A. Project-scoped install (GedPi workflow)
 
-Example response:
+When the skill fits a task in the current plan, GedPi's `ensureTaskSkillDependencies()` copies the skill's content into `.ged/project-skills/<name>/SKILL.md` and tracks it in `SKILLS-STATE.json`. The skill is automatically cleaned up when no open task depends on it.
 
-```
-I found a skill that might help! The "react-best-practices" skill provides
-React and Next.js performance optimization guidelines from Vercel Engineering.
-(185K installs)
+This is the **primary path** — it keeps skills scoped to the project that needs them.
 
-To install it:
-npx skills add vercel-labs/agent-skills@react-best-practices
-
-Learn more: https://skills.sh/vercel-labs/agent-skills/react-best-practices
-```
-
-### Step 6: Offer to Install
-
-If the user wants to proceed, you can install the skill for them:
+### B. User-global install (explicit user consent only)
 
 ```bash
-npx skills add <owner/repo@skill> -g -y
+npx skills add <owner/repo>@<skill> -g -y
 ```
 
-The `-g` flag installs globally (user-level) and `-y` skips confirmation prompts.
+Installs to `~/.agents/skills/<name>/` where Pi discovers it across all projects. Only use this when:
+- The user explicitly asks to install globally
+- The skill is general-purpose (e.g., language patterns, testing frameworks)
+- You've presented the option and the user approved
 
-## Common Skill Categories
+**Do not auto-install globally during the Ged workflow.**
 
-When searching, consider these common categories:
+### C. Project-local creation (no adequate external skill)
 
-| Category        | Example Queries                          |
-| --------------- | ---------------------------------------- |
-| Web Development | react, nextjs, typescript, css, tailwind |
-| Testing         | testing, jest, playwright, e2e           |
-| DevOps          | deploy, docker, kubernetes, ci-cd        |
-| Documentation   | docs, readme, changelog, api-docs        |
-| Code Quality    | review, lint, refactor, best-practices   |
-| Design          | ui, ux, design-system, accessibility     |
-| Productivity    | workflow, automation, git                |
+When the search turns up nothing suitable and the gap is reusable within the project, use `skill-creator` to author a narrow project-local skill. This keeps the knowledge scoped to `.ged/project-skills/` without polluting the global namespace.
 
-## Tips for Effective Searches
+## Common Search Categories
 
-1. **Use specific keywords**: "react testing" is better than just "testing"
-2. **Try alternative terms**: If "deploy" doesn't work, try "deployment" or "ci-cd"
-3. **Check popular sources**: Many skills come from `vercel-labs/agent-skills` or `ComposioHQ/awesome-claude-skills`
+| Category | Example queries |
+|---|---|
+| Web Development | `react nextjs`, `typescript css`, `tailwind design` |
+| Testing | `playwright e2e`, `vitest`, `jest mocking` |
+| DevOps | `docker compose`, `ci-cd github actions` |
+| Documentation | `api docs`, `changelog`, `readme` |
+| Code Quality | `code review`, `lint`, `refactoring` |
+| Design | `ui ux`, `accessibility`, `design-system` |
+| Productivity | `git workflow`, `automation`, `project setup` |
+
+## Presenting Results to the User
+
+When you find relevant skills, present them clearly:
+
+```
+Found a skill that fits: "react-performance" from vercel-labs/agent-skills
+- Install count: 185K
+- Covers: React rendering optimization, memo patterns, bundle analysis
+- Source: github.com/vercel-labs/agent-skills
+
+Two install options:
+1. Project-scoped (recommended): I'll set it up in .ged/project-skills/
+2. Global (npx): npx skills add vercel-labs/agent-skills@react-performance -g
+```
+
+Let the user decide. If they choose project-scoped, GedPi handles the install.
 
 ## When No Skills Are Found
 
-If no relevant skills exist:
+If the search returns nothing useful:
 
-1. Acknowledge that no existing skill was found
-2. Offer to help with the task directly using your general capabilities
-3. Suggest the user could create their own skill with `npx skills init`
-
-Example:
+1. Acknowledge the gap clearly
+2. Assess whether it's a one-off task (just do it with general capabilities) or a reusable pattern
+3. If reusable, offer to create a project-local skill via `skill-creator`
 
 ```
-I searched for skills related to "xyz" but didn't find any matches.
-I can still help you with this task directly! Would you like me to proceed?
-
-If this is something you do often, you could create your own skill:
-npx skills init my-xyz-skill
+I searched for "rust embedded no-std patterns" and didn't find a match.
+This looks like a one-off task — I can handle it directly.
+If it comes up again, I can create a project-local skill for it.
 ```
+
+## Guiding principles
+
+- **Search narrow, not broad** — query for the missing capability, not the whole domain
+- **Prefer project-scoped installs** — keeps skills tied to the projects that need them
+- **Don't auto-install globally** — user consent required for `npx skills add -g`
+- **`skill-creator` is the fallback** — when no external skill fits, create a project-local one
+- **YAGNI for skills too** — don't install skills for hypothetical future needs
