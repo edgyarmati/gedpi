@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.18.0 - 2026-05-13
+
 ### Features
 
 - Brainstorming skill rewritten from Claude Code copy to GedPi-native: outputs to `.ged/work/<work-id>/SPEC.md`, feeds into `ged-planning` instead of `writing-plans`, integrates with `ged-explorer` subagent for codebase discovery, and drops the Claude Code-specific Visual Companion.
@@ -19,6 +21,10 @@
 - Closed completed checkpoint tasks after commit so stale `.ged/runtime/<work-id>/checkpoints.json` state cannot authorize later work without fresh classification.
 - Planner clarification refusals now explicitly block continuation until the main agent runs grill-me and re-dispatches `ged-planner`.
 - Planner prompts now judge semantic sufficiency across the whole handoff instead of requiring an exact `## Grill-me evidence` block.
+
+### Documentation
+
+- Removed the stale repo-map design spec that was no longer accurate or referenced. Cleared the now-empty `docs/superpowers/` directory tree.
 
 ## 0.17.6 - 2026-05-10
 

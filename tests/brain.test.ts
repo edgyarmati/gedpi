@@ -264,7 +264,9 @@ describe("Ged brain runtime", () => {
     expect(beforeStart.systemPrompt).toContain("GedPi Single-Brain Mode");
     expect(beforeStart.systemPrompt).toContain("use grill-me in chat");
     expect(beforeStart.systemPrompt).toContain("## Plan Review Preference");
-    expect(beforeStart.systemPrompt).toContain("Review in chat (chat)");
+    expect(beforeStart.systemPrompt).toContain(
+      "Review with Plannotator (plannotator)",
+    );
     expect(beforeStart.systemPrompt).not.toContain("interview tool");
   });
 });
