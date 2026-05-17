@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Dependencies
+
+- Bumped Pi runtime (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`) from 0.74.0 to 0.74.1. Picks up Node 26 stream timeout fix, macOS clipboard crash fix, `--resume` OOM fix, and Anthropic stream auto-retry.
+
 ### Fixes
 
 - Plannotator plan review now works out-of-the-box on fresh installs. Added a `gedpi_plan_review` bridge tool in ged-core that uses Plannotator's event-based API instead of the `plannotator_submit_plan` tool (which gets stripped from active tools on fresh sessions). The brain, orchestration, and commit-settings prompts now reference `gedpi_plan_review` instead of the internal Plannotator tool.
