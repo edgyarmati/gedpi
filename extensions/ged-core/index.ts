@@ -37,6 +37,7 @@ import {
   registerGedMessageRenderer,
   registerPiCommands,
 } from "../../src/pi.js";
+import { registerPlanReviewTool } from "../../src/plan-review.js";
 import { ensureBundledPromptTemplates } from "../../src/prompt-template-sync.js";
 import {
   buildRepoMapPromptSuffix,
@@ -118,6 +119,7 @@ export default async function gedCoreExtension(
   registerUpdater(api);
   registerRtkBashRouting(api);
   registerRepoMapTracking(api);
+  registerPlanReviewTool(api);
 
   // ─── Session start ──────────────────────────────────────────────
 

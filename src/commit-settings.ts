@@ -42,7 +42,7 @@ export function buildPlanReviewWorkflowPrompt(
     off: "After writing the draft plan for non-trivial work, dispatch ged-planner without asking for separate human approval of the draft plan.",
     chat: "After writing the draft plan for non-trivial work and before dispatching ged-planner, show the plan to the user in chat and wait for explicit approval. If the user requests changes, revise the plan, then ask for approval again before planner handoff.",
     plannotator:
-      "After writing the canonical GedPi draft plan in `.ged/work/<work-id>/`, request Plannotator plan review through its UI/event flow before dispatching ged-planner. Wait for approval or annotated feedback; apply requested changes to the GedPi plan files and repeat review as needed. If Plannotator is unavailable, cannot open a UI, fails to start, or returns an auto-approval because UI/assets are unavailable, do not treat that as human approval; fall back to chat approval. Do not enter Plannotator plan mode or delegate planning ownership to Plannotator.",
+      "After writing the canonical GedPi draft plan in `.ged/work/<work-id>/`, call the `gedpi_plan_review` tool with the path to the plan file (e.g. `.ged/work/<work-id>/TASKS.md`). This opens a visual browser review UI. Wait for the review result — approved, denied with feedback, or timed out. If denied, apply the feedback to the plan files and call `gedpi_plan_review` again. If the tool reports Plannotator is unavailable or errors, fall back to chat approval. Do not use /plannotator or plannotator_submit_plan directly.",
   } satisfies Record<ReviewPlanBeforePlannerHandoff, string>;
 
   return `## Plan Review Preference

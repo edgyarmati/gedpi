@@ -85,7 +85,7 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain(
       "Current setting: Review with Plannotator (plannotator)",
     );
-    expect(prompt).toContain("request Plannotator plan review");
+    expect(prompt).toContain("gedpi_plan_review");
     expect(prompt).toContain("fall back to chat approval");
     expect(prompt).toContain(
       "judging semantic sufficiency across the whole dispatch",
@@ -232,6 +232,7 @@ describe("Ged brain runtime", () => {
       },
       registerCommand() {},
       registerShortcut() {},
+      registerTool() {},
       sendMessage() {},
       on(event: string, handler: (...args: unknown[]) => unknown) {
         handlers.set(event, handler);

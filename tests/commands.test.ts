@@ -37,6 +37,7 @@ describe("Ged command surface", () => {
         commands.push(name);
       },
       registerShortcut() {},
+      registerTool() {},
       on(event: string) {
         events.push(event);
       },

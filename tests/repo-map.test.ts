@@ -143,6 +143,7 @@ describe("repo map", () => {
       },
       registerCommand() {},
       registerShortcut() {},
+      registerTool() {},
       sendMessage() {},
       on(event: string, handler: (...args: unknown[]) => unknown) {
         handlers.set(event, handler);
@@ -214,6 +215,7 @@ describe("repo map", () => {
       },
       registerCommand() {},
       registerShortcut() {},
+      registerTool() {},
       sendMessage() {},
       on(event: string, handler: (...args: unknown[]) => unknown) {
         handlers.set(event, handler);

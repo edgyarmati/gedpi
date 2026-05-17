@@ -78,13 +78,13 @@ describe("commit settings", () => {
       "show the plan to the user in chat",
     );
     expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
-      "request Plannotator plan review",
+      "gedpi_plan_review",
     );
     expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
       "fall back to chat approval",
     );
     expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
-      "auto-approval because UI/assets are unavailable",
+      "Do not use /plannotator or plannotator_submit_plan directly",
     );
   });
 });
