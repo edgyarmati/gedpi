@@ -75,7 +75,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **@tintinweb/pi-subagents** | Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tools for read-only Ged scouts, planners, and verifiers |
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
-| **@plannotator/pi-extension** | Browser-based plan/code review UI; GedPi uses it for the optional visual draft-plan approval mode |
+| **@plannotator/pi-extension** | Plan/code review UI; GedPi draft-plan approval prefers native Glimpse when available and falls back to Plannotator's browser UI |
 | **~/.gedoc/settings.json** | GedPi workflow preferences (commit behavior, draft-plan review) via `/ged-settings` command |
 | **amp-themes** | Bundled theme files plus editor and user-message styling, selected through Pi settings |
 | **pi-tool-display** | Tool display renderer bundled through `amp-themes` |
@@ -96,7 +96,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/update` | Check for GedPi updates |
 | `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |
 | `/ged-agents` | Configure optional read-only Ged subagents (status, setup, on, off) |
-| `/ged-settings` | Configure workflow preferences, including draft-plan review: no extra review, chat approval, or Plannotator visual approval |
+| `/ged-settings` | Configure workflow preferences, including draft-plan review: no extra review, chat approval, or visual approval (Glimpse preferred, browser fallback) |
 
 ### Auto-Updater
 

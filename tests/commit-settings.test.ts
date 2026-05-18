@@ -81,6 +81,9 @@ describe("commit settings", () => {
       "gedpi_plan_review",
     );
     expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
+      "native Glimpse window",
+    );
+    expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
       "fall back to chat approval",
     );
     expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(

@@ -22,15 +22,33 @@ interface PlannotatorResponse<T> {
   error?: string;
 }
 
+interface GlimpsePromptResult {
+  approved?: boolean;
+  feedback?: string;
+}
+
+interface GlimpseModule {
+  prompt: (
+    html: string,
+    options: {
+      width: number;
+      height: number;
+      title: string;
+      floating?: boolean;
+      openLinks?: boolean;
+    },
+  ) => Promise<GlimpsePromptResult | null>;
+}
+
 export function registerPlanReviewTool(api: ExtensionAPI): void {
   api.registerTool({
     name: "gedpi_plan_review",
     label: "Review Plan",
     description:
-      "Open the GedPi draft plan for visual review in the browser using Plannotator. " +
+      "Open the GedPi draft plan for visual review, preferring native Glimpse when available and falling back to Plannotator's browser UI. " +
       "Pass the path to a markdown plan file (e.g. .ged/work/main/TASKS.md). " +
-      "The user reviews in the browser and can approve, deny with annotations, or request changes. " +
-      "Returns the review decision. If Plannotator is unavailable, returns an error.",
+      "The user can approve, deny with feedback, or request changes. " +
+      "Returns the review decision. If no visual review surface is available, returns an error.",
     parameters: {
       type: "object",
       properties: {
@@ -80,6 +98,29 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
           `Error: ${filePath} is empty. Write the plan content first.`,
           false,
         );
+      }
+
+      const glimpseDecision = await requestGlimpsePlanReview(planContent);
+      if (glimpseDecision) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: glimpseDecision.approved
+                ? glimpseDecision.feedback
+                  ? `Plan approved in Glimpse with notes:\n\n${glimpseDecision.feedback}`
+                  : "Plan approved in Glimpse."
+                : glimpseDecision.feedback
+                  ? `Plan denied in Glimpse. Reviewer feedback:\n\n${glimpseDecision.feedback}`
+                  : "Plan denied in Glimpse without specific feedback.",
+            },
+          ],
+          details: {
+            approved: glimpseDecision.approved,
+            feedback: glimpseDecision.feedback,
+            surface: "glimpse",
+          },
+        };
       }
 
       const result = await requestPlanReview(api, planContent);
@@ -148,6 +189,104 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
       };
     },
   });
+}
+
+export async function requestGlimpsePlanReview(
+  planContent: string,
+): Promise<PlanReviewResult | null> {
+  let glimpse: GlimpseModule;
+  try {
+    glimpse = (await import("glimpseui")) as GlimpseModule;
+  } catch {
+    return null;
+  }
+
+  try {
+    const result = await glimpse.prompt(
+      buildGlimpsePlanReviewHtml(planContent),
+      {
+        width: 960,
+        height: 760,
+        title: "Review GedPi plan",
+        floating: true,
+        openLinks: true,
+      },
+    );
+
+    if (!result || typeof result.approved !== "boolean") {
+      return null;
+    }
+
+    return {
+      approved: result.approved,
+      feedback: result.feedback?.trim() || undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function buildGlimpsePlanReviewHtml(planContent: string): string {
+  const escapedPlan = escapeHtml(planContent);
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: Canvas; color: CanvasText; }
+    header { padding: 16px 20px; border-bottom: 1px solid color-mix(in srgb, CanvasText 14%, transparent); }
+    h1 { margin: 0; font-size: 18px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; height: calc(100vh - 57px); }
+    pre { margin: 0; padding: 20px; overflow: auto; white-space: pre-wrap; line-height: 1.45; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+    aside { border-left: 1px solid color-mix(in srgb, CanvasText 14%, transparent); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    textarea { flex: 1; min-height: 220px; resize: none; border-radius: 8px; border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); padding: 10px; font: inherit; background: Canvas; color: CanvasText; }
+    button { border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 650; cursor: pointer; }
+    .approve { background: #15803d; color: white; }
+    .deny { background: #b91c1c; color: white; }
+    .cancel { background: color-mix(in srgb, CanvasText 10%, transparent); color: CanvasText; }
+    .actions { display: grid; gap: 8px; }
+    .hint { color: color-mix(in srgb, CanvasText 62%, transparent); font-size: 12px; line-height: 1.35; }
+  </style>
+</head>
+<body>
+  <header><h1>Review GedPi plan</h1></header>
+  <main>
+    <pre>${escapedPlan}</pre>
+    <aside>
+      <label for="feedback"><strong>Feedback / notes</strong></label>
+      <textarea id="feedback" placeholder="Optional: explain requested changes or approval notes"></textarea>
+      <div class="actions">
+        <button class="approve" id="approve">Approve plan</button>
+        <button class="deny" id="deny">Deny / request changes</button>
+        <button class="cancel" id="cancel">Use browser fallback</button>
+      </div>
+      <p class="hint">Enter approves. Escape falls back to Plannotator's browser UI.</p>
+    </aside>
+  </main>
+  <script>
+    const feedback = document.getElementById('feedback');
+    function send(approved) { window.glimpse.send({ approved, feedback: feedback.value }); }
+    document.getElementById('approve').addEventListener('click', () => send(true));
+    document.getElementById('deny').addEventListener('click', () => send(false));
+    document.getElementById('cancel').addEventListener('click', () => window.glimpse.send(null));
+    document.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') send(true);
+      if (event.key === 'Escape') window.glimpse.send(null);
+    });
+    feedback.focus();
+  </script>
+</body>
+</html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function requestPlanReview(

@@ -32,6 +32,26 @@ describe("package Pi configuration", () => {
     expect(gedCoreIndex).toBeGreaterThanOrEqual(0);
   });
 
+  test("latest scoped Pi review dependencies are configured", async () => {
+    const packageJson = JSON.parse(
+      await readFile(path.join(process.cwd(), "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, string>;
+      overrides?: Record<string, string>;
+      engines?: Record<string, string>;
+    };
+
+    expect(packageJson.engines?.node).toBe(">=22.19.0");
+    expect(packageJson.dependencies?.["@earendil-works/pi-coding-agent"]).toBe(
+      "0.75.3",
+    );
+    expect(packageJson.overrides?.["@earendil-works/pi-tui"]).toBe("0.75.3");
+    expect(packageJson.dependencies?.["@plannotator/pi-extension"]).toBe(
+      "0.19.18",
+    );
+    expect(packageJson.dependencies?.glimpseui).toBe("0.8.1");
+  });
+
   test("Plannotator extension and skills are bundled by default", async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(process.cwd(), "package.json"), "utf8"),
