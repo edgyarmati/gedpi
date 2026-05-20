@@ -18,6 +18,7 @@ describe("documentation coverage", () => {
     expect(readme).toContain(
       "| `/push` | Push the current branch, with automatic recovery flow if the first push fails |",
     );
+    expect(readme).toContain("| `/grill-me` |");
   });
 
   test("README and backlog document the repo-map feature and deferred roadmap", () => {

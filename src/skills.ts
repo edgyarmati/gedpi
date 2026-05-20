@@ -32,6 +32,12 @@ export const defaultSkillSignals: SkillSignal[] = [
     policy: "auto-install",
   },
   {
+    label: "grill-with-docs",
+    reason:
+      "Clarify domain language, glossary terms, CONTEXT.md, and ADR-worthy decisions while grilling.",
+    policy: "recommend-only",
+  },
+  {
     label: "brainstorming",
     reason:
       "Useful when Ged is designing or decomposing task slices before implementation.",
@@ -52,6 +58,7 @@ export const BUNDLED_FOUNDATION_SKILLS = new Set([
 ]);
 export const BUNDLED_GED_SKILLS = new Set([
   ...BUNDLED_FOUNDATION_SKILLS,
+  "grill-with-docs",
   "brainstorming",
 ]);
 

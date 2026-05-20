@@ -7,8 +7,10 @@ description: "Create a project-local skill when the skill-fit checkpoint finds n
 
 Part of GedPi's skill-fit checkpoint. Use **after** `find-skills` returns nothing adequate and the missing capability is reusable enough to warrant a project-local skill.
 
+With subagents enabled, `ged-explorer` may recommend creating a project-local skill during read-only skill-fit reconnaissance, but it must not write `.ged/project-skills/`, update `.ged/SKILLS.md`, or register dependencies. The main brain owns all project-skill creation and registration.
+
 ```
-inventory → find-skills (gap) → skill-creator (no fit) → plan
+clarify → explorer read-only inventory/search (or main brain in solo mode) → main-agent skill creation decision → plan
 ```
 
 ## What Makes a Skill Worth Creating

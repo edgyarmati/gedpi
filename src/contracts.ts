@@ -175,9 +175,26 @@ export interface CheckpointRecord {
   blocksCommit?: boolean;
 }
 
+export interface ClarificationEvidence {
+  goal: string;
+  users: string;
+  scope: string;
+  constraints: string;
+}
+
+export interface ClarificationRecord {
+  status: "completed" | "skipped";
+  source: "manual";
+  timestamp: string;
+  evidence?: ClarificationEvidence;
+  sufficiency?: "sufficient-from-request";
+  skipReason?: string;
+}
+
 export interface CheckpointState {
   classification: TaskClassification;
   classificationReason: string;
+  clarification?: ClarificationRecord;
   planCheckpoints: Partial<
     Record<"ged-explorer" | "ged-planner", CheckpointRecord>
   >;

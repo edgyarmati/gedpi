@@ -5,7 +5,12 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 import type { TaskBrief } from "../src/contracts.js";
-import { ensureTaskSkillDependencies } from "../src/skills.js";
+import {
+  BUNDLED_GED_SKILLS,
+  defaultSkillSignals,
+  ensureTaskSkillDependencies,
+  matchSkillsForTask,
+} from "../src/skills.js";
 
 async function createTempProject(prefix: string): Promise<string> {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), prefix));
@@ -38,6 +43,41 @@ async function createTempProject(prefix: string): Promise<string> {
   );
   return rootDir;
 }
+
+describe("bundled skill registration", () => {
+  test("grill-with-docs is a recommended bundled Ged skill", () => {
+    expect(BUNDLED_GED_SKILLS.has("grill-with-docs")).toBe(true);
+    expect(defaultSkillSignals).toContainEqual(
+      expect.objectContaining({
+        label: "grill-with-docs",
+        policy: "recommend-only",
+      }),
+    );
+  });
+
+  test("domain documentation tasks match grill-with-docs triggers", () => {
+    const task: TaskBrief = {
+      id: "T1",
+      title: "Clarify domain terminology",
+      objective: "Update glossary and ADR wording for the domain model",
+      contextFiles: [],
+      skills: [],
+      doneCriteria: ["CONTEXT.md captures canonical terms"],
+      status: "todo",
+      dependsOn: [],
+    };
+
+    const matched = matchSkillsForTask(task, [
+      {
+        name: "grill-with-docs",
+        triggers: ["domain", "glossary", "ADR", "CONTEXT.md"],
+        content: "",
+      },
+    ]);
+
+    expect(matched.map((skill) => skill.name)).toEqual(["grill-with-docs"]);
+  });
+});
 
 describe("project skill generation", () => {
   test("quotes generated skill frontmatter as YAML-safe scalars", async () => {

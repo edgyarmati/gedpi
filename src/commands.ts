@@ -562,6 +562,19 @@ async function executeGedSettingsCommand(
 export function createGedCommands(): AppCommandDefinition[] {
   return [
     {
+      name: "grill-me",
+      description:
+        "Clarify ambiguous non-trivial tasks one question at a time before planning",
+      async execute() {
+        return `Choose the correct clarification declaration for the current non-trivial request:
+
+- \`grill-me: needed\` — start a clarification session. Ask exactly one unresolved question, include \`Recommended answer:\` or \`Default assumption:\`, and wait for the user's answer before continuing.
+- \`grill-me: skipped; reason: <why sufficient>\` — use only when the request is already sufficient, then synthesize goal, users/audience, scope, constraints, and success criteria.
+
+Use \`grill-with-docs\` instead when clarification should also update domain language, CONTEXT.md, .ged/GLOSSARY.md, or ADR-worthy decisions. Do not implement during grilling.`;
+      },
+    },
+    {
       name: "rtk",
       description:
         "Install RTK and check Ged's automatic bash-side RTK routing",

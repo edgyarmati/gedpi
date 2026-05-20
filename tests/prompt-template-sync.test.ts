@@ -12,6 +12,12 @@ import { describe, expect, test } from "vitest";
 
 import { ensureBundledPromptTemplates } from "../src/prompt-template-sync.js";
 
+function writeManagedPromptFixtures(sourceDir: string): void {
+  writeFileSync(path.join(sourceDir, "commit.md"), "commit prompt\n", "utf8");
+  writeFileSync(path.join(sourceDir, "push.md"), "push prompt\n", "utf8");
+  writeFileSync(path.join(sourceDir, "grill-me.md"), "grill prompt\n", "utf8");
+}
+
 describe("ensureBundledPromptTemplates", () => {
   test("copies managed prompt templates into the global prompt directory", () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "ged-prompt-sync-"));
@@ -19,8 +25,7 @@ describe("ensureBundledPromptTemplates", () => {
     const homeDir = path.join(root, "home");
 
     mkdirSync(sourceDir, { recursive: true });
-    writeFileSync(path.join(sourceDir, "commit.md"), "commit prompt\n", "utf8");
-    writeFileSync(path.join(sourceDir, "push.md"), "push prompt\n", "utf8");
+    writeManagedPromptFixtures(sourceDir);
 
     const written = ensureBundledPromptTemplates(sourceDir, { homeDir });
     const targetDir = path.join(homeDir, ".pi", "agent", "prompts", "gedpi");
@@ -28,12 +33,16 @@ describe("ensureBundledPromptTemplates", () => {
     expect(written).toEqual([
       path.join(targetDir, "commit.md"),
       path.join(targetDir, "push.md"),
+      path.join(targetDir, "grill-me.md"),
     ]);
     expect(readFileSync(path.join(targetDir, "commit.md"), "utf8")).toBe(
       "commit prompt\n",
     );
     expect(readFileSync(path.join(targetDir, "push.md"), "utf8")).toBe(
       "push prompt\n",
+    );
+    expect(readFileSync(path.join(targetDir, "grill-me.md"), "utf8")).toBe(
+      "grill prompt\n",
     );
   });
 
@@ -47,8 +56,10 @@ describe("ensureBundledPromptTemplates", () => {
     mkdirSync(targetDir, { recursive: true });
     writeFileSync(path.join(sourceDir, "commit.md"), "new commit\n", "utf8");
     writeFileSync(path.join(sourceDir, "push.md"), "same push\n", "utf8");
+    writeFileSync(path.join(sourceDir, "grill-me.md"), "same grill\n", "utf8");
     writeFileSync(path.join(targetDir, "commit.md"), "old commit\n", "utf8");
     writeFileSync(path.join(targetDir, "push.md"), "same push\n", "utf8");
+    writeFileSync(path.join(targetDir, "grill-me.md"), "same grill\n", "utf8");
 
     const written = ensureBundledPromptTemplates(sourceDir, { homeDir });
 
@@ -58,6 +69,9 @@ describe("ensureBundledPromptTemplates", () => {
     );
     expect(readFileSync(path.join(targetDir, "push.md"), "utf8")).toBe(
       "same push\n",
+    );
+    expect(readFileSync(path.join(targetDir, "grill-me.md"), "utf8")).toBe(
+      "same grill\n",
     );
   });
 
@@ -70,8 +84,7 @@ describe("ensureBundledPromptTemplates", () => {
 
     mkdirSync(sourceDir, { recursive: true });
     mkdirSync(legacyDir, { recursive: true });
-    writeFileSync(path.join(sourceDir, "commit.md"), "commit prompt\n", "utf8");
-    writeFileSync(path.join(sourceDir, "push.md"), "push prompt\n", "utf8");
+    writeManagedPromptFixtures(sourceDir);
     writeFileSync(path.join(legacyDir, "push.md"), "legacy prompt\n", "utf8");
 
     ensureBundledPromptTemplates(sourceDir, { homeDir });

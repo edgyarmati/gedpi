@@ -17,6 +17,7 @@ import { rewriteCommandWithRtk } from "../src/rtk.js";
 describe("Ged command surface", () => {
   test("createGedCommands exposes GedPi commands", () => {
     expect(createGedCommands().map((command) => command.name)).toEqual([
+      "grill-me",
       "rtk",
       "ged-agents",
       "ged-settings",
@@ -50,10 +51,29 @@ describe("Ged command surface", () => {
     } as never);
 
     expect(rendererRegistrations).toBeGreaterThan(0);
-    expect(commands).toEqual(["rtk", "ged-agents", "ged-settings", "update"]);
+    expect(commands).toEqual([
+      "grill-me",
+      "rtk",
+      "ged-agents",
+      "ged-settings",
+      "update",
+    ]);
     expect(events).toContain("session_start");
     expect(events).toContain("before_agent_start");
     expect(events).toContain("tool_call");
+  });
+
+  test("grill-me command returns clarification instructions", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "grill-me",
+    );
+
+    const result = await command?.execute({ cwd: process.cwd(), args: [] });
+
+    expect(result).toContain("grill-me: needed");
+    expect(result).toContain("grill-me: skipped; reason:");
+    expect(result).toContain("grill-with-docs");
+    expect(result).toContain("Recommended answer:");
   });
 
   test("status and skills extensions register no commands", () => {

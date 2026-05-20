@@ -30,10 +30,12 @@ export interface ClarificationEvidence {
 }
 
 export interface ClarificationRecord {
-  status: "completed";
+  status: "completed" | "skipped";
   source: "manual";
   timestamp: string;
-  evidence: ClarificationEvidence;
+  evidence?: ClarificationEvidence;
+  sufficiency?: "sufficient-from-request";
+  skipReason?: string;
 }
 
 export interface CheckpointState {

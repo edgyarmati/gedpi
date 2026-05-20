@@ -5,7 +5,7 @@ description: Use before planning or implementing a non-trivial change when the r
 
 # grill-me
 
-Use this skill after task classification for non-trivial work **only when the request is not already fully clear**. If the user's request is concrete enough to plan safely without guessing, skip grilling and proceed to the skill-fit checkpoint.
+Use this skill after task classification for non-trivial work **only when the request is not already fully clear**. If the user's request is concrete enough to plan safely without guessing, skip grilling and proceed to skill-fit resolution (via `ged-explorer` when subagents are enabled, or in the main brain in solo mode).
 
 ## Goal
 
@@ -22,7 +22,7 @@ Make sure the agent and user share the same understanding before planning or imp
 
 ## After grilling
 
-Proceed to the skill-fit checkpoint:
+Proceed to skill-fit resolution:
 
 1. Inventory available bundled, project, and user skills.
 2. Select relevant skills if coverage is sufficient.

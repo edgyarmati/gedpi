@@ -1,9 +1,11 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
+import { createJiti } from "jiti";
 
 const PLANNOTATOR_REQUEST_CHANNEL = "plannotator:request";
 const PLANNOTATOR_REVIEW_RESULT_CHANNEL = "plannotator:review-result";
@@ -23,9 +25,33 @@ interface PlannotatorResponse<T> {
 }
 
 interface GlimpsePromptResult {
-  approved?: boolean;
-  feedback?: string;
+  fallback?: boolean;
 }
+
+interface PlanServerResult {
+  reviewId: string;
+  url: string;
+  waitForDecision: () => Promise<PlanReviewResult>;
+  stop: () => void;
+}
+
+type PlannotatorServerModule = {
+  startPlanReviewServer: (options: {
+    plan: string;
+    htmlContent: string;
+    origin?: string;
+    sharingEnabled?: boolean;
+    shareBaseUrl?: string;
+    pasteApiUrl?: string;
+  }) => Promise<PlanServerResult>;
+};
+
+interface GlimpseFallbackDiagnostic {
+  phase: string;
+  message: string;
+}
+
+let lastGlimpseFallbackDiagnostic: GlimpseFallbackDiagnostic | null = null;
 
 interface GlimpseModule {
   prompt: (
@@ -75,7 +101,11 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
         feedback?: string,
       ) => ({
         content: [{ type: "text" as const, text }],
-        details: { approved, feedback },
+        details: {
+          approved,
+          feedback,
+          glimpseFallback: getLastGlimpseFallbackDiagnostic(),
+        },
       });
 
       if (!filePath?.trim()) {
@@ -101,6 +131,7 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
       }
 
       const glimpseDecision = await requestGlimpsePlanReview(planContent);
+      const glimpseFallback = getLastGlimpseFallbackDiagnostic();
       if (glimpseDecision) {
         return {
           content: [
@@ -119,6 +150,7 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
             approved: glimpseDecision.approved,
             feedback: glimpseDecision.feedback,
             surface: "glimpse",
+            glimpseFallback: null,
           },
         };
       }
@@ -169,6 +201,8 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
           details: {
             approved: true,
             feedback: decision.feedback,
+            surface: "browser",
+            glimpseFallback,
           },
         };
       }
@@ -185,6 +219,8 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
         details: {
           approved: false,
           feedback: decision.feedback,
+          surface: "browser",
+          glimpseFallback,
         },
       };
     },
@@ -194,40 +230,161 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
 export async function requestGlimpsePlanReview(
   planContent: string,
 ): Promise<PlanReviewResult | null> {
+  lastGlimpseFallbackDiagnostic = null;
   let glimpse: GlimpseModule;
   try {
     glimpse = (await import("glimpseui")) as GlimpseModule;
-  } catch {
+  } catch (err) {
+    recordGlimpseFallback("glimpse-import", err);
+    return null;
+  }
+
+  const server = await startNativePlanReviewServer(planContent);
+  if (!server) return null;
+
+  try {
+    const decisionPromise = server
+      .waitForDecision()
+      .then((decision) => ({
+        type: "decision" as const,
+        decision,
+      }))
+      .catch((err) => {
+        recordGlimpseFallback("native-decision", err);
+        return { type: "prompt" as const, result: null };
+      });
+    const promptPromise = glimpse
+      .prompt(buildGlimpsePlanReviewHtml(server.url), {
+        width: 1200,
+        height: 860,
+        title: "Review GedPi plan",
+        floating: true,
+        openLinks: true,
+      })
+      .then((result) => ({ type: "prompt" as const, result }));
+
+    const result = await Promise.race([decisionPromise, promptPromise]);
+    if (result.type === "decision") {
+      return normalizePlanReviewResult(result.decision);
+    }
+
+    recordGlimpseFallback(
+      "prompt-closed",
+      result.result?.fallback
+        ? "Reviewer requested browser fallback from Glimpse."
+        : "Glimpse prompt closed before a review decision.",
+    );
+    return null;
+  } catch (err) {
+    recordGlimpseFallback("glimpse-prompt", err);
+    return null;
+  } finally {
+    setTimeout(() => server.stop(), 1500);
+  }
+}
+
+async function startNativePlanReviewServer(
+  planContent: string,
+): Promise<PlanServerResult | null> {
+  let serverModule: PlannotatorServerModule;
+  let htmlContent: string;
+  try {
+    [serverModule, htmlContent] = await Promise.all([
+      importPlannotatorServer(),
+      readPlannotatorHtml(),
+    ]);
+  } catch (err) {
+    recordGlimpseFallback("native-server-import", err);
+    return null;
+  }
+
+  const { startPlanReviewServer } = serverModule;
+
+  if (!htmlContent.trim()) {
+    recordGlimpseFallback(
+      "plannotator-html",
+      "Plannotator HTML asset is empty.",
+    );
     return null;
   }
 
   try {
-    const result = await glimpse.prompt(
-      buildGlimpsePlanReviewHtml(planContent),
-      {
-        width: 960,
-        height: 760,
-        title: "Review GedPi plan",
-        floating: true,
-        openLinks: true,
-      },
-    );
-
-    if (!result || typeof result.approved !== "boolean") {
-      return null;
-    }
-
-    return {
-      approved: result.approved,
-      feedback: result.feedback?.trim() || undefined,
-    };
-  } catch {
+    return await startPlanReviewServer({
+      plan: planContent,
+      htmlContent,
+      origin: "gedpi-glimpse",
+      sharingEnabled: process.env.PLANNOTATOR_SHARE !== "disabled",
+      shareBaseUrl: process.env.PLANNOTATOR_SHARE_URL || undefined,
+      pasteApiUrl: process.env.PLANNOTATOR_PASTE_URL || undefined,
+    });
+  } catch (err) {
+    recordGlimpseFallback("native-server-start", err);
     return null;
   }
 }
 
-export function buildGlimpsePlanReviewHtml(planContent: string): string {
-  const escapedPlan = escapeHtml(planContent);
+export async function importPlannotatorServer(): Promise<PlannotatorServerModule> {
+  const packageDir = resolvePlannotatorPackageDir();
+  const jiti = createJiti(import.meta.url);
+  const serverModule = await jiti.import<Partial<PlannotatorServerModule>>(
+    resolve(packageDir, "server.ts"),
+    { default: true },
+  );
+
+  if (typeof serverModule.startPlanReviewServer !== "function") {
+    throw new Error(
+      "Plannotator server module does not export startPlanReviewServer.",
+    );
+  }
+
+  return serverModule as PlannotatorServerModule;
+}
+
+async function readPlannotatorHtml(): Promise<string> {
+  return readFile(
+    resolve(resolvePlannotatorPackageDir(), "plannotator.html"),
+    "utf-8",
+  );
+}
+
+function resolvePlannotatorPackageDir(): string {
+  const packageJson = import.meta.resolve(
+    "@plannotator/pi-extension/package.json",
+  );
+  return dirname(fileURLToPath(packageJson));
+}
+
+export function getLastGlimpseFallbackDiagnostic(): GlimpseFallbackDiagnostic | null {
+  return lastGlimpseFallbackDiagnostic;
+}
+
+function recordGlimpseFallback(phase: string, error: unknown): void {
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "Unknown error";
+  lastGlimpseFallbackDiagnostic = { phase, message };
+  if (process.env.GEDPI_DEBUG_PLAN_REVIEW === "1") {
+    console.warn(
+      `[gedpi_plan_review] Glimpse fallback at ${phase}: ${message}`,
+    );
+  }
+}
+
+function normalizePlanReviewResult(result: PlanReviewResult): PlanReviewResult {
+  return {
+    approved: result.approved,
+    feedback: result.feedback?.trim() || undefined,
+    savedPath: result.savedPath,
+    agentSwitch: result.agentSwitch,
+    permissionMode: result.permissionMode,
+  };
+}
+
+export function buildGlimpsePlanReviewHtml(reviewUrl: string): string {
+  const escapedUrl = escapeHtml(reviewUrl);
   return `<!doctype html>
 <html>
 <head>
@@ -235,46 +392,29 @@ export function buildGlimpsePlanReviewHtml(planContent: string): string {
   <style>
     :root { color-scheme: light dark; }
     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: Canvas; color: CanvasText; }
-    header { padding: 16px 20px; border-bottom: 1px solid color-mix(in srgb, CanvasText 14%, transparent); }
-    h1 { margin: 0; font-size: 18px; }
-    main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; height: calc(100vh - 57px); }
-    pre { margin: 0; padding: 20px; overflow: auto; white-space: pre-wrap; line-height: 1.45; font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
-    aside { border-left: 1px solid color-mix(in srgb, CanvasText 14%, transparent); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-    textarea { flex: 1; min-height: 220px; resize: none; border-radius: 8px; border: 1px solid color-mix(in srgb, CanvasText 20%, transparent); padding: 10px; font: inherit; background: Canvas; color: CanvasText; }
-    button { border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 650; cursor: pointer; }
-    .approve { background: #15803d; color: white; }
-    .deny { background: #b91c1c; color: white; }
-    .cancel { background: color-mix(in srgb, CanvasText 10%, transparent); color: CanvasText; }
-    .actions { display: grid; gap: 8px; }
-    .hint { color: color-mix(in srgb, CanvasText 62%, transparent); font-size: 12px; line-height: 1.35; }
+    .toolbar { height: 44px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px; border-bottom: 1px solid color-mix(in srgb, CanvasText 14%, transparent); }
+    .toolbar strong { font-size: 13px; }
+    .actions { display: flex; gap: 8px; align-items: center; }
+    a, button { border: 0; border-radius: 8px; padding: 7px 10px; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; text-decoration: none; }
+    a { background: color-mix(in srgb, CanvasText 10%, transparent); color: CanvasText; }
+    button { background: #2563eb; color: white; }
+    iframe { display: block; width: 100vw; height: calc(100vh - 45px); border: 0; background: Canvas; }
   </style>
 </head>
 <body>
-  <header><h1>Review GedPi plan</h1></header>
-  <main>
-    <pre>${escapedPlan}</pre>
-    <aside>
-      <label for="feedback"><strong>Feedback / notes</strong></label>
-      <textarea id="feedback" placeholder="Optional: explain requested changes or approval notes"></textarea>
-      <div class="actions">
-        <button class="approve" id="approve">Approve plan</button>
-        <button class="deny" id="deny">Deny / request changes</button>
-        <button class="cancel" id="cancel">Use browser fallback</button>
-      </div>
-      <p class="hint">Enter approves. Escape falls back to Plannotator's browser UI.</p>
-    </aside>
-  </main>
+  <div class="toolbar">
+    <strong>Full Plannotator plan review</strong>
+    <div class="actions">
+      <a href="${escapedUrl}" target="_blank" rel="noreferrer">Open in browser</a>
+      <button id="fallback">Use browser fallback</button>
+    </div>
+  </div>
+  <iframe src="${escapedUrl}" title="Plannotator plan review"></iframe>
   <script>
-    const feedback = document.getElementById('feedback');
-    function send(approved) { window.glimpse.send({ approved, feedback: feedback.value }); }
-    document.getElementById('approve').addEventListener('click', () => send(true));
-    document.getElementById('deny').addEventListener('click', () => send(false));
-    document.getElementById('cancel').addEventListener('click', () => window.glimpse.send(null));
+    document.getElementById('fallback').addEventListener('click', () => window.glimpse.send({ fallback: true }));
     document.addEventListener('keydown', (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') send(true);
-      if (event.key === 'Escape') window.glimpse.send(null);
+      if (event.key === 'Escape') window.glimpse.send({ fallback: true });
     });
-    feedback.focus();
   </script>
 </body>
 </html>`;

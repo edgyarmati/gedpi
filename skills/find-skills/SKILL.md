@@ -5,10 +5,12 @@ description: "Discover external skills during GedPi's skill-fit checkpoint. When
 
 # Find Skills: Ecosystem Discovery for GedPi's Skill-Fit Checkpoint
 
-Part of GedPi's skill-fit workflow. Use **after** `grill-me` (if needed) and **before** `skill-creator`. The flow is:
+Part of GedPi's skill-fit workflow. In subagent-enabled workflows, `ged-explorer` normally performs the read-only inventory/evaluation/search and reports findings to the main brain; the main brain then decides whether to install or create project skills. In solo/no-subagent workflows, the main brain performs the whole checkpoint itself.
+
+Use **after** `grill-me` (if needed) and **before** `skill-creator`. The flow is:
 
 ```
-inventory → find-skills (gap) → skill-creator (no fit) → plan
+clarify → explorer read-only inventory/search (or main brain in solo mode) → main-agent install/create decisions → plan
 ```
 
 Resist the urge to skip straight to `skill-creator` when an off-the-shelf skill exists. Conversely, don't exhaustively search when the gap is narrow and project-specific — go straight to `skill-creator`.
@@ -39,10 +41,10 @@ Use `npx skills list` to see what's globally available, and check `.ged/SKILLS.m
 
 During non-trivial task planning, before drafting the plan:
 
-1. **Inventory** what's available — bundled, project-scoped, and user skills.
-2. **Select** relevant skills if coverage is already sufficient — skip the rest.
-3. **Search** with this skill if coverage has gaps — search only for the missing capability.
-4. **Create** with `skill-creator` if no adequate skill exists and the gap is reusable at the project level.
+1. **Clarify** the task enough to judge skill needs.
+2. **Inventory and select** what's available — bundled, project-scoped, and user skills. With subagents enabled, `ged-explorer` should do this read-only reconnaissance.
+3. **Search** with this skill if coverage has gaps — search only for the missing capability. With subagents enabled, `ged-explorer` may run `npx skills find` and report candidates, but must not install anything.
+4. **Decide/install/create** in the main brain: install project-scoped external skills if warranted, or create with `skill-creator` if no adequate skill exists and the gap is reusable at the project level.
 5. **Proceed** to planning.
 
 **Never install global/user skills automatically.** The GedPi workflow installs skills into `.ged/project-skills/` (project-scoped, cleaned up when tasks are done). External installation requires user consent.

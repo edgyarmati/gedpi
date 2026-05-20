@@ -94,18 +94,28 @@ Do not include `ged-worker`.
 
 ### `ged-explorer`
 
-Purpose: read-only repo discovery.
+Purpose: read-only repo and skill-fit discovery.
 
 Allowed:
 
 - search files;
 - read files;
-- inspect docs, tests, standards, and prior plans;
+- inspect docs, tests, standards, prior plans, and skill files;
+- inventory bundled/project/user skills, evaluate relevance, and search the skill ecosystem with `npx skills find` when there is a real coverage gap;
 - return concise evidence-backed discovery packets.
 
 Required output:
 
 ```md
+## Files inspected
+- ...
+
+## Skill-fit reconnaissance
+- Relevant bundled/project/user skills: ...
+- Coverage gaps: ...
+- External candidates, if searched: ...
+- Recommended main-agent decisions: ...
+
 ## Findings
 - ...
 
@@ -122,7 +132,7 @@ Required output:
 - ...
 ```
 
-Forbidden: edits, mutating shell commands, planning-file writes, commits, pushes, PRs.
+Forbidden: edits, mutating shell commands, planning-file writes, skill installs, `npx skills add`, `.ged/project-skills/` writes, `.ged/SKILLS.md` updates, commits, pushes, PRs.
 
 ### `ged-planner`
 
@@ -189,8 +199,8 @@ GedPi should follow this sequence for change requests when Ged mode is active:
 
 1. Run a collaboration/status checkpoint if branch/work memory exists.
 2. Clarify with the user before planning unless the request is already concrete.
-3. Run a skill-fit checkpoint.
-4. Use `ged-explorer` for codebase discovery when context is needed.
+3. With subagents enabled, use `ged-explorer` for read-only skill-fit reconnaissance and codebase discovery; without subagents, the primary brain runs the skill-fit checkpoint itself.
+4. Primary brain adjudicates skill findings and performs any mutating project-skill install/create actions.
 5. Use `ged-planner` for risky or non-trivial planning critique.
 6. Primary brain writes/refines `.ged/` planning artifacts.
 7. Implement one bounded slice at a time.
@@ -202,7 +212,7 @@ GedPi should follow this sequence for change requests when Ged mode is active:
 
 When native subagents are enabled, the above checkpoints are **mandatory for non-trivial change requests**, not merely preferred:
 
-- use `ged-explorer` for evidence-backed discovery when relevant code context is not already known;
+- use `ged-explorer` for read-only skill-fit reconnaissance and evidence-backed discovery before source inspection/planning;
 - use `ged-planner` before finalizing or materially changing `SPEC.md`, `TASKS.md`, or `TESTS.md`;
 - use `ged-verifier` for checks or clean-context review before committing meaningful implementation changes.
 

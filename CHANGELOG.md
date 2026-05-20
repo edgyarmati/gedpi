@@ -9,11 +9,13 @@
 
 ### Features
 
+- Added an explicit `/grill-me` clarification surface, auditable sufficiency/skip checkpoint fields, and bundled `grill-with-docs` guidance for domain/ADR-aware clarification.
+- Moved subagent-enabled skill-fit reconnaissance into `ged-explorer`, keeping read-only inventory/evaluation/search out of the main brain while preserving main-agent ownership of project-skill installs and creation.
 - Added `midnight`, a selectable Amp-compatible theme with deep blue-black surfaces and cool cyan/indigo accents. The existing fresh-install default theme is unchanged.
 
 ### Fixes
 
-- GedPi draft-plan review now prefers a native Glimpse approval window when available, falling back to Plannotator's browser UI and then chat approval if no visual surface can open.
+- GedPi draft-plan review now loads Plannotator's TypeScript server through `jiti` for the native Glimpse path, preventing silent browser fallback when Glimpse is available.
 
 - Plannotator plan review now works out-of-the-box on fresh installs. Added a `gedpi_plan_review` bridge tool in ged-core that uses Plannotator's event-based API instead of the `plannotator_submit_plan` tool (which gets stripped from active tools on fresh sessions). The brain, orchestration, and commit-settings prompts now reference `gedpi_plan_review` instead of the internal Plannotator tool.
 

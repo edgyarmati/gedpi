@@ -180,8 +180,16 @@ describe("Ged optional agent settings", () => {
     expect(explorer).toContain("tools: read, bash, grep, find, ls");
     expect(explorer).toContain("disallowed_tools: write, edit");
     expect(explorer).toContain("extensions: false");
+    expect(explorer).toContain("skills: false");
     expect(explorer).toContain("prompt_mode: replace");
     expect(explorer).toContain("run_in_background: true");
+    expect(explorer).toContain("read-only skill-fit reconnaissance");
+    expect(explorer).toContain("inventory bundled, project, and user skills");
+    expect(explorer).toContain("npx skills find <query>");
+    expect(explorer).toContain("## Skill-fit reconnaissance");
+    expect(explorer).toContain("## Evidence");
+    expect(explorer).toContain("Never edit files, write plans, install skills");
+    expect(explorer).toContain("create/register project skills");
     const planner = await readFile(
       path.join(rootDir, ".pi", "agents", "ged-planner.md"),
       "utf8",

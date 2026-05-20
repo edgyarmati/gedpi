@@ -20,4 +20,4 @@ description: Implements the next task from .ged/work/<work-id>/TASKS.md with nar
 
 ## Ged skill-fit workflow
 
-For non-trivial Ged tasks, planning should happen after classification, any needed `grill-me` clarification, and the skill-fit checkpoint. Inventory available bundled/project/user skills first. If coverage is insufficient, use `find-skills`; if no adequate external skill exists and the missing capability is reusable, create a narrow project-local skill. Do not install global/user skills automatically.
+For non-trivial Ged tasks, planning should happen after classification, any needed `grill-me` clarification, and skill-fit resolution. With subagents enabled, `ged-explorer` performs read-only skill inventory/evaluation/search and reports findings; the main brain then installs project-scoped external skills or creates narrow project-local skills when warranted. In solo/no-subagent mode, the main brain performs the skill-fit checkpoint itself. Do not install global/user skills automatically.

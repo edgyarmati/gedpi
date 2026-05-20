@@ -66,10 +66,12 @@
 
 /**
  * @typedef {Object} ClarificationRecord
- * @property {"completed"} status
+ * @property {"completed" | "skipped"} status
  * @property {"manual"} source
  * @property {string} timestamp
- * @property {ClarificationEvidence} evidence
+ * @property {ClarificationEvidence} [evidence]
+ * @property {"sufficient-from-request"} [sufficiency]
+ * @property {string} [skipReason]
  */
 
 /**
@@ -205,7 +207,7 @@ function isValidAutoRecord(record, requiredStatus) {
 
 /**
  * Test if a clarifying bit of evidence is fully valid.
- * @param {Record<string, string>} evidence
+ * @param {Record<string, string> | undefined} evidence
  * @returns {CheckpointValidation}
  */
 function validateClarificationEvidence(evidence) {
@@ -300,14 +302,26 @@ export function validatePlannerCheckpoint(state) {
 
   const missing = [];
 
-  // 1. Clarification must be completed
-  if (!state.clarification || state.clarification.status !== "completed") {
+  // 1. Clarification must be completed with evidence or explicitly skipped as sufficient.
+  if (!state.clarification) {
     missing.push("clarification");
-  } else {
+  } else if (state.clarification.status === "completed") {
     const evidenceCheck = validateClarificationEvidence(
       state.clarification.evidence,
     );
     missing.push(...evidenceCheck.missing);
+  } else if (state.clarification.status === "skipped") {
+    if (state.clarification.sufficiency !== "sufficient-from-request") {
+      missing.push("clarification.sufficiency");
+    }
+    if (
+      typeof state.clarification.skipReason !== "string" ||
+      state.clarification.skipReason.trim().length === 0
+    ) {
+      missing.push("clarification.skipReason");
+    }
+  } else {
+    missing.push("clarification");
   }
 
   // 2. Explorer must have run with auto provenance (completed or skipped with reason)
