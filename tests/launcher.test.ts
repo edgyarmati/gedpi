@@ -15,6 +15,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildGedEnvironment,
   buildPiProcessSpec,
+  ensureDefaultTheme,
   ensureQuietStartupDefault,
   getBundledPiVersion,
   getGedPackageDir,
@@ -109,6 +110,19 @@ describe("ged launcher", () => {
     ensureQuietStartupDefault({ PI_CODING_AGENT_DIR: agentDir });
 
     expect(modeBits((await stat(settingsPath)).mode)).toBe(0o600);
+  });
+
+  test("ensureDefaultTheme keeps the existing fresh-install default", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ged-agent-theme-"));
+    const agentDir = path.join(tempDir, "agent");
+
+    ensureDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
+
+    const settings = JSON.parse(
+      await readFile(path.join(agentDir, "settings.json"), "utf8"),
+    ) as { theme?: string };
+
+    expect(settings.theme).toBe("amp-gruvbox-dark-hard");
   });
 
   test("suppressBundledPiChangelog records the bundled Pi version", async () => {

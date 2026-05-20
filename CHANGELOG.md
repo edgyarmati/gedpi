@@ -7,6 +7,10 @@
 - Bumped Pi runtime (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`) from 0.74.0 to 0.74.1. Picks up Node 26 stream timeout fix, macOS clipboard crash fix, `--resume` OOM fix, and Anthropic stream auto-retry.
 - Upgraded GedPi's Pi review stack to `@earendil-works/pi-coding-agent`/`@earendil-works/pi-tui` 0.75.3, `@plannotator/pi-extension` 0.19.18, and `glimpseui` 0.8.1.
 
+### Features
+
+- Added `midnight`, a selectable Amp-compatible theme with deep blue-black surfaces and cool cyan/indigo accents. The existing fresh-install default theme is unchanged.
+
 ### Fixes
 
 - GedPi draft-plan review now prefers a native Glimpse approval window when available, falling back to Plannotator's browser UI and then chat approval if no visual surface can open.

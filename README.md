@@ -77,7 +77,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
 | **@plannotator/pi-extension** | Plan/code review UI; GedPi draft-plan approval prefers native Glimpse when available and falls back to Plannotator's browser UI |
 | **~/.gedoc/settings.json** | GedPi workflow preferences (commit behavior, draft-plan review) via `/ged-settings` command |
-| **amp-themes** | Bundled theme files plus editor and user-message styling, selected through Pi settings |
+| **amp-themes** | Bundled theme files plus editor and user-message styling, selected through Pi settings; GedPi also adds the Amp-compatible `midnight` theme |
 | **pi-tool-display** | Tool display renderer bundled through `amp-themes` |
 | **pi-fixed-editor** | Keeps the input box pinned at the bottom while chat history scrolls |
 
@@ -92,7 +92,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/diff-review` | Open a native git diff review window and insert feedback into the editor |
 | `/commit` | Review local changes and create a descriptive conventional commit |
 | `/push` | Push the current branch, with automatic recovery flow if the first push fails |
-| `/settings` | Open Pi settings, including theme selection from bundled `amp-themes` themes |
+| `/settings` | Open Pi settings, including bundled theme selection such as `midnight` and `amp-themes` themes |
 | `/update` | Check for GedPi updates |
 | `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |
 | `/ged-agents` | Configure optional read-only Ged subagents (status, setup, on, off) |
