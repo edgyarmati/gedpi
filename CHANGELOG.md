@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.18.1 - 2026-05-21
+
 ### Dependencies
 
 - Bumped Pi runtime (`@earendil-works/pi-coding-agent`, `@earendil-works/pi-tui`) from 0.74.0 to 0.74.1. Picks up Node 26 stream timeout fix, macOS clipboard crash fix, `--resume` OOM fix, and Anthropic stream auto-retry.
