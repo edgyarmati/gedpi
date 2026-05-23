@@ -94,8 +94,8 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/update` | Check for GedPi updates |
 | `/grill-me` | Start an explicit one-question-at-a-time clarification session, or record why clarification is skipped as sufficient |
 | `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |
-| `/ged-agents` | Configure Ged subagents, role models, thinking levels, fallbacks, critique mode, intercom, and optional workers |
-| `/ged-settings` | Configure workflow preferences, including draft-plan review: no extra review, chat approval, or visual approval (Glimpse preferred, browser fallback) |
+| `/ged-agents` | Configure Ged subagents, role models, thinking levels, ordered fallbacks, critique mode, intercom, and optional workers (`/ged-agents setup advanced` opens the role-aware flow) |
+| `/ged-settings` | Configure workflow preferences, including accepted-plan review: no extra review, chat approval, or visual approval (Glimpse preferred, browser fallback) |
 
 ### Auto-Updater
 
@@ -179,7 +179,7 @@ The main brain delegates intelligence-gathering to read-only subagents. It remai
 │                      STRUCTURAL GUARDS                         │
 │                                                                │
 │  ✗ No source inspection before explorer                        │
-│  ✗ No edits without trusted planner + explorer checkpoints     │
+│  ✗ No edits without trusted planner + explorer + planAcceptance│
 │  ✗ No commit without trusted verifier checkpoint               │
 │  ✗ No planner without clarification evidence                   │
 │  ✗ Planner consumed after every commit                         │
@@ -251,11 +251,20 @@ The checkpoint file records checkpoint provenance. Structural guards trust auto-
     "ged-explorer": { "source": "auto", "status": "completed", ... },
     "ged-planner":  { "source": "auto", "status": "completed", ... }
   },
+  "planAcceptance": {
+    "status": "accepted",
+    "source": "manual",
+    "timestamp": "...",
+    "planPaths": [".ged/work/<work-id>/SPEC.md", ".ged/work/<work-id>/TASKS.md", ".ged/work/<work-id>/TESTS.md"]
+  },
   "taskCheckpoints": {
     "T01": {
       "ged-verifier": { "source": "auto", "status": "completed", ... }
     }
-  }
+  },
+  "workerRuns": [
+    { "agent": "ged-worker", "source": "auto", "status": "completed", "runId": "...", "sliceId": "T01a", "sourceMode": "foreground" }
+  ]
 }
 ```
 

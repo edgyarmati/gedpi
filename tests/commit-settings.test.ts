@@ -47,7 +47,7 @@ describe("commit settings", () => {
       }),
       expect.objectContaining({
         id: REVIEW_PLAN_ID,
-        label: "Draft plan review",
+        label: "Accepted plan review",
         defaultValue: REVIEW_PLAN_DEFAULT,
         values: ["off", "chat", "plannotator"],
       }),
@@ -72,10 +72,13 @@ describe("commit settings", () => {
       "create a conventional git commit without asking",
     );
     expect(buildPlanReviewWorkflowPrompt("off")).toContain(
-      "dispatch ged-planner without asking",
+      "continue without separate human approval",
     );
     expect(buildPlanReviewWorkflowPrompt("chat")).toContain(
-      "show the plan to the user in chat",
+      "show the accepted plan to the user in chat",
+    );
+    expect(buildPlanReviewWorkflowPrompt("chat")).not.toContain(
+      "before planner handoff",
     );
     expect(buildPlanReviewWorkflowPrompt("plannotator")).toContain(
       "gedpi_plan_review",

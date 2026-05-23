@@ -11,6 +11,7 @@ import {
   detectSubagentDispatch,
   initCheckpointState,
   invalidateVerifierCheckpoints,
+  isGitCommitCommand,
   markCheckpointVerified,
   readCheckpointState,
   recordAutoCheckpoint,
@@ -61,7 +62,47 @@ function makeValidV2State(
     findingCount: 3,
   });
 
+  state = {
+    ...state,
+    planAcceptance: {
+      status: "accepted",
+      source: "manual",
+      timestamp: "2026-05-07T10:12:00Z",
+      planPaths: [
+        ".ged/work/test/SPEC.md",
+        ".ged/work/test/TASKS.md",
+        ".ged/work/test/TESTS.md",
+      ],
+      summary: "Main agent accepted the final plan artifacts.",
+    },
+  };
+
   return state;
+}
+
+function withPlanAcceptance(state: CheckpointState): CheckpointState {
+  const defaultTimestamp = "2026-05-07T10:12:00Z";
+  const plannerTimestamp = state.planCheckpoints["ged-planner"]?.timestamp;
+  const timestamp =
+    plannerTimestamp &&
+    !Number.isNaN(Date.parse(plannerTimestamp)) &&
+    Date.parse(defaultTimestamp) < Date.parse(plannerTimestamp)
+      ? new Date(Date.parse(plannerTimestamp) + 1).toISOString()
+      : defaultTimestamp;
+  return {
+    ...state,
+    planAcceptance: {
+      status: "accepted",
+      source: "manual",
+      timestamp,
+      planPaths: [
+        ".ged/work/test/SPEC.md",
+        ".ged/work/test/TASKS.md",
+        ".ged/work/test/TESTS.md",
+      ],
+      summary: "Main agent accepted the final plan artifacts.",
+    },
+  };
 }
 
 describe("checkpoint types", () => {
@@ -328,7 +369,7 @@ describe("checkpoint validation", () => {
 
   it("plan validation passes with valid v2 state", () => {
     const state = makeValidV2State();
-    const result = validatePlannerCheckpoint(state);
+    const result = validatePlannerCheckpoint(withPlanAcceptance(state));
     expect(result.valid).toBe(true);
     expect(result.missing).toEqual([]);
   });
@@ -424,6 +465,79 @@ describe("checkpoint validation", () => {
     expect(validateCommitCheckpoints(refused).valid).toBe(false);
   });
 
+  it("plan validation fails without main plan acceptance", () => {
+    const state = makeValidV2State();
+    const withoutAcceptance = { ...state, planAcceptance: undefined };
+
+    const result = validatePlannerCheckpoint(withoutAcceptance);
+
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("planAcceptance");
+  });
+
+  it("plan validation rejects incomplete main plan acceptance", () => {
+    const state = {
+      ...makeValidV2State(),
+      planAcceptance: {
+        status: "accepted" as const,
+        source: "manual" as const,
+        timestamp: "",
+        planPaths: [],
+      },
+    };
+
+    const result = validatePlannerCheckpoint(state);
+
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("planAcceptance.timestamp");
+    expect(result.missing).toContain("planAcceptance.planPaths");
+  });
+
+  it("plan validation accepts planner fallback plus main plan acceptance", () => {
+    const state = recordCheckpoint(makeValidV2State(), {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:10:00Z",
+      status: "skipped",
+      source: "fallback",
+      skipReason: "ged-planner disabled; main agent authored the plan",
+    });
+
+    const result = validatePlannerCheckpoint(withPlanAcceptance(state));
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("plan validation rejects acceptance recorded before the planner checkpoint", () => {
+    const state: CheckpointState = {
+      ...makeValidV2State(),
+      planAcceptance: {
+        status: "accepted",
+        source: "manual",
+        timestamp: "2026-05-07T10:09:59Z",
+        planPaths: [".ged/work/test/TASKS.md"],
+      },
+    };
+
+    const result = validatePlannerCheckpoint(state);
+
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("planAcceptance.afterPlanner");
+  });
+
+  it("planner rerun requires fresh main plan acceptance", () => {
+    const accepted = makeValidV2State();
+    const rerun = recordAutoCheckpoint(accepted, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:20:00Z",
+      status: "completed",
+    });
+
+    const result = validatePlannerCheckpoint(rerun);
+
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("planAcceptance.afterPlanner");
+  });
+
   it("plan validation fails when planner is blocked", () => {
     const base = initCheckpointState("non-trivial", "Feature work");
     let state: CheckpointState = {
@@ -484,7 +598,9 @@ describe("checkpoint validation", () => {
       timestamp: "2026-05-07T10:10:00Z",
       status: "completed",
     });
-    const result = validatePlannerCheckpoint(withClarification);
+    const result = validatePlannerCheckpoint(
+      withPlanAcceptance(withClarification),
+    );
     expect(result.valid).toBe(true);
   });
 
@@ -516,7 +632,7 @@ describe("checkpoint validation", () => {
       timestamp: "2026-05-07T10:10:00Z",
       status: "completed",
     });
-    const result = validatePlannerCheckpoint(state);
+    const result = validatePlannerCheckpoint(withPlanAcceptance(state));
     expect(result.valid).toBe(false);
     expect(result.missing).toContain("ged-explorer (skipped without reason)");
   });
@@ -567,7 +683,7 @@ describe("checkpoint validation", () => {
       status: "completed",
     });
 
-    const result = validatePlannerCheckpoint(state);
+    const result = validatePlannerCheckpoint(withPlanAcceptance(state));
 
     expect(result.valid).toBe(true);
   });
@@ -659,6 +775,101 @@ describe("checkpoint validation", () => {
     );
     const result = validateVerifierCheckpoint(withVerifier, "T01");
     expect(result.valid).toBe(true);
+  });
+
+  it("worker checkpoints append non-authorizing run metadata", () => {
+    let state = makeValidV2State();
+    state = recordAutoCheckpoint(
+      state,
+      {
+        agent: "ged-worker",
+        timestamp: "2026-05-07T10:30:00Z",
+        status: "completed",
+        runId: "run-1",
+        sliceId: "T01a",
+        artifactPath: ".pi/subagents/run-1/output.md",
+        diffPath: ".pi/subagents/run-1/diff.patch",
+        sessionPath: ".pi/sessions/run-1.jsonl",
+        worktreePath: "/tmp/worktree-1",
+        worktree: true,
+        sourceMode: "foreground",
+      },
+      "T01",
+    );
+    state = recordAutoCheckpoint(
+      state,
+      {
+        agent: "ged-worker",
+        timestamp: "2026-05-07T10:35:00Z",
+        status: "completed",
+        runId: "run-2",
+        sliceId: "T01b",
+        sourceMode: "async",
+      },
+      "T01",
+    );
+
+    expect(state.workerRuns).toHaveLength(2);
+    expect(state.workerRuns?.[0]).toMatchObject({
+      agent: "ged-worker",
+      source: "auto",
+      runId: "run-1",
+      taskId: "T01",
+      sliceId: "T01a",
+      worktree: true,
+    });
+    expect(state.workerRuns?.[1]).toMatchObject({ runId: "run-2" });
+    expect(validateVerifierCheckpoint(state, "T01").valid).toBe(false);
+    expect(validateCommitCheckpoints(state).valid).toBe(false);
+  });
+
+  it("worker completion preserves explicit task metadata over checkpoint bucket", () => {
+    const state = recordAutoCheckpoint(
+      makeValidV2State(),
+      {
+        agent: "ged-worker",
+        timestamp: "2026-05-07T10:30:00Z",
+        status: "completed",
+        runId: "run-1",
+        taskId: "T01",
+        sliceId: "T01a",
+      },
+      "auto",
+    );
+
+    expect(state.workerRuns?.[0]).toMatchObject({ taskId: "T01" });
+  });
+
+  it("worker completion after verification invalidates the verifier checkpoint", () => {
+    let state = makeValidV2State();
+    state = recordAutoCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-07T11:00:00Z",
+        status: "completed",
+        blocksCommit: false,
+      },
+      "T01",
+    );
+    expect(validateCommitCheckpoints(state).valid).toBe(true);
+
+    state = recordAutoCheckpoint(
+      state,
+      {
+        agent: "ged-worker",
+        timestamp: "2026-05-07T11:05:00Z",
+        status: "completed",
+        runId: "run-after-verify",
+        taskId: "T01",
+      },
+      "auto",
+    );
+
+    const result = validateCommitCheckpoints(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-verifier blocked commit (task T01)");
+    expect(state.lifecycleStatus).toBe("active");
   });
 
   it("commit validation fails when verifier missing for non-trivial", () => {
@@ -892,7 +1103,7 @@ describe("orchestration prompt", () => {
     );
   });
 
-  it("requires main-agent sufficiency before planning and semantic planner handoff", () => {
+  it("requires main-agent sufficiency before planning and plan acceptance", () => {
     const result = buildOrchestrationPrompt(true);
     expect(result).toContain("Before drafting a non-trivial plan");
     expect(result).toContain("main-agent sufficiency check");
@@ -1018,6 +1229,15 @@ describe("commit detection", () => {
     const commits = await detectRecentCommits(tmpDir, 60);
     expect(commits).toEqual([]);
   });
+
+  it("detects direct, chained, and nested git commit commands", () => {
+    expect(isGitCommitCommand("git commit -m 'x'")).toBe(true);
+    expect(isGitCommitCommand("git status; git commit -m 'x'")).toBe(true);
+    expect(isGitCommitCommand('bash -lc "git commit -m x"')).toBe(true);
+    expect(isGitCommitCommand("sh -c 'git commit -m x'")).toBe(true);
+    expect(isGitCommitCommand("bash -l -c 'git commit -m x'")).toBe(true);
+    expect(isGitCommitCommand("git status --short")).toBe(false);
+  });
 });
 
 describe("orchestration integration", () => {
@@ -1071,6 +1291,9 @@ describe("orchestration integration", () => {
       status: "completed",
       findingCount: 3,
     });
+
+    // Step 4b: Main agent accepts/writes final plan artifacts.
+    state = withPlanAcceptance(state);
     await writeCheckpointState(tmpDir, state);
 
     // Now planner validation passes

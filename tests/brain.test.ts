@@ -296,7 +296,11 @@ describe("Ged brain runtime", () => {
       rootDir,
       initCheckpointState("non-trivial", "test subagent result recording"),
     );
-    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const handlers = new Map<string, Array<(...args: unknown[]) => unknown>>();
+    const eventHandlers = new Map<string, (...args: unknown[]) => unknown>();
+    const runHandler = async (event: string, ...args: unknown[]) => {
+      for (const handler of handlers.get(event) ?? []) await handler(...args);
+    };
 
     await gedCoreExtension({
       registerMessageRenderer() {
@@ -306,13 +310,18 @@ describe("Ged brain runtime", () => {
       registerShortcut() {},
       registerTool() {},
       sendMessage() {},
-      events: { on() {} },
+      events: {
+        on(event: string, handler: (...args: unknown[]) => unknown) {
+          eventHandlers.set(event, handler);
+        },
+      },
       on(event: string, handler: (...args: unknown[]) => unknown) {
-        handlers.set(event, handler);
+        handlers.set(event, [...(handlers.get(event) ?? []), handler]);
       },
     } as never);
 
-    await handlers.get("session_start")?.(
+    await runHandler(
+      "session_start",
       { type: "session_start" },
       {
         cwd: rootDir,
@@ -326,7 +335,8 @@ describe("Ged brain runtime", () => {
       },
     );
 
-    await handlers.get("tool_result")?.(
+    await runHandler(
+      "tool_result",
       {
         type: "tool_result",
         toolName: "subagent",
@@ -345,7 +355,8 @@ describe("Ged brain runtime", () => {
       { agent: "ged-planner", exitCode: 0, status: "pending" },
       { agent: "ged-planner", exitCode: 0, state: "paused" },
     ]) {
-      await handlers.get("tool_result")?.(
+      await runHandler(
+        "tool_result",
         {
           type: "tool_result",
           toolName: "subagent",
@@ -359,7 +370,8 @@ describe("Ged brain runtime", () => {
         { cwd: rootDir },
       );
     }
-    await handlers.get("tool_result")?.(
+    await runHandler(
+      "tool_result",
       {
         type: "tool_result",
         toolName: "subagent",
@@ -372,7 +384,8 @@ describe("Ged brain runtime", () => {
       },
       { cwd: rootDir },
     );
-    await handlers.get("tool_result")?.(
+    await runHandler(
+      "tool_result",
       {
         type: "tool_result",
         toolName: "subagent",
@@ -389,7 +402,8 @@ describe("Ged brain runtime", () => {
       (await readCheckpointState(rootDir))?.planCheckpoints["ged-planner"],
     ).toBeUndefined();
 
-    await handlers.get("tool_result")?.(
+    await runHandler(
+      "tool_result",
       {
         type: "tool_result",
         toolName: "subagent",
@@ -406,6 +420,78 @@ describe("Ged brain runtime", () => {
       (await readCheckpointState(rootDir))?.planCheckpoints["ged-planner"]
         ?.source,
     ).toBe("auto");
+
+    await runHandler(
+      "tool_result",
+      {
+        type: "tool_result",
+        toolName: "subagent",
+        isError: false,
+        input: { tasks: [{ agent: "ged-worker" }, { agent: "ged-worker" }] },
+        details: {
+          mode: "parallel",
+          runId: "parallel-run",
+          results: [
+            {
+              agent: "ged-worker",
+              exitCode: 0,
+              runId: "worker-1",
+              sliceId: "T01a",
+              artifactPath: ".pi/subagents/worker-1/output.md",
+              artifactPaths: { diffPath: ".pi/subagents/worker-1/diff.patch" },
+              sessionFile: ".pi/sessions/worker-1.jsonl",
+              worktreePath: "/tmp/worktree-1",
+              worktree: true,
+            },
+            {
+              agent: "ged-worker",
+              exitCode: 0,
+              runId: "worker-2",
+              sliceId: "T01b",
+            },
+          ],
+        },
+      },
+      { cwd: rootDir },
+    );
+
+    const workerState = await readCheckpointState(rootDir);
+    expect(workerState?.workerRuns).toHaveLength(2);
+    expect(workerState?.workerRuns?.[0]).toMatchObject({
+      agent: "ged-worker",
+      source: "auto",
+      runId: "worker-1",
+      sliceId: "T01a",
+      diffPath: ".pi/subagents/worker-1/diff.patch",
+      sessionPath: ".pi/sessions/worker-1.jsonl",
+      worktree: true,
+      sourceMode: "foreground",
+    });
+
+    eventHandlers.get("subagent:async-complete")?.({
+      mode: "single",
+      agent: "ged-worker",
+      success: true,
+      runId: "async-run",
+      asyncId: "async-run",
+      sliceId: "T01c",
+      artifactPath: ".pi/subagents/worker-async/output.md",
+    });
+    let asyncState = await readCheckpointState(rootDir);
+    for (
+      let attempt = 0;
+      attempt < 20 && asyncState?.workerRuns?.length !== 3;
+      attempt++
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      asyncState = await readCheckpointState(rootDir);
+    }
+    expect(asyncState?.workerRuns).toHaveLength(3);
+    expect(asyncState?.workerRuns?.[2]).toMatchObject({
+      runId: "async-run",
+      sliceId: "T01c",
+      sourceMode: "async",
+    });
   });
 
   test("gedCoreExtension explorer-first guard gives immediate recovery steps", async () => {
@@ -464,7 +550,7 @@ describe("Ged brain runtime", () => {
     );
 
     const result = (await handlers.get("tool_call")?.(
-      { input: { toolName: "read", path: "src/index.ts" } },
+      { toolName: "read", input: { path: "src/index.ts" } },
       { cwd: rootDir },
     )) as { block: boolean; reason: string };
 
@@ -473,5 +559,20 @@ describe("Ged brain runtime", () => {
     expect(result.reason).toContain("wait for the result");
     expect(result.reason).toContain("then continue");
     expect(messages.at(-1)?.content).toContain("subagent tool");
+
+    const gedWrite = await handlers.get("tool_call")?.(
+      {
+        toolName: "write",
+        input: { path: ".ged/runtime/root/checkpoints.json" },
+      },
+      { cwd: rootDir },
+    );
+    expect(gedWrite).toBeUndefined();
+
+    const bashBypass = (await handlers.get("tool_call")?.(
+      { toolName: "bash", input: { command: "git status; cat src/index.ts" } },
+      { cwd: rootDir },
+    )) as { block: boolean; reason: string };
+    expect(bashBypass.block).toBe(true);
   });
 });

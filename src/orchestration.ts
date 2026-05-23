@@ -99,6 +99,9 @@ export function plannerGuardMessage(validation: CheckpointValidation): string {
   ) {
     return `GedPi planner guard: ged-planner requested more clarification. Run a main-agent grill-me session in chat, update the plan with the answers, repeat any required user plan-review approval, then re-dispatch ged-planner. Missing checkpoints: ${validation.missing.join(", ")}.`;
   }
+  if (validation.missing.some((item) => item.startsWith("planAcceptance"))) {
+    return `GedPi planner guard: non-trivial work requires the main agent to accept/write the final .ged plan artifacts after planner draft or fallback before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Record planAcceptance in .ged/runtime/<work-id>/checkpoints.json after accepting the final SPEC/TASKS/TESTS plan.`;
+  }
   return `GedPi planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner with the subagent tool, record a role-disabled fallback checkpoint, or reclassify the task as trivial.`;
 }
 
@@ -111,6 +114,9 @@ export function verifierGuardMessage(validation: CheckpointValidation): string {
   }
   if (validation.missing.includes("ged-planner")) {
     return `GedPi verifier guard: non-trivial work requires dispatching ged-planner and ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch the missing subagents before running git commit.`;
+  }
+  if (validation.missing.some((item) => item.startsWith("planAcceptance"))) {
+    return `GedPi verifier guard: non-trivial work requires main-agent acceptance of the final .ged plan before committing. Missing checkpoints: ${validation.missing.join(", ")}. Record planAcceptance after accepting the final SPEC/TASKS/TESTS plan, then verify again if source changed.`;
   }
   if (validation.missing.some((item) => item.includes("blocked commit"))) {
     return `GedPi verifier guard: the verifier checkpoint reports commit-blocking findings. Missing/blocking checkpoints: ${validation.missing.join(", ")}. Resolve and adjudicate verifier findings, then update .ged/runtime/<work-id>/checkpoints.json to set blocksCommit: false on the verifier checkpoint before committing.`;
@@ -304,7 +310,7 @@ All source file edits and git commits are **structurally guarded**:
 
 1. **Classification is required** — If \`.ged/runtime/<work-id>/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
 2. **Trivial classification** allows immediate edits and commits — no subagent dispatches needed.
-3. **Non-trivial classification** requires an explicit clarification sufficiency decision (\`grill-me: needed\` or \`grill-me: skipped; reason: ...\`), \`ged-explorer\` skill-fit reconnaissance before planning when enabled, \`ged-planner\` plan drafting when enabled before edits, main-agent acceptance of the final .ged plan, and \`ged-verifier\` before \`git commit\` or \`git commit --amend\` when enabled. Disabled roles become main-agent responsibilities and must be recorded with a skipped/fallback reason. Do not end the turn after only narrating that you will inspect, plan, or apply changes; immediately make the next required tool call in the same response.
+3. **Non-trivial classification** requires an explicit clarification sufficiency decision (\`grill-me: needed\` or \`grill-me: skipped; reason: ...\`), \`ged-explorer\` skill-fit reconnaissance before planning when enabled, \`ged-planner\` plan drafting when enabled before edits, main-agent acceptance of the final .ged plan recorded as \`planAcceptance\`, and \`ged-verifier\` before \`git commit\` or \`git commit --amend\` when enabled. Disabled roles become main-agent responsibilities and must be recorded with a skipped/fallback reason. Do not end the turn after only narrating that you will inspect, plan, or apply changes; immediately make the next required tool call in the same response.
 4. **Planner clarification refusals block continuation** — If \`ged-planner\` asks for grill-me/clarification or records \`outcome: "refused-needs-clarification"\`, you must run a main-agent grill-me session in chat, update the plan, repeat any required user plan-review approval, and re-dispatch \`ged-planner\`. Do not dismiss the planner's clarification request as unnecessary.
 5. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
 6. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
@@ -321,7 +327,7 @@ When subagents are enabled and the task is non-trivial, use mandatory intelligen
 
 2. **main-agent skill decisions** — After receiving the explorer's skill-fit findings, decide what to do: accept recommended bundled/project/user skills, install external skills through the project-skill mechanism if warranted, or create narrow project-local skills with \`skill-creator\` when no adequate external skill exists and the gap is reusable. These are mutating actions that only you perform. Never install global/user skills automatically.
 
-3. **ged-planner authors the plan draft** — Pass clarified requirements, users/audience, scope, constraints, and explorer findings to \`subagent({ agent: "ged-planner", task: "draft SPEC/TASKS/TESTS..." })\`. The planner drafts; you review, accept/edit/reject, and write the final .ged/work/<work-id>/SPEC.md, TASKS.md, and TESTS.md files. Source edits are not safe until you have accepted/written the final plan. If the planner asks for grill-me/clarification or returns \`outcome: "refused-needs-clarification"\`, run grill-me in the main chat, update the brief, and re-dispatch ged-planner.
+3. **ged-planner authors the plan draft** — Pass clarified requirements, users/audience, scope, constraints, and explorer findings to \`subagent({ agent: "ged-planner", task: "draft SPEC/TASKS/TESTS..." })\`. The planner drafts; you review, accept/edit/reject, and write the final .ged/work/<work-id>/SPEC.md, TASKS.md, and TESTS.md files. After acceptance, record \`planAcceptance\` with the accepted plan paths in .ged/runtime/<work-id>/checkpoints.json. Source edits are not safe until you have accepted/written the final plan and recorded planAcceptance. If the planner asks for grill-me/clarification or returns \`outcome: "refused-needs-clarification"\`, run grill-me in the main chat, update the brief, and re-dispatch ged-planner.
 
 4. **plan review / critique** — After you accept and write the planner draft, honor the Plan Review Preference on the written plan files. ${critiqueInstruction(settings)} You adjudicate reviewer findings.
 

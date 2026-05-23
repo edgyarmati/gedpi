@@ -471,6 +471,148 @@ async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
   return result;
 }
 
+async function runInteractiveAdvancedSetup(
+  ctx: AppCommandContext,
+): Promise<string> {
+  const ui = ctx.runtime?.ctx.ui;
+  const registry = ctx.runtime?.ctx.modelRegistry;
+  if (!ui || !registry) return formatCompactSetup();
+
+  const scopeChoice = await ui.select("Set up Ged subagents", [
+    "This project only",
+    "Globally",
+    "Cancel",
+  ]);
+  if (!scopeChoice || scopeChoice === "Cancel") return "Setup cancelled.";
+  const targetPath = scopeChoice === "This project only" ? "PROJECT" : "GLOBAL";
+  const filePath = resolveTargetPath(ctx.cwd, targetPath);
+  const existing = await readGedRuntimeSettings(filePath);
+  let next: GedAgentsSettings = { ...(existing.agents ?? {}), enabled: true };
+
+  const ensureRole = (role: GedAgentRole): Record<string, unknown> => {
+    const roles = { ...(next.roles ?? {}) };
+    const current = {
+      ...roleModelObject(next.models?.[role]),
+      ...(roles[role] ?? {}),
+    };
+    roles[role] = current;
+    const models = { ...(next.models ?? {}) };
+    delete models[role];
+    next = {
+      ...next,
+      roles,
+      models: Object.keys(models).length > 0 ? models : undefined,
+    };
+    return current;
+  };
+
+  const addFallback = (role: GedAgentRole, modelId: string) => {
+    const roleSettings = ensureRole(role);
+    const fallback = Array.isArray(roleSettings.fallback)
+      ? roleSettings.fallback.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : [];
+    roleSettings.fallback = [...new Set([...fallback, modelId])];
+  };
+
+  while (true) {
+    const choice = await ui.select("Ged agent orchestration setup", [
+      "Intercom bridge",
+      "Critique mode",
+      ...GED_AGENT_ROLES,
+      "Done",
+      "Cancel",
+    ]);
+    if (!choice || choice === "Cancel") return "Setup cancelled.";
+    if (choice === "Done") break;
+    if (choice === "Intercom bridge") {
+      const bridge = await ui.select("Intercom bridge", [
+        "Enabled",
+        "Disabled",
+        "Back",
+      ]);
+      if (bridge === "Enabled") next.intercomBridge = true;
+      if (bridge === "Disabled") next.intercomBridge = false;
+      continue;
+    }
+    if (choice === "Critique mode") {
+      const mode = await ui.select("Critique mode", [
+        "off",
+        "risk-based",
+        "always",
+        "Back",
+      ]);
+      if (
+        mode &&
+        mode !== "Back" &&
+        GED_CRITIQUE_MODES.includes(mode as never)
+      ) {
+        next.critiqueMode = mode as GedAgentsSettings["critiqueMode"];
+      }
+      continue;
+    }
+    if (!GED_AGENT_ROLES.includes(choice as GedAgentRole)) continue;
+    const role = choice as GedAgentRole;
+    const action = await ui.select(`Configure ${role}`, [
+      "Enable role",
+      "Disable role",
+      "Set model",
+      "Set thinking",
+      "Add fallback",
+      "Clear fallbacks",
+      ...(role === "ged-worker"
+        ? ["Worker max parallel", "Worker worktree"]
+        : []),
+      "Back",
+    ]);
+    if (!action || action === "Back") continue;
+    const roleSettings = ensureRole(role);
+    if (action === "Enable role") roleSettings.enabled = true;
+    else if (action === "Disable role") roleSettings.enabled = false;
+    else if (action === "Set model") {
+      const model = await pickModel(ui, registry, `${role} model`);
+      if (model === null) return "Setup cancelled.";
+      roleSettings.model = formatModelRef(model);
+    } else if (action === "Set thinking") {
+      const thinking = await pickThinkingLevel(ui, `${role} thinking level`);
+      if (thinking === "cancel") return "Setup cancelled.";
+      if (thinking === "inherit") delete roleSettings.thinking;
+      else roleSettings.thinking = thinking;
+    } else if (action === "Add fallback") {
+      const model = await pickModel(ui, registry, `${role} fallback model`);
+      if (model === null) return "Setup cancelled.";
+      addFallback(role, formatModelRef(model));
+    } else if (action === "Clear fallbacks") {
+      delete roleSettings.fallback;
+    } else if (action === "Worker max parallel") {
+      const value = await ui.select("Worker max parallel", [
+        "1",
+        "2",
+        "3",
+        "4",
+        "Back",
+      ]);
+      if (value && value !== "Back") roleSettings.maxParallel = Number(value);
+    } else if (action === "Worker worktree") {
+      const value = await ui.select("Worker worktree isolation", [
+        "Preferred",
+        "Optional",
+        "Back",
+      ]);
+      if (value === "Preferred") roleSettings.preferWorktreeIsolation = true;
+      if (value === "Optional") roleSettings.preferWorktreeIsolation = false;
+    }
+  }
+
+  await writeGedAgentsSettings(filePath, next);
+  await syncGedSubagentRuntimeConfig(ctx.cwd, {
+    modelAvailability: modelAvailabilityFromRegistry(registry),
+  });
+  ui.notify("Ged advanced subagent setup saved", "info");
+  return `Ged advanced subagent setup saved for ${targetPath === "PROJECT" ? "project" : "global"} settings.`;
+}
+
 // ─── Main command handler ──────────────────────────────────────────────
 
 async function executeGedAgentsCommand(
@@ -490,6 +632,7 @@ async function executeGedAgentsCommand(
 
   if (action === "setup") {
     if (ctx?.runtime?.ctx.hasUI) {
+      if (rest[0] === "advanced") return await runInteractiveAdvancedSetup(ctx);
       return await runInteractiveSetup(ctx);
     }
     return formatCompactSetup();
@@ -659,47 +802,98 @@ async function executeGedAgentsCommand(
 
   if (action === "fallback") {
     const { targetPath, remaining } = resolveScope(rest);
-    const [role, op, modelId] = remaining;
-    if (!role || !op || (op === "add" && !modelId)) {
-      return "Usage: /ged-agents fallback <role> <add <model-id>|clear> [--project|--global]";
+    const [role, op, modelId, position, targetModelId] = remaining;
+    if (!role || !op) {
+      return "Usage: /ged-agents fallback <role> <list|add <model-id>|set <model-id...>|remove <model-id>|move <model-id> <before|after> <target-model-id>|clear> [--project|--global]";
     }
     if (role !== "default" && !GED_AGENT_ROLES.includes(role as GedAgentRole)) {
       return `Unknown role: ${role}. Valid roles: default, ${GED_AGENT_ROLES.join(", ")}.`;
     }
-    if (op !== "add" && op !== "clear")
-      return "Fallback operation must be add or clear.";
+    if (!["list", "add", "set", "remove", "move", "clear"].includes(op)) {
+      return "Fallback operation must be list, add, set, remove, move, or clear.";
+    }
+    if ((op === "add" || op === "remove") && !modelId) {
+      return `Usage: /ged-agents fallback <role> ${op} <model-id> [--project|--global]`;
+    }
+    if (op === "move" && (!modelId || !position || !targetModelId)) {
+      return "Usage: /ged-agents fallback <role> move <model-id> <before|after> <target-model-id> [--project|--global]";
+    }
+    if (op === "move" && position !== "before" && position !== "after") {
+      return "Fallback move position must be before or after.";
+    }
     const filePath = resolveTargetPath(cwd, targetPath);
     const existing = await readGedRuntimeSettings(filePath);
     let next: GedAgentsSettings = { ...(existing.agents ?? {}) };
+    const currentConfig =
+      role === "default"
+        ? roleModelObject(next.defaultModel)
+        : {
+            ...roleModelObject(next.models?.[role as GedAgentRole]),
+            ...(next.roles?.[role as GedAgentRole] ?? {}),
+          };
+    const currentFallback = Array.isArray(currentConfig.fallback)
+      ? currentConfig.fallback.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : [];
+    if (op === "list") {
+      return currentFallback.length > 0
+        ? `${role} fallback models:\n${currentFallback.map((item, index) => `${index + 1}. ${item}`).join("\n")}`
+        : `${role} fallback models: none`;
+    }
+    const unique = (items: string[]) => [...new Set(items.filter(Boolean))];
     const apply = (config: Record<string, unknown>) => {
-      if (op === "clear") delete config.fallback;
-      else {
-        const fallback = Array.isArray(config.fallback)
-          ? [...config.fallback]
-          : [];
-        if (!fallback.includes(modelId)) fallback.push(modelId);
-        config.fallback = fallback;
+      let fallback = [...currentFallback];
+      if (op === "clear") fallback = [];
+      else if (op === "add" && modelId)
+        fallback = unique([...fallback, modelId]);
+      else if (op === "set") fallback = unique(remaining.slice(2));
+      else if (op === "remove" && modelId)
+        fallback = fallback.filter((item) => item !== modelId);
+      else if (op === "move" && modelId && position && targetModelId) {
+        if (!fallback.includes(modelId)) {
+          throw new Error(`Fallback model not found: ${modelId}`);
+        }
+        if (!fallback.includes(targetModelId)) {
+          throw new Error(`Target fallback model not found: ${targetModelId}`);
+        }
+        fallback = fallback.filter((item) => item !== modelId);
+        const targetIndex = fallback.indexOf(targetModelId);
+        fallback.splice(
+          position === "before" ? targetIndex : targetIndex + 1,
+          0,
+          modelId,
+        );
       }
+      if (fallback.length === 0) delete config.fallback;
+      else config.fallback = fallback;
     };
-    if (role === "default") {
-      const config = roleModelObject(next.defaultModel);
-      apply(config);
-      next.defaultModel =
-        typeof config.model === "string"
-          ? (config as AgentModelConfig)
-          : next.defaultModel;
-    } else {
-      const config = roleModelObject(
-        configuredRoleModel(next, role as GedAgentRole),
-      );
-      apply(config);
-      next = setRoleModelInSettings(
-        next,
-        role as GedAgentRole,
-        typeof config.model === "string"
-          ? (config as AgentModelConfig)
-          : undefined,
-      );
+    try {
+      if (role === "default") {
+        const config = currentConfig;
+        apply(config);
+        next.defaultModel =
+          typeof config.model === "string"
+            ? (config as AgentModelConfig)
+            : next.defaultModel;
+      } else {
+        const roles = { ...(next.roles ?? {}) };
+        const roleKey = role as GedAgentRole;
+        const config = currentConfig;
+        apply(config);
+        const legacyModels = { ...(next.models ?? {}) };
+        delete legacyModels[roleKey];
+        roles[roleKey] = config;
+        if (Object.keys(config).length === 0) delete roles[roleKey];
+        next = {
+          ...next,
+          roles: Object.keys(roles).length > 0 ? roles : undefined,
+          models:
+            Object.keys(legacyModels).length > 0 ? legacyModels : undefined,
+        };
+      }
+    } catch (error) {
+      return error instanceof Error ? error.message : String(error);
     }
     await writeGedAgentsSettings(filePath, next);
     await syncGedSubagentRuntimeConfig(cwd, {
@@ -707,9 +901,12 @@ async function executeGedAgentsCommand(
         ctx?.runtime?.ctx.modelRegistry,
       ),
     });
-    return op === "clear"
-      ? `Cleared ${role} fallback models.`
-      : `Added ${modelId} as ${role} fallback model.`;
+    if (op === "clear") return `Cleared ${role} fallback models.`;
+    if (op === "add") return `Added ${modelId} as ${role} fallback model.`;
+    if (op === "set") return `Set ${role} fallback model order.`;
+    if (op === "remove")
+      return `Removed ${modelId} from ${role} fallback models.`;
+    return `Moved ${modelId} ${position} ${targetModelId} in ${role} fallback models.`;
   }
 
   if (action === "worker") {
@@ -761,7 +958,7 @@ async function executeGedSettingsCommand(
     return [
       "GedPi Preferences",
       `  Commit after verification: ${formatPreferenceValue("autoCommitVerifiedWork", prefs.autoCommitVerifiedWork)} (${prefs.autoCommitVerifiedWork})`,
-      `  Draft plan review: ${formatPreferenceValue("reviewPlanBeforePlannerHandoff", prefs.reviewPlanBeforePlannerHandoff)} (${prefs.reviewPlanBeforePlannerHandoff})`,
+      `  Accepted plan review: ${formatPreferenceValue("reviewPlanBeforePlannerHandoff", prefs.reviewPlanBeforePlannerHandoff)} (${prefs.reviewPlanBeforePlannerHandoff})`,
       "",
       `Stored in: ${globalGedSettingsPath()}`,
     ].join("\n");

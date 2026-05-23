@@ -310,6 +310,128 @@ describe("Ged command surface", () => {
     }
   });
 
+  test("ged-agents fallback supports list, set, move, and remove", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    await command?.execute({
+      cwd,
+      args: ["model", "ged-planner", "openai/gpt-5.5", "--project"],
+    });
+    await command?.execute({
+      cwd,
+      args: [
+        "fallback",
+        "ged-planner",
+        "set",
+        "model/a",
+        "model/b",
+        "model/c",
+        "--project",
+      ],
+    });
+    await command?.execute({
+      cwd,
+      args: [
+        "fallback",
+        "ged-planner",
+        "move",
+        "model/c",
+        "before",
+        "model/a",
+        "--project",
+      ],
+    });
+    const list = await command?.execute({
+      cwd,
+      args: ["fallback", "ged-planner", "list", "--project"],
+    });
+    expect(list).toContain("1. model/c");
+    expect(list).toContain("2. model/a");
+
+    await command?.execute({
+      cwd,
+      args: ["fallback", "ged-planner", "remove", "model/a", "--project"],
+    });
+    const settings = await readGedRuntimeSettings(projectGedSettingsPath(cwd));
+    expect(settings.agents?.roles?.["ged-planner"]?.fallback).toEqual([
+      "model/c",
+      "model/b",
+    ]);
+  });
+
+  test("ged-agents setup advanced configures role-aware settings", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    const models = [
+      { provider: "openai", id: "gpt-5.5", name: "GPT" },
+      { provider: "anthropic", id: "claude-opus-4.7", name: "Claude" },
+    ];
+    const selectResponses = [
+      "This project only",
+      "Intercom bridge",
+      "Disabled",
+      "ged-worker",
+      "Enable role",
+      "ged-worker",
+      "Set model",
+      "ged-worker",
+      "Add fallback",
+      "ged-worker",
+      "Worker max parallel",
+      "3",
+      "ged-worker",
+      "Worker worktree",
+      "Preferred",
+      "Done",
+    ];
+    let customIndex = 0;
+
+    const result = await command?.execute({
+      cwd,
+      args: ["setup", "advanced"],
+      runtime: {
+        pi: {} as never,
+        ctx: {
+          hasUI: true,
+          ui: {
+            select: async () => selectResponses.shift(),
+            custom: async () => models[customIndex++],
+            confirm: async () => true,
+            notify: () => {},
+          },
+          modelRegistry: {
+            getAvailable: () => models,
+            find: (provider: string, id: string) =>
+              models.find(
+                (model) => model.provider === provider && model.id === id,
+              ),
+          },
+        } as never,
+      },
+    });
+
+    expect(result).toContain("advanced subagent setup saved");
+    const settings = await readGedRuntimeSettings(projectGedSettingsPath(cwd));
+    expect(settings.agents).toMatchObject({
+      enabled: true,
+      intercomBridge: false,
+      roles: {
+        "ged-worker": {
+          enabled: true,
+          model: "openai/gpt-5.5",
+          fallback: ["anthropic/claude-opus-4.7"],
+          maxParallel: 3,
+          preferWorktreeIsolation: true,
+        },
+      },
+    });
+  });
+
   test("ged-agents setup stores selected thinking levels", async () => {
     const command = createGedCommands().find(
       (candidate) => candidate.name === "ged-agents",

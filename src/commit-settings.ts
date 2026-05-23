@@ -39,10 +39,10 @@ export function buildPlanReviewWorkflowPrompt(
   preference: ReviewPlanBeforePlannerHandoff,
 ): string {
   const instructions = {
-    off: "After writing the draft plan for non-trivial work, dispatch ged-planner without asking for separate human approval of the draft plan.",
-    chat: "After writing the draft plan for non-trivial work and before dispatching ged-planner, show the plan to the user in chat and wait for explicit approval. If the user requests changes, revise the plan, then ask for approval again before planner handoff.",
+    off: "After the planner draft is accepted and the final .ged plan artifacts are written for non-trivial work, continue without separate human approval of the accepted plan.",
+    chat: "After the planner draft is accepted and the final .ged plan artifacts are written for non-trivial work, show the accepted plan to the user in chat and wait for explicit approval before implementation. If the user requests changes, revise the plan, then ask for approval again.",
     plannotator:
-      "After writing the canonical GedPi draft plan in `.ged/work/<work-id>/`, call the `gedpi_plan_review` tool with the path to the plan file (e.g. `.ged/work/<work-id>/TASKS.md`). This opens visual review, preferring a native Glimpse window when available and falling back to Plannotator's browser UI. Wait for the review result — approved, denied with feedback, or timed out. If denied, apply the feedback to the plan files and call `gedpi_plan_review` again. If the tool reports that no visual review surface is available or errors, fall back to chat approval. Do not use /plannotator or plannotator_submit_plan directly.",
+      "After the planner draft is accepted and the canonical GedPi plan is written in `.ged/work/<work-id>/`, call the `gedpi_plan_review` tool with the path to the plan file (e.g. `.ged/work/<work-id>/TASKS.md`). This opens visual review, preferring a native Glimpse window when available and falling back to Plannotator's browser UI. Wait for the review result — approved, denied with feedback, or timed out. If denied, apply the feedback to the plan files and call `gedpi_plan_review` again. If the tool reports that no visual review surface is available or errors, fall back to chat approval. Do not use /plannotator or plannotator_submit_plan directly.",
   } satisfies Record<ReviewPlanBeforePlannerHandoff, string>;
 
   return `## Plan Review Preference

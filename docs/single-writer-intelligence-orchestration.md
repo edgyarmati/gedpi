@@ -100,7 +100,7 @@ When Ged mode is active:
 3. Use `ged-explorer` when enabled; otherwise the main brain performs and records fallback discovery.
 4. Main brain adjudicates skill findings and performs any mutating project-skill install/create actions.
 5. Use `ged-planner` to draft the implementation plan when enabled; otherwise main authors it.
-6. Main brain accepts/edits/rejects the draft and writes final `.ged` plan artifacts.
+6. Main brain accepts/edits/rejects the draft, writes final `.ged` plan artifacts, and records `planAcceptance` with accepted plan paths.
 7. Run configured human/Glimpse plan review on the written draft.
 8. Run `ged-plan-reviewer` according to critique mode: `off`, `risk-based`, or `always`.
 9. Implement one bounded slice at a time, optionally using enabled `ged-worker` for disjoint approved slices.
@@ -114,9 +114,11 @@ For non-trivial changes with agents enabled:
 
 - classification and clarification/sufficiency are required before planning;
 - `ged-explorer` or a role-disabled fallback is required before source inspection/planning;
-- `ged-planner` draft plus main accepted/written plan, or planner-disabled fallback plan, is required before source edits;
+- `ged-planner` draft plus main accepted/written plan recorded as `planAcceptance`, or planner-disabled fallback plan plus `planAcceptance`, is required before source edits;
 - `ged-verifier` or verifier-disabled fallback verification is required before meaningful commits;
 - worker completion never satisfies verifier/commit requirements.
+
+Worker completions are retained as non-authorizing `workerRuns` audit metadata so multiple disjoint worker slices can be reconciled without overwriting one checkpoint slot.
 
 Checkpoint recording should use successful `subagent` foreground results and `subagent:async-complete` events. Launch alone does not complete a checkpoint.
 
@@ -128,7 +130,7 @@ The setup/status UI should show:
 - global and project settings paths;
 - intercom bridge state;
 - critique mode;
-- per-role enabled state, model, thinking level, and fallback models;
+- per-role enabled state, model, thinking level, and fallback models, including fallback ordering in headless command mode;
 - worker `maxParallel` and worktree preference;
 - default builtin suppression state.
 

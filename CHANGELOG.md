@@ -13,6 +13,7 @@
 ### Fixes
 
 - Updated GedPi subagent orchestration for planner-authored draft plans, role-aware settings, default builtin subagent suppression, pi-intercom decision coordination, and optional disabled-by-default worker roles.
+- Hardened GedPi orchestration with structural `planAcceptance` checkpoints, multi-run `workerRuns` audit metadata, fallback ordering commands, and an advanced role-aware `/ged-agents setup` flow.
 - Removed dead GedPi extension surface: the empty `ged-memory` extension entry, no-op `ged-skills`/`ged-status` stubs, and the disabled packaged `pi-fixed-editor` vendor files.
 
 ## 0.18.1 - 2026-05-21

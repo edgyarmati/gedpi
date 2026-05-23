@@ -30,8 +30,8 @@ export function normalizeReviewPlanBeforePlannerHandoff(
   if (value === "off" || value === "chat" || value === "plannotator") {
     return value;
   }
-  // Backward compatibility: the previous binary "on" setting meant
-  // explicit chat approval before ged-planner handoff.
+  // Backward compatibility: the previous binary "on" setting now maps to
+  // explicit chat approval of the accepted/written planner draft.
   if (value === "on") return "chat";
   return REVIEW_PLAN_DEFAULT;
 }
@@ -80,9 +80,9 @@ export const PREFERENCE_DEFINITIONS: PreferenceDefinition[] = [
   },
   {
     id: REVIEW_PLAN_ID,
-    label: "Draft plan review",
+    label: "Accepted plan review",
     description:
-      "Choose how GedPi gets human approval before handing a non-trivial draft plan to ged-planner: no extra review, chat approval, or Plannotator's visual annotation UI.",
+      "Choose how GedPi gets human approval after the planner draft is accepted and final .ged plan artifacts are written: no extra review, chat approval, or Plannotator's visual annotation UI.",
     defaultValue: REVIEW_PLAN_DEFAULT,
     values: ["off", "chat", "plannotator"],
   },
