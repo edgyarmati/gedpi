@@ -24,8 +24,7 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 **Extensions**: Pi loads extensions listed in `package.json` under `pi.extensions`. Custom entrypoints live in `extensions/`. Third-party extensions are referenced via `./node_modules/` paths.
 
 **Bundled extensions and extension packages**:
-- `ged-core` — brain workflow, header, shortcuts, updater
-- `ged-memory` — `.ged/` durable memory bootstrap
+- `ged-core` — brain workflow, header, shortcuts, updater, and `.ged/` durable memory bootstrap
 - `glimpseui` — native micro-UI windows and floating companion widget
 - `pi-web-access` — web search and fetch tools
 - `@tintinweb/pi-subagents` — read-only scout, planner, and verifier subagent tools
@@ -33,9 +32,9 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `pi-prompt-template-model` — prompt template / model wiring
 - `@plannotator/pi-extension` — visual plan/code review UI used by the `plannotator` draft-plan review preference
 - `agent-settings.ts` — preferences persistence in `~/.gedoc/settings.json`
-- `amp-themes` — theme files plus editor and user-message styling selected through Pi settings
-- `pi-tool-display` — tool display renderer bundled through `amp-themes`
-- `pi-fixed-editor` — keeps the input box pinned while chat history scrolls
+- `vendor/amp-editor.ts` — local Amp-style editor chrome
+- `vendor/amp-user-message.ts` — local Amp-style user-message rendering
+- local themes — `midnight`, `amp-dark`, `amp-light`, and `amp-gruvbox-dark-hard` live in `themes/`
 
 **Skills**: Bundled workflow skills live in `skills/`. Pi discovers them via `pi.skills` in `package.json`.
 Bundled defaults now include `find-skills`, `skill-creator`, and `brainstorming`, so Ged can discover, create, and use planning-oriented skills without external installation.

@@ -87,6 +87,11 @@ describe("Ged brain runtime", () => {
       "Ask the explorer to inventory available bundled/project/user skills",
     );
     expect(prompt).toContain("make any main-agent skill decisions");
+    expect(prompt).toContain(
+      "Do not end the turn after only describing the next step",
+    );
+    expect(prompt).toContain("make that tool call in the same response");
+    expect(prompt).toContain("do not say “I’ll inspect/plan/apply”");
     expect(prompt).toContain("## Plan Review Preference");
     expect(prompt).toContain(
       "Current setting: Review with Plannotator (plannotator)",
@@ -275,5 +280,72 @@ describe("Ged brain runtime", () => {
       "Review with Plannotator (plannotator)",
     );
     expect(beforeStart.systemPrompt).not.toContain("interview tool");
+  });
+
+  test("gedCoreExtension explorer-first guard gives immediate recovery steps", async () => {
+    const rootDir = await createTempProject("ged-brain-guard-");
+    await enableProjectSubagents(rootDir);
+    await mkdir(path.join(rootDir, ".ged", "runtime", "root"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(rootDir, ".ged", "runtime", "root", "checkpoints.json"),
+      JSON.stringify({
+        schemaVersion: 3,
+        lifecycleStatus: "active",
+        classification: "non-trivial",
+        classificationReason: "test",
+        planCheckpoints: {
+          clarification: {
+            status: "skipped",
+            sufficiency: "sufficient-from-request",
+            skipReason: "test",
+          },
+        },
+        taskCheckpoints: {},
+      }),
+    );
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+    const messages: Array<{ content?: string }> = [];
+
+    await gedCoreExtension({
+      registerMessageRenderer() {
+        return undefined;
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerTool() {},
+      sendMessage(message: { content?: string }) {
+        messages.push(message);
+      },
+      on(event: string, handler: (...args: unknown[]) => unknown) {
+        handlers.set(event, handler);
+      },
+    } as never);
+
+    await handlers.get("session_start")?.(
+      { type: "session_start" },
+      {
+        cwd: rootDir,
+        ui: {
+          setTitle() {},
+          setTheme() {},
+          setHeader() {},
+          notify() {},
+          setStatus() {},
+        },
+      },
+    );
+
+    const result = (await handlers.get("tool_call")?.(
+      { input: { toolName: "read", path: "src/index.ts" } },
+      { cwd: rootDir },
+    )) as { block: boolean; reason: string };
+
+    expect(result.block).toBe(true);
+    expect(result.reason).toContain("dispatch ged-explorer now");
+    expect(result.reason).toContain("retrieve the result");
+    expect(result.reason).toContain("then continue");
+    expect(messages.at(-1)?.content).toContain("get_subagent_result");
   });
 });

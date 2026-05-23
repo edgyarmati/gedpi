@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { describe, expect, test } from "vitest";
@@ -57,7 +57,7 @@ const REQUIRED_COLOR_TOKENS = [
   "bashMode",
 ].sort();
 
-const AMP_VARS = [
+const MIDNIGHT_VARS = [
   "amp-bg",
   "amp-bg-deep",
   "amp-surface",
@@ -78,6 +78,13 @@ const AMP_VARS = [
   "amp-purple",
 ].sort();
 
+const EXPECTED_THEME_FILES = [
+  "amp-dark.json",
+  "amp-gruvbox-dark-hard.json",
+  "amp-light.json",
+  "midnight.json",
+].sort();
+
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
 type Theme = {
@@ -87,10 +94,24 @@ type Theme = {
   export?: Record<string, string>;
 };
 
-async function readMidnightTheme(): Promise<Theme> {
+async function readTheme(fileName: string): Promise<Theme> {
   return JSON.parse(
-    await readFile(path.join(process.cwd(), "themes", "midnight.json"), "utf8"),
+    await readFile(path.join(process.cwd(), "themes", fileName), "utf8"),
   ) as Theme;
+}
+
+async function readLocalThemes(): Promise<
+  Array<{ fileName: string; theme: Theme }>
+> {
+  const fileNames = (await readdir(path.join(process.cwd(), "themes")))
+    .filter((fileName) => fileName.endsWith(".json"))
+    .sort();
+  return Promise.all(
+    fileNames.map(async (fileName) => ({
+      fileName,
+      theme: await readTheme(fileName),
+    })),
+  );
 }
 
 function resolveColor(theme: Theme, value: string | undefined): string {
@@ -135,53 +156,88 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 describe("GedPi themes", () => {
-  test("bundles local themes alongside amp-themes", async () => {
+  test("bundles local themes without amp-themes", async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(process.cwd(), "package.json"), "utf8"),
-    ) as { files?: string[]; pi?: { themes?: string[] } };
+    ) as {
+      dependencies?: Record<string, unknown>;
+      files?: string[];
+      pi?: { extensions?: string[]; skills?: string[]; themes?: string[] };
+    };
 
     expect(packageJson.files ?? []).toContain("themes");
-    expect(packageJson.pi?.themes ?? []).toEqual([
-      "./themes",
-      "./node_modules/amp-themes/themes",
-    ]);
+    expect(packageJson.dependencies ?? {}).not.toHaveProperty("amp-themes");
+    expect(packageJson.pi?.themes ?? []).toEqual(["./themes"]);
+    const packageSurface = [
+      ...(packageJson.pi?.extensions ?? []),
+      ...(packageJson.pi?.skills ?? []),
+      ...(packageJson.pi?.themes ?? []),
+    ];
+    expect(packageSurface).not.toContain(expect.stringContaining("amp-themes"));
+    expect(packageSurface).not.toContain(
+      expect.stringContaining("pi-tool-display"),
+    );
   });
 
-  test("midnight is an Amp-compatible complete Pi theme", async () => {
-    const theme = await readMidnightTheme();
+  test("bundles the expected local theme files", async () => {
+    const fileNames = (await readdir(path.join(process.cwd(), "themes")))
+      .filter((fileName) => fileName.endsWith(".json"))
+      .sort();
+
+    expect(fileNames).toEqual(EXPECTED_THEME_FILES);
+  });
+
+  test("first-run default theme resolves to a local theme", async () => {
+    const theme = await readTheme("amp-gruvbox-dark-hard.json");
+
+    expect(theme.name).toBe("amp-gruvbox-dark-hard");
+  });
+
+  test("local themes are complete Pi themes with valid color references", async () => {
+    const themes = await readLocalThemes();
+
+    for (const { fileName, theme } of themes) {
+      expect(theme.name, `${fileName} should declare a name`).toBeTruthy();
+      expect(Object.keys(theme.colors ?? {}).sort()).toEqual(
+        REQUIRED_COLOR_TOKENS,
+      );
+      expect(Object.values(theme.colors ?? {})).not.toContain("");
+
+      for (const [name, value] of Object.entries(theme.vars ?? {})) {
+        expect(value, `${fileName} var ${name} should be a hex color`).toMatch(
+          HEX_COLOR,
+        );
+      }
+
+      for (const [name, value] of Object.entries(theme.colors ?? {})) {
+        expect(
+          () => resolveColor(theme, value),
+          `${fileName} color ${name} should resolve to a hex color`,
+        ).not.toThrow();
+      }
+
+      for (const [name, value] of Object.entries(theme.export ?? {})) {
+        expect(
+          () => resolveColor(theme, value),
+          `${fileName} export color ${name} should resolve to a hex color`,
+        ).not.toThrow();
+      }
+    }
+  });
+
+  test("midnight keeps the expected Amp-compatible token aliases", async () => {
+    const theme = await readTheme("midnight.json");
 
     expect(theme.name).toBe("midnight");
-    expect(Object.keys(theme.vars ?? {}).sort()).toEqual(AMP_VARS);
-    expect(Object.keys(theme.colors ?? {}).sort()).toEqual(
-      REQUIRED_COLOR_TOKENS,
-    );
-    expect(Object.values(theme.colors ?? {})).not.toContain("");
+    expect(Object.keys(theme.vars ?? {}).sort()).toEqual(MIDNIGHT_VARS);
     expect(theme.colors?.accent).toBe("amp-accent");
     expect(theme.colors?.userMessageBg).toBe("amp-bg");
     expect(theme.colors?.customMessageBg).toBe("amp-bg");
     expect(theme.colors?.toolDiffContext).toBe("amp-muted");
-
-    for (const [name, value] of Object.entries(theme.vars ?? {})) {
-      expect(value, `var ${name} should be a hex color`).toMatch(HEX_COLOR);
-    }
-
-    for (const [name, value] of Object.entries(theme.colors ?? {})) {
-      expect(
-        () => resolveColor(theme, value),
-        `color ${name} should resolve to a hex color`,
-      ).not.toThrow();
-    }
-
-    for (const [name, value] of Object.entries(theme.export ?? {})) {
-      expect(
-        () => resolveColor(theme, value),
-        `export color ${name} should resolve to a hex color`,
-      ).not.toThrow();
-    }
   });
 
   test("midnight keeps a readable low-glare hierarchy", async () => {
-    const theme = await readMidnightTheme();
+    const theme = await readTheme("midnight.json");
     const background = resolveColor(theme, theme.vars?.["amp-bg"]);
     const text = resolveColor(theme, theme.colors?.text);
     const muted = resolveColor(theme, theme.colors?.muted);
@@ -202,7 +258,7 @@ describe("GedPi themes", () => {
   });
 
   test("midnight tool states are distinct and readable", async () => {
-    const theme = await readMidnightTheme();
+    const theme = await readTheme("midnight.json");
     const toolBackgrounds = [
       resolveColor(theme, theme.colors?.toolPendingBg),
       resolveColor(theme, theme.colors?.toolSuccessBg),

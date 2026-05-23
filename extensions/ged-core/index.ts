@@ -238,7 +238,7 @@ export default async function gedCoreExtension(
               customType: "ged-checkpoint-blocked",
               content: isCheckpointClosed(state)
                 ? "GedPi checkpoint guard: previous task is closed. Classify the current task first before inspecting source files. Only .md and .ged/ files may be read for recovery."
-                : "GedPi explorer-first guard: for non-trivial work, source file inspection (read/grep/find) is blocked until ged-explorer has completed its initial reconnaissance. Dispatch ged-explorer with the Agent tool first. Only .md and .ged/ files may be read before explorer runs.",
+                : "GedPi explorer-first guard: for non-trivial work, source file inspection (read/grep/find) is blocked until ged-explorer has completed its initial reconnaissance. Recovery: dispatch ged-explorer with the Agent tool now, retrieve the result with get_subagent_result(..., wait: true), then continue the workflow. Only .md and .ged/ files may be read before explorer runs.",
               display: true,
               details: {
                 title: "explorer-first-guard",
@@ -249,7 +249,7 @@ export default async function gedCoreExtension(
               block: true,
               reason: isCheckpointClosed(state)
                 ? "GedPi checkpoint guard: classify the current task before inspecting source files."
-                : "GedPi explorer-first guard: dispatch ged-explorer before inspecting source files.",
+                : "GedPi explorer-first guard: dispatch ged-explorer now, retrieve the result, then continue before inspecting source files.",
             };
           }
         }

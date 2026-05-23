@@ -39,8 +39,8 @@
     "templates",
     "vendor/amp-editor.ts",
     "vendor/amp-command-palette.ts",
+    "vendor/amp-user-message.ts",
     "vendor/pi-diff-review",
-    "vendor/pi-fixed-editor",
     "README.md",
     "CREDITS.md"
   ],
@@ -63,48 +63,41 @@
   "pi": {
     "extensions": [
       "./extensions/ged-core/index.ts",
-      "./extensions/ged-memory/index.ts",
       "./node_modules/pi-web-access/index.ts",
       "./node_modules/@tintinweb/pi-subagents/src/index.ts",
       "./vendor/pi-diff-review/src/index.ts",
       "./node_modules/pi-prompt-template-model/index.ts",
       "./node_modules/@plannotator/pi-extension/index.ts",
       "./vendor/amp-editor.ts",
-      "./node_modules/amp-themes/node_modules/pi-tool-display/index.ts",
-      "./node_modules/amp-themes/extensions/amp-user-message.ts"
+      "./vendor/amp-user-message.ts"
     ],
     "skills": [
       "./skills",
       "./node_modules/glimpseui/skills",
       "./node_modules/pi-web-access/skills",
       "./node_modules/pi-prompt-template-model/skills",
-      "./node_modules/@plannotator/pi-extension/skills",
-      "./node_modules/amp-themes/skills"
+      "./node_modules/@plannotator/pi-extension/skills"
     ],
     "prompts": [
       "./prompts"
     ],
     "themes": [
-      "./themes",
-      "./node_modules/amp-themes/themes"
+      "./themes"
     ]
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.131",
-    "@earendil-works/pi-coding-agent": "0.75.3",
+    "@earendil-works/pi-ai": "0.75.4",
+    "@earendil-works/pi-coding-agent": "0.75.4",
+    "@earendil-works/pi-tui": "0.75.4",
     "@plannotator/pi-extension": "0.19.18",
     "@tintinweb/pi-subagents": "^0.7.0",
-    "amp-themes": "^0.2.17",
     "glimpseui": "0.8.1",
     "jiti": "^2.7.0",
     "pi-prompt-template-model": "^0.9.1",
-    "pi-web-access": "^0.10.7",
-    "zod": "^4.4.3"
+    "pi-web-access": "^0.10.7"
   },
   "overrides": {
-    "@earendil-works/pi-tui": "0.75.3",
     "@mozilla/readability": "0.6.0",
-    "brace-expansion": "5.0.5",
     "picomatch": "4.0.4",
     "vite": "7.3.2"
   }

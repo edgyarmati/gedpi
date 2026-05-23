@@ -14,7 +14,7 @@ Requires Node.js 22 or newer.
 - Keeps durable standards and project context in `.ged/`.
 - Writes specs, tasks, and progress into `.ged/` and tracks workflow state across sessions.
 - Adds a repo map that indexes supported source files, ranks them by structure plus recent activity, and injects a compact codebase-awareness block into Ged prompts.
-- Bundles web search, amp-themes-powered UI styling, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
+- Bundles web search, local Amp-style UI styling, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
 - Documents a future [single-writer intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as the default writer while using scouts, smart friends, and clean-context reviewers for additional intelligence.
 
 ## Install
@@ -68,8 +68,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 
 | Extension | What it does |
 |-----------|-------------|
-| **ged-core** | Brain workflow, header, session init, shortcuts, updater, and system prompt injection |
-| **ged-memory** | `.ged/` durable memory bootstrap |
+| **ged-core** | Brain workflow, `.ged/` durable memory bootstrap, header, session init, shortcuts, updater, and system prompt injection |
 | **glimpseui** | Native micro-UI windows and the optional floating companion widget |
 | **pi-web-access** | Web search and fetch tools for the agent |
 | **@tintinweb/pi-subagents** | Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tools for read-only Ged scouts, planners, and verifiers |
@@ -77,9 +76,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
 | **@plannotator/pi-extension** | Plan/code review UI; GedPi draft-plan approval prefers native Glimpse when available and falls back to Plannotator's browser UI |
 | **~/.gedoc/settings.json** | GedPi workflow preferences (commit behavior, draft-plan review) via `/ged-settings` command |
-| **amp-themes** | Bundled theme files plus editor and user-message styling, selected through Pi settings; GedPi also adds the Amp-compatible `midnight` theme |
-| **pi-tool-display** | Tool display renderer bundled through `amp-themes` |
-| **pi-fixed-editor** | Keeps the input box pinned at the bottom while chat history scrolls |
+| **local Amp UI** | Bundled `midnight`, `amp-dark`, `amp-light`, and `amp-gruvbox-dark-hard` themes plus local Amp-style editor/user-message styling |
 
 ### Native Micro-UI
 
@@ -92,7 +89,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/diff-review` | Open a native git diff review window and insert feedback into the editor |
 | `/commit` | Review local changes and create a descriptive conventional commit |
 | `/push` | Push the current branch, with automatic recovery flow if the first push fails |
-| `/settings` | Open Pi settings, including bundled theme selection such as `midnight` and `amp-themes` themes |
+| `/settings` | Open Pi settings, including bundled theme selection such as `midnight` and local Amp-style themes |
 | `/update` | Check for GedPi updates |
 | `/grill-me` | Start an explicit one-question-at-a-time clarification session, or record why clarification is skipped as sufficient |
 | `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |

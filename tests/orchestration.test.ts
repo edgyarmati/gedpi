@@ -860,6 +860,15 @@ describe("orchestration prompt", () => {
     expect(result).toContain("adjudicate");
   });
 
+  it("requires immediate tool-call continuation instead of status-only narration", () => {
+    const result = buildOrchestrationPrompt(true);
+    expect(result).toContain(
+      "Do not end the turn after only narrating that you will inspect, plan, or apply changes",
+    );
+    expect(result).toContain("immediately make the next required tool call");
+    expect(result).toContain("immediately in the same response");
+  });
+
   it("references Agent tool for dispatch", () => {
     const result = buildOrchestrationPrompt(true);
     expect(result).toContain("Agent");

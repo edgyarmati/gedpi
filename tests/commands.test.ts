@@ -4,8 +4,6 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 import gedCoreExtension from "../extensions/ged-core/index.js";
-import gedSkillsExtension from "../extensions/ged-skills/index.js";
-import gedStatusExtension from "../extensions/ged-status/index.js";
 import {
   projectGedSettingsPath,
   readGedRuntimeSettings,
@@ -74,25 +72,6 @@ describe("Ged command surface", () => {
     expect(result).toContain("grill-me: skipped; reason:");
     expect(result).toContain("grill-with-docs");
     expect(result).toContain("Recommended answer:");
-  });
-
-  test("status and skills extensions register no commands", () => {
-    const statusRegistrations: string[] = [];
-    const skillsRegistrations: string[] = [];
-
-    gedStatusExtension({
-      registerCommand(name: string) {
-        statusRegistrations.push(name);
-      },
-    } as never);
-    gedSkillsExtension({
-      registerCommand(name: string) {
-        skillsRegistrations.push(name);
-      },
-    } as never);
-
-    expect(statusRegistrations).toEqual([]);
-    expect(skillsRegistrations).toEqual([]);
   });
 
   test("rewriteCommandWithRtk returns rewritten bash command when supported", async () => {

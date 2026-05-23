@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Dependencies
+
+- Removed unused direct `@anthropic-ai/claude-agent-sdk` and `zod` dependencies from GedPi.
+- Removed the `amp-themes` dependency and its bundled `pi-tool-display` path by localizing the shipped Amp-style themes and user-message styling.
+- Bumped GedPi's Pi runtime from `@earendil-works/pi-coding-agent` 0.75.3 to 0.75.4 and regenerated the package lock to clear the remaining production audit vulnerabilities.
+
+### Fixes
+
+- Removed dead GedPi extension surface: the empty `ged-memory` extension entry, no-op `ged-skills`/`ged-status` stubs, and the disabled packaged `pi-fixed-editor` vendor files.
+
 ## 0.18.1 - 2026-05-21
 
 ### Dependencies

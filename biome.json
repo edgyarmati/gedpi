@@ -14,8 +14,7 @@
       "!skills/skill-creator",
       "!vendor/amp-command-palette.ts",
       "!vendor/amp-editor.ts",
-      "!vendor/pi-diff-review",
-      "!vendor/pi-fixed-editor"
+      "!vendor/pi-diff-review"
     ]
   },
   "formatter": {

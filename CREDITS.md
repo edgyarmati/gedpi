@@ -14,10 +14,11 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
 - [pi-web-access](https://www.npmjs.com/package/pi-web-access)
   - Web search and fetch tools for the agent
   - Guided Q&A interface for user clarification
-- [amp-themes](https://www.npmjs.com/package/amp-themes)
-  - Theme files, editor chrome, user-message styling, and bundled `pi-tool-display`
 
-  - Settings persistence for Pi extensions
+## UI inspiration
+
+- [amp-themes](https://www.npmjs.com/package/amp-themes)
+  - Inspired GedPi's local Amp-style theme files and user-message styling
 
 ## Workflow and orchestration inspiration
 
