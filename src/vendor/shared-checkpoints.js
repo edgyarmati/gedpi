@@ -17,19 +17,19 @@
  */
 
 /**
- * @typedef {"ged-explorer" | "ged-planner" | "ged-verifier"} CheckpointAgent
+ * @typedef {"ged-explorer" | "ged-planner" | "ged-plan-reviewer" | "ged-verifier" | "ged-worker"} CheckpointAgent
  */
 
 /**
- * @typedef {"ged-explorer" | "ged-planner"} PlanCheckpointAgent
+ * @typedef {"ged-explorer" | "ged-planner" | "ged-plan-reviewer"} PlanCheckpointAgent
  */
 
 /**
- * @typedef {"ged-explorer" | "ged-verifier"} TaskCheckpointAgent
+ * @typedef {"ged-explorer" | "ged-verifier" | "ged-worker"} TaskCheckpointAgent
  */
 
 /**
- * @typedef {"auto" | "manual"} CheckpointSource
+ * @typedef {"auto" | "manual" | "fallback"} CheckpointSource
  */
 
 /**
@@ -193,10 +193,43 @@ function isValidEvidenceField(value, fieldName) {
  * @param {"completed" | undefined} [requiredStatus]
  * @returns {{ valid: boolean, reason: string }}
  */
-function isValidAutoRecord(record, requiredStatus) {
+function hasFallbackReason(record) {
+  return (
+    typeof record?.skipReason === "string" &&
+    record.skipReason.trim().length > 0
+  );
+}
+
+/**
+ * Validate a checkpoint record has auto provenance, or an explicit fallback
+ * provenance with a reason when the role is disabled and the main agent took
+ * responsibility.
+ * @param {CheckpointRecord | undefined} record
+ * @param {"completed" | undefined} [requiredStatus]
+ * @param {{ allowFallbackSkipped?: boolean }} [options]
+ * @returns {{ valid: boolean, reason: string }}
+ */
+function isValidAutoOrFallbackRecord(record, requiredStatus, options = {}) {
   if (!record) return { valid: false, reason: "missing" };
-  if (record.source !== "auto")
-    return { valid: false, reason: "not auto-recorded" };
+  if (record.source === "fallback") {
+    if (!hasFallbackReason(record)) {
+      return { valid: false, reason: "fallback without reason" };
+    }
+    if (
+      requiredStatus &&
+      record.status !== requiredStatus &&
+      !(options.allowFallbackSkipped && record.status === "skipped")
+    ) {
+      return {
+        valid: false,
+        reason: `status is ${record.status}, not ${requiredStatus}`,
+      };
+    }
+    return { valid: true, reason: "" };
+  }
+  if (record.source !== "auto") {
+    return { valid: false, reason: "not auto-recorded or fallback" };
+  }
   if (requiredStatus && record.status !== requiredStatus)
     return {
       valid: false,
@@ -329,7 +362,10 @@ export function validatePlannerCheckpoint(state) {
   if (!explorerRecord) {
     missing.push("ged-explorer (auto-recorded)");
   } else {
-    const explorerCheck = isValidAutoRecord(explorerRecord, undefined);
+    const explorerCheck = isValidAutoOrFallbackRecord(
+      explorerRecord,
+      undefined,
+    );
     if (!explorerCheck.valid) {
       missing.push(`ged-explorer (${explorerCheck.reason})`);
     } else if (
@@ -355,7 +391,11 @@ export function validatePlannerCheckpoint(state) {
   if (!plannerRecord) {
     missing.push("ged-planner (auto-recorded)");
   } else {
-    const plannerCheck = isValidAutoRecord(plannerRecord, "completed");
+    const plannerCheck = isValidAutoOrFallbackRecord(
+      plannerRecord,
+      "completed",
+      { allowFallbackSkipped: true },
+    );
     if (!plannerCheck.valid) {
       missing.push(`ged-planner (${plannerCheck.reason})`);
     } else if (plannerRecord.outcome === "refused-needs-clarification") {
@@ -399,7 +439,7 @@ export function validateVerifierCheckpoint(state, taskId) {
   if (!verifierRecord) {
     missing.push("ged-verifier");
   } else {
-    const check = isValidAutoRecord(verifierRecord, "completed");
+    const check = isValidAutoOrFallbackRecord(verifierRecord, "completed");
     if (!check.valid) {
       missing.push(`ged-verifier (${check.reason})`);
     }
@@ -442,7 +482,7 @@ export function validateAllVerifierCheckpoints(state) {
       continue;
     }
     sawVerifier = true;
-    const check = isValidAutoRecord(verifier, "completed");
+    const check = isValidAutoOrFallbackRecord(verifier, "completed");
     if (!check.valid) {
       missing.push(`ged-verifier (task ${taskId}: ${check.reason})`);
     } else if (verifier.blocksCommit) {
@@ -510,7 +550,7 @@ export function hasExplorerClearedInspection(state) {
   if (state.classification === "trivial") return true;
   const explorerRecord = state.planCheckpoints["ged-explorer"];
   if (!explorerRecord) return false;
-  const check = isValidAutoRecord(explorerRecord, undefined);
+  const check = isValidAutoOrFallbackRecord(explorerRecord, undefined);
   if (!check.valid) return false;
   return (
     explorerRecord.status === "completed" ||

@@ -350,7 +350,7 @@ describe("checkpoint validation", () => {
     expect(result.missing).toContain("ged-explorer (auto-recorded)");
   });
 
-  it("plan validation fails when planner lacks source:auto", () => {
+  it("plan validation fails when planner lacks source:auto or fallback", () => {
     const state = makeValidV2State();
     // Replace planner with manual version
     const manualPlanner = recordCheckpoint(state, {
@@ -360,7 +360,43 @@ describe("checkpoint validation", () => {
     });
     const result = validatePlannerCheckpoint(manualPlanner);
     expect(result.valid).toBe(false);
-    expect(result.missing).toContain("ged-planner (not auto-recorded)");
+    expect(result.missing).toContain(
+      "ged-planner (not auto-recorded or fallback)",
+    );
+  });
+
+  it("plan validation accepts explicit fallback checkpoints for disabled roles", () => {
+    let state = makeValidV2State();
+    state = recordCheckpoint(state, {
+      agent: "ged-explorer",
+      timestamp: "2026-05-07T10:05:00Z",
+      status: "skipped",
+      source: "fallback",
+      skipReason: "ged-explorer disabled; main agent performed discovery",
+    });
+    state = recordCheckpoint(state, {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:10:00Z",
+      status: "skipped",
+      source: "fallback",
+      skipReason: "ged-planner disabled; main agent authored the plan",
+    });
+
+    const result = validatePlannerCheckpoint(state);
+    expect(result.valid).toBe(true);
+  });
+
+  it("plan validation rejects fallback checkpoints without a reason", () => {
+    const state = recordCheckpoint(makeValidV2State(), {
+      agent: "ged-planner",
+      timestamp: "2026-05-07T10:10:00Z",
+      status: "skipped",
+      source: "fallback",
+    });
+
+    const result = validatePlannerCheckpoint(state);
+    expect(result.valid).toBe(false);
+    expect(result.missing).toContain("ged-planner (fallback without reason)");
   });
 
   it("plan validation fails when planner refused for clarification", () => {
@@ -586,7 +622,7 @@ describe("checkpoint validation", () => {
     expect(result.valid).toBe(true);
   });
 
-  it("verifier validation fails without source:auto", () => {
+  it("verifier validation fails without source:auto or fallback", () => {
     const state = makeValidV2State();
     const withVerifier = recordCheckpoint(
       state,
@@ -601,7 +637,28 @@ describe("checkpoint validation", () => {
     );
     const result = validateVerifierCheckpoint(withVerifier, "T01");
     expect(result.valid).toBe(false);
-    expect(result.missing).toContain("ged-verifier (not auto-recorded)");
+    expect(result.missing).toContain(
+      "ged-verifier (not auto-recorded or fallback)",
+    );
+  });
+
+  it("verifier validation accepts completed fallback verification", () => {
+    const state = makeValidV2State();
+    const withVerifier = recordCheckpoint(
+      state,
+      {
+        agent: "ged-verifier",
+        timestamp: "2026-05-07T11:00:00Z",
+        status: "completed",
+        source: "fallback",
+        skipReason: "ged-verifier disabled; main agent ran the test plan",
+        findingCount: 0,
+        blocksCommit: false,
+      },
+      "T01",
+    );
+    const result = validateVerifierCheckpoint(withVerifier, "T01");
+    expect(result.valid).toBe(true);
   });
 
   it("commit validation fails when verifier missing for non-trivial", () => {
@@ -762,13 +819,16 @@ describe("invalidateVerifierCheckpoints", () => {
 });
 
 describe("subagent dispatch detection", () => {
-  it("recognizes tintinweb Agent calls for Ged roles", () => {
+  it("recognizes legacy Agent and current subagent calls for Ged roles", () => {
     expect(
       detectSubagentDispatch("Agent", { subagent_type: "ged-planner" }),
     ).toBe("ged-planner");
     expect(
       detectSubagentDispatch("Agent", { subagent_type: "GED-VERIFIER" }),
     ).toBe("ged-verifier");
+    expect(detectSubagentDispatch("subagent", { agent: "ged-worker" })).toBe(
+      "ged-worker",
+    );
   });
 
   it("rejects legacy task/subagent shapes", () => {
@@ -799,9 +859,10 @@ describe("orchestration prompt", () => {
     expect(result).toBe("");
   });
 
-  it("includes single-writer invariant when enabled", () => {
+  it("includes main-agent ownership invariant when enabled", () => {
     const result = buildOrchestrationPrompt(true);
-    expect(result).toContain("Single-writer invariant");
+    expect(result).toContain("Main-agent ownership invariant");
+    expect(result).toContain("final .ged artifact owner");
   });
 
   it("includes task classification instructions", () => {
@@ -842,10 +903,10 @@ describe("orchestration prompt", () => {
     expect(result).toContain(
       "These are mutating actions that only you perform",
     );
+    expect(result).toContain("ged-planner authors the plan draft");
     expect(result).toContain(
-      "judges semantic sufficiency across the entire dispatch",
+      "Source edits are not safe until you have accepted/written the final plan",
     );
-    expect(result).toContain("must not require an exact evidence heading");
   });
 
   it("includes hard enforcement section", () => {
@@ -866,13 +927,13 @@ describe("orchestration prompt", () => {
       "Do not end the turn after only narrating that you will inspect, plan, or apply changes",
     );
     expect(result).toContain("immediately make the next required tool call");
-    expect(result).toContain("immediately in the same response");
+    expect(result).toContain("in the same response");
   });
 
-  it("references Agent tool for dispatch", () => {
+  it("references subagent tool for dispatch", () => {
     const result = buildOrchestrationPrompt(true);
-    expect(result).toContain("Agent");
-    expect(result).toContain("get_subagent_result");
+    expect(result).toContain('subagent({ agent: "ged-planner"');
+    expect(result).toContain("subagent:async-complete");
   });
 
   it("references checkpoint state file", () => {
@@ -880,9 +941,12 @@ describe("orchestration prompt", () => {
     expect(result).toContain("checkpoints.json");
   });
 
-  it("does not route normal workflow through pi-intercom", () => {
+  it("uses pi-intercom only for decision/progress coordination", () => {
     const result = buildOrchestrationPrompt(true);
-    expect(result).toContain("Do not rely on pi-intercom");
+    expect(result).toContain("pi-intercom/contact_supervisor");
+    expect(result).toContain(
+      "Do not use intercom for routine completion handoffs",
+    );
   });
 });
 
@@ -918,7 +982,7 @@ describe("brain orchestration integration", () => {
     );
     const suffix = await buildWorkflowPromptSuffix(tmpDir);
     expect(suffix).toContain("Subagent orchestration");
-    expect(suffix).toContain("Single-writer invariant");
+    expect(suffix).toContain("Main-agent ownership invariant");
   });
 
   it("omits orchestration prompt when agents disabled", async () => {
@@ -1052,7 +1116,7 @@ describe("orchestration integration", () => {
     expect(validateCommitCheckpoints(state).valid).toBe(true);
   });
 
-  it("manual checkpoints without source:auto are rejected", async () => {
+  it("manual checkpoints without source:auto or fallback are rejected", async () => {
     let state = initCheckpointState("non-trivial", "Feature work");
     state = {
       ...state,
@@ -1079,10 +1143,14 @@ describe("orchestration integration", () => {
       status: "completed",
     });
 
-    // Manual checkpoints without source:auto are rejected
+    // Manual checkpoints without source:auto or source:fallback are rejected.
     const result = validatePlannerCheckpoint(state);
     expect(result.valid).toBe(false);
-    expect(result.missing).toContain("ged-explorer (not auto-recorded)");
-    expect(result.missing).toContain("ged-planner (not auto-recorded)");
+    expect(result.missing).toContain(
+      "ged-explorer (not auto-recorded or fallback)",
+    );
+    expect(result.missing).toContain(
+      "ged-planner (not auto-recorded or fallback)",
+    );
   });
 });

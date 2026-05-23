@@ -3,10 +3,21 @@
  */
 
 export type TaskClassification = "trivial" | "non-trivial";
-export type CheckpointAgent = "ged-explorer" | "ged-planner" | "ged-verifier";
-export type PlanCheckpointAgent = "ged-explorer" | "ged-planner";
-export type TaskCheckpointAgent = "ged-explorer" | "ged-verifier";
-export type CheckpointSource = "auto" | "manual";
+export type CheckpointAgent =
+  | "ged-explorer"
+  | "ged-planner"
+  | "ged-plan-reviewer"
+  | "ged-verifier"
+  | "ged-worker";
+export type PlanCheckpointAgent =
+  | "ged-explorer"
+  | "ged-planner"
+  | "ged-plan-reviewer";
+export type TaskCheckpointAgent =
+  | "ged-explorer"
+  | "ged-verifier"
+  | "ged-worker";
+export type CheckpointSource = "auto" | "manual" | "fallback";
 export type CheckpointStatus = "completed" | "skipped" | "blocked" | "failed";
 export type CheckpointLifecycleStatus = "active" | "verified" | "closed";
 export type PlannerOutcome = "planned" | "refused-needs-clarification";

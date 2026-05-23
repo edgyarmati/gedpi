@@ -15,7 +15,7 @@ Requires Node.js 22 or newer.
 - Writes specs, tasks, and progress into `.ged/` and tracks workflow state across sessions.
 - Adds a repo map that indexes supported source files, ranks them by structure plus recent activity, and injects a compact codebase-awareness block into Ged prompts.
 - Bundles web search, local Amp-style UI styling, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
-- Documents a future [single-writer intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as the default writer while using scouts, smart friends, and clean-context reviewers for additional intelligence.
+- Documents a [main-owned intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as decision owner while using explorer, planner, reviewer, verifier, and optional worker subagents for additional throughput.
 
 ## Install
 
@@ -71,7 +71,8 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **ged-core** | Brain workflow, `.ged/` durable memory bootstrap, header, session init, shortcuts, updater, and system prompt injection |
 | **glimpseui** | Native micro-UI windows and the optional floating companion widget |
 | **pi-web-access** | Web search and fetch tools for the agent |
-| **@tintinweb/pi-subagents** | Claude-style `Agent`, `get_subagent_result`, and `steer_subagent` tools for read-only Ged scouts, planners, and verifiers |
+| **pi-subagents** | `subagent` tool for Ged explorer/planner/plan-reviewer/verifier roles and optional settings-gated workers; generic builtins are hidden by default |
+| **pi-intercom** | Direct supervisor coordination for blocked subagents via `contact_supervisor` / intercom |
 | **pi-diff-review** | Native git diff review window that inserts structured review feedback into the editor |
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
 | **@plannotator/pi-extension** | Plan/code review UI; GedPi draft-plan approval prefers native Glimpse when available and falls back to Plannotator's browser UI |
@@ -93,7 +94,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/update` | Check for GedPi updates |
 | `/grill-me` | Start an explicit one-question-at-a-time clarification session, or record why clarification is skipped as sufficient |
 | `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |
-| `/ged-agents` | Configure optional read-only Ged subagents (status, setup, on, off) |
+| `/ged-agents` | Configure Ged subagents, role models, thinking levels, fallbacks, critique mode, intercom, and optional workers |
 | `/ged-settings` | Configure workflow preferences, including draft-plan review: no extra review, chat approval, or visual approval (Glimpse preferred, browser fallback) |
 
 ### Auto-Updater
@@ -178,8 +179,8 @@ The main brain delegates intelligence-gathering to read-only subagents. It remai
 │                      STRUCTURAL GUARDS                         │
 │                                                                │
 │  ✗ No source inspection before explorer                        │
-│  ✗ No edits without source:auto planner + explorer             │
-│  ✗ No commit without source:auto verifier                      │
+│  ✗ No edits without trusted planner + explorer checkpoints     │
+│  ✗ No commit without trusted verifier checkpoint               │
 │  ✗ No planner without clarification evidence                   │
 │  ✗ Planner consumed after every commit                         │
 │  ✗ Only .md and .ged/ reads allowed pre-explorer               │
@@ -228,16 +229,17 @@ Per-branch, ephemeral. Tracks current phase, session handoff, and checkpoint sta
 .ged/runtime/<work-id>/
 ├── STATE.md            current phase, active task, blockers, next step
 ├── SESSION-SUMMARY.md  cross-session handoff notes
-└── checkpoints.json    workflow checkpoint state (schema v2)
+└── checkpoints.json    workflow checkpoint state (schema v3)
 ```
 
-### Checkpoint Schema (v2)
+### Checkpoint Schema (v3)
 
-The checkpoint file records the provenance of every subagent dispatch. Only auto-recorded checkpoints (written by the tool-call interception layer when a real `Agent` dispatch occurs) are trusted by the structural guards. Hand-written entries are rejected.
+The checkpoint file records checkpoint provenance. Structural guards trust auto-recorded checkpoints written from completed `subagent` results, plus explicit `source: "fallback"` checkpoints with reasons when a role is disabled and the main agent performed that responsibility. Unproven hand-written entries are rejected.
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
+  "lifecycleStatus": "active",
   "classification": "non-trivial",
   "classificationReason": "Feature implementation",
   "clarification": {

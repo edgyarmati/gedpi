@@ -29,10 +29,10 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
 
 ## Ecosystem inspiration
 
-- [@tintinweb/pi-subagents](https://www.npmjs.com/package/@tintinweb/pi-subagents)
-  - Read-only scout, planner, and verifier subagent tools (direct dependency)
-- [nicobailon/pi-subagents](https://github.com/nicobailon/pi-subagents) by Nico Bailon
-  - Broader subagent and extension ecosystem inspiration
+- [pi-subagents](https://www.npmjs.com/package/pi-subagents) / [nicobailon/pi-subagents](https://github.com/nicobailon/pi-subagents) by Nico Bailon
+  - Subagent tool, chains/parallelism, role agents, and worker orchestration support
+- [pi-intercom](https://www.npmjs.com/package/pi-intercom)
+  - Direct local session/supervisor communication for blocked subagent decisions
 - The broader Pi community
   - Package, skill, and workflow ideas that shaped the GedPi direction
 

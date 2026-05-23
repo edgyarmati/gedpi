@@ -2,10 +2,13 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import { createJiti } from "jiti";
 import { describe, expect, test } from "vitest";
 import {
   cleanAgentsSettings,
+  type EffectiveGedAgentsSettings,
   formatGedAgentsStatus,
+  GED_AGENT_ROLES,
   modelCandidates,
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
@@ -18,6 +21,25 @@ import {
 
 async function tempDir(prefix: string): Promise<string> {
   return mkdtemp(path.join(os.tmpdir(), prefix));
+}
+
+function effectiveFixture(
+  overrides: Partial<EffectiveGedAgentsSettings>,
+): EffectiveGedAgentsSettings {
+  return {
+    enabled: true,
+    intercomBridge: true,
+    critiqueMode: "risk-based",
+    models: {},
+    roles: Object.fromEntries(
+      GED_AGENT_ROLES.map((role) => [
+        role,
+        { enabled: role !== "ged-worker", model: overrides.models?.[role] },
+      ]),
+    ) as EffectiveGedAgentsSettings["roles"],
+    allowCheckpointBypass: false,
+    ...overrides,
+  };
 }
 
 describe("Ged optional agent settings", () => {
@@ -45,8 +67,10 @@ describe("Ged optional agent settings", () => {
 
     await expect(
       readEffectiveGedAgentsSettings(rootDir, { homeDir }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       enabled: false,
+      intercomBridge: true,
+      critiqueMode: "risk-based",
       models: {},
       allowCheckpointBypass: false,
     });
@@ -72,7 +96,7 @@ describe("Ged optional agent settings", () => {
 
     await expect(
       readEffectiveGedAgentsSettings(rootDir, { homeDir }),
-    ).resolves.toEqual({
+    ).resolves.toMatchObject({
       enabled: false,
       defaultModel: "openai/gpt-5-mini",
       models: {
@@ -83,7 +107,34 @@ describe("Ged optional agent settings", () => {
     });
   });
 
-  test("cleans unknown and stale writer roles", async () => {
+  test("project legacy model overrides global role model during migration", async () => {
+    const rootDir = await tempDir("ged-agent-settings-root-");
+    const homeDir = await tempDir("ged-agent-settings-home-");
+    await writeGedAgentsSettings(
+      path.join(homeDir, ".gedoc", "settings.json"),
+      {
+        enabled: true,
+        roles: {
+          "ged-planner": {
+            model: "global/new-role-model",
+            thinking: "high",
+          },
+        },
+      },
+    );
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      models: { "ged-planner": "project/legacy-model" },
+    });
+
+    await expect(
+      readEffectiveGedAgentsSettings(rootDir, { homeDir }),
+    ).resolves.toMatchObject({
+      models: { "ged-planner": "project/legacy-model" },
+    });
+  });
+
+  test("cleans unknown roles and preserves optional worker", async () => {
     expect(
       cleanAgentsSettings({
         enabled: true,
@@ -95,7 +146,7 @@ describe("Ged optional agent settings", () => {
       }),
     ).toEqual({
       enabled: true,
-      models: { "ged-explorer": "model/a" },
+      models: { "ged-explorer": "model/a", "ged-worker": "model/b" },
     });
   });
 
@@ -113,7 +164,10 @@ describe("Ged optional agent settings", () => {
     const raw = JSON.parse(await readFile(settingsPath, "utf8")) as {
       agents: { models: Record<string, unknown> };
     };
-    expect(raw.agents.models).toEqual({ "ged-verifier": "model/v" });
+    expect(raw.agents.models).toEqual({
+      "ged-verifier": "model/v",
+      "ged-worker": "model/w",
+    });
   });
 
   test("selects the first available model from a fallback chain", () => {
@@ -147,7 +201,7 @@ describe("Ged optional agent settings", () => {
     ).toBeUndefined();
   });
 
-  test("runtime sync exposes only Ged read-only roles when enabled", async () => {
+  test("runtime sync exposes Ged roles and suppresses bundled defaults", async () => {
     const rootDir = await tempDir("ged-agent-sync-root-");
     await mkdir(path.join(rootDir, ".pi"), { recursive: true });
     await writeFile(
@@ -176,38 +230,92 @@ describe("Ged optional agent settings", () => {
     ) as { subagents: { agentOverrides: { reviewer: { disabled: boolean } } } };
 
     expect(explorer).toContain("description: Read-only Ged codebase scout");
+    expect(explorer).toContain("name: ged-explorer");
     expect(explorer).toContain("model: openai/gpt-5-mini");
-    expect(explorer).toContain("tools: read, bash, grep, find, ls");
-    expect(explorer).toContain("disallowed_tools: write, edit");
-    expect(explorer).toContain("extensions: false");
-    expect(explorer).toContain("skills: false");
-    expect(explorer).toContain("prompt_mode: replace");
-    expect(explorer).toContain("run_in_background: true");
-    expect(explorer).toContain("read-only skill-fit reconnaissance");
-    expect(explorer).toContain("inventory bundled, project, and user skills");
+    expect(explorer).toContain("tools: read, grep, find, ls, bash");
+    expect(explorer).toContain("systemPromptMode: replace");
+    expect(explorer).toContain("inheritSkills: false");
+    expect(explorer).toContain("completionGuard: false");
+    expect(explorer).toContain("read-only intelligence contributor");
+    expect(explorer).toContain("Inventory bundled, project, and user skills");
     expect(explorer).toContain("npx skills find <query>");
-    expect(explorer).toContain("## Skill-fit reconnaissance");
-    expect(explorer).toContain("## Evidence");
-    expect(explorer).toContain("Never edit files, write plans, install skills");
-    expect(explorer).toContain("create/register project skills");
+    expect(explorer).toContain("Do not edit files");
     const planner = await readFile(
       path.join(rootDir, ".pi", "agents", "ged-planner.md"),
       "utf8",
     );
     expect(planner).toContain("model: openai/gpt-5.5");
-    expect(planner).toContain(
-      "semantic sufficiency across the entire dispatch",
-    );
-    expect(planner).toContain(
-      "Do not demand a specific `## Grill-me evidence` block",
-    );
-    expect(planner).not.toContain(
-      "Does the orchestrator's dispatch include a `## Grill-me evidence` block",
-    );
-    expect(explorer).toContain("Never edit files");
+    expect(planner).toContain("draft concrete SPEC/TASKS/TESTS content");
+    expect(explorer).toContain("Do not edit files");
     expect(settings.subagents).toMatchObject({
       agentOverrides: { reviewer: { disabled: true } },
+      disableBuiltins: true,
     });
+    await expect(
+      readFile(
+        path.join(rootDir, ".pi", "agents", "ged-plan-reviewer.md"),
+        "utf8",
+      ),
+    ).resolves.toContain("Ged Plan Reviewer");
+    await expect(
+      readFile(path.join(rootDir, ".pi", "agents", "ged-worker.md"), "utf8"),
+    ).rejects.toThrow();
+  });
+
+  test("runtime sync writes agents discoverable by pi-subagents", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      models: { "ged-explorer": "openai/gpt-5-mini" },
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir);
+
+    const jiti = createJiti(import.meta.url);
+    const agentsModule = await jiti.import<{
+      discoverAgents: (
+        cwd: string,
+        scope: "project",
+      ) => { agents: Array<{ name: string }> };
+    }>(path.resolve("node_modules/pi-subagents/src/agents/agents.ts"));
+    const discovered = agentsModule.discoverAgents(rootDir, "project");
+    expect(discovered.agents.map((agent) => agent.name)).toEqual(
+      expect.arrayContaining([
+        "ged-explorer",
+        "ged-planner",
+        "ged-plan-reviewer",
+        "ged-verifier",
+      ]),
+    );
+    expect(discovered.agents.map((agent) => agent.name)).not.toContain(
+      "ged-worker",
+    );
+  });
+
+  test("runtime sync maps explicit intercom setting to pi-subagents bridge config", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    const piAgentDir = await tempDir("ged-agent-dir-");
+    const previous = process.env.PI_CODING_AGENT_DIR;
+    process.env.PI_CODING_AGENT_DIR = piAgentDir;
+    try {
+      await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+        enabled: true,
+        intercomBridge: false,
+      });
+
+      await syncGedSubagentRuntimeConfig(rootDir);
+
+      const config = JSON.parse(
+        await readFile(
+          path.join(piAgentDir, "extensions", "subagent", "config.json"),
+          "utf8",
+        ),
+      ) as { intercomBridge?: { mode?: string } };
+      expect(config.intercomBridge?.mode).toBe("off");
+    } finally {
+      if (previous === undefined) delete process.env.PI_CODING_AGENT_DIR;
+      else process.env.PI_CODING_AGENT_DIR = previous;
+    }
   });
 
   test("runtime sync writes configured thinking levels", async () => {
@@ -255,31 +363,7 @@ describe("Ged optional agent settings", () => {
     expect(planner).not.toContain("thinking: bogus");
   });
 
-  test("status reports configured thinking including off", () => {
-    expect(
-      formatGedAgentsStatus({
-        enabled: true,
-        models: {
-          "ged-planner": { model: "openai/gpt-5.5", thinking: "off" },
-        },
-        allowCheckpointBypass: false,
-      }),
-    ).toContain("- ged-planner: openai/gpt-5.5 [thinking: off]");
-  });
-
-  test("status ignores invalid thinking levels", () => {
-    expect(
-      formatGedAgentsStatus({
-        enabled: true,
-        models: {
-          "ged-planner": { model: "openai/gpt-5.5", thinking: "bogus" },
-        },
-        allowCheckpointBypass: false,
-      }),
-    ).toContain("- ged-planner: openai/gpt-5.5\n");
-  });
-
-  test("runtime sync writes the first available fallback model", async () => {
+  test("runtime sync writes fallbackModels for the new pi-subagents contract", async () => {
     const rootDir = await tempDir("ged-agent-sync-root-");
     await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
       enabled: true,
@@ -297,12 +381,15 @@ describe("Ged optional agent settings", () => {
       },
     });
 
-    await expect(
-      readFile(path.join(rootDir, ".pi", "agents", "ged-planner.md"), "utf8"),
-    ).resolves.toContain("model: provider/available-fallback");
+    const planner = await readFile(
+      path.join(rootDir, ".pi", "agents", "ged-planner.md"),
+      "utf8",
+    );
+    expect(planner).toContain("model: provider/missing-primary");
+    expect(planner).toContain("fallbackModels: provider/available-fallback");
   });
 
-  test("runtime sync omits model when no fallback candidate is available", async () => {
+  test("runtime sync omits invalid unavailable fallback filtering", async () => {
     const rootDir = await tempDir("ged-agent-sync-root-");
     await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
       enabled: true,
@@ -324,7 +411,82 @@ describe("Ged optional agent settings", () => {
       path.join(rootDir, ".pi", "agents", "ged-planner.md"),
       "utf8",
     );
-    expect(planner).not.toContain("model:");
+    expect(planner).toContain("model: provider/missing-primary");
+    expect(planner).toContain("fallbackModels: provider/missing-fallback");
+  });
+
+  test("runtime sync generates worker only when enabled", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      roles: {
+        "ged-worker": {
+          enabled: true,
+          model: "openai/gpt-5-mini",
+          maxParallel: 3,
+          preferWorktreeIsolation: true,
+        },
+      },
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir);
+
+    const worker = await readFile(
+      path.join(rootDir, ".pi", "agents", "ged-worker.md"),
+      "utf8",
+    );
+    expect(worker).toContain("Optional Ged implementation worker");
+    expect(worker).toContain("model: openai/gpt-5-mini");
+    expect(worker).toContain("tools: read, grep, find, ls, bash, edit, write");
+    expect(worker).toContain("Do not commit, push, rebase, merge");
+  });
+
+  test("runtime sync disables legacy ged-brain project agent", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await mkdir(path.join(rootDir, ".pi", "agents"), { recursive: true });
+    await writeFile(
+      path.join(rootDir, ".pi", "agents", "ged-brain.md"),
+      "---\nname: ged-brain\ndescription: Main brain\n---\n\nBody\n",
+    );
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: false,
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir);
+
+    await expect(
+      readFile(path.join(rootDir, ".pi", "agents", "ged-brain.md"), "utf8"),
+    ).resolves.toContain("disabled: true");
+  });
+
+  test("status reports configured thinking including off legacy", () => {
+    const effective = effectiveFixture({
+      models: {
+        "ged-planner": { model: "openai/gpt-5.5", thinking: "off" },
+      },
+    });
+    effective.roles["ged-planner"].model = {
+      model: "openai/gpt-5.5",
+      thinking: "off",
+    };
+    expect(formatGedAgentsStatus(effective)).toContain(
+      "- ged-planner: enabled; openai/gpt-5.5 [thinking: off]",
+    );
+  });
+
+  test("status ignores invalid thinking levels legacy", () => {
+    const effective = effectiveFixture({
+      models: {
+        "ged-planner": { model: "openai/gpt-5.5", thinking: "bogus" },
+      },
+    });
+    effective.roles["ged-planner"].model = {
+      model: "openai/gpt-5.5",
+      thinking: "bogus",
+    };
+    expect(formatGedAgentsStatus(effective)).toContain(
+      "- ged-planner: enabled; openai/gpt-5.5\n",
+    );
   });
 
   test("runtime sync gitignores project gedoc settings in git repos", async () => {

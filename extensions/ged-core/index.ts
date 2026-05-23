@@ -60,6 +60,7 @@ let activeCwd: string | undefined;
 async function recordGedSubagentCheckpoint(
   cwd: string,
   subagentName: string,
+  status: "completed" | "failed" = "completed",
 ): Promise<void> {
   let state = await readCheckpointState(cwd);
   if (!state) {
@@ -73,13 +74,13 @@ async function recordGedSubagentCheckpoint(
     };
   }
   const isTaskAgent =
-    subagentName === "ged-explorer" || subagentName === "ged-verifier";
+    subagentName === "ged-verifier" || subagentName === "ged-worker";
   const recorded = recordAutoCheckpoint(
     state,
     {
       agent: subagentName as CheckpointAgent,
       timestamp: new Date().toISOString(),
-      status: "completed",
+      status,
       // Verifiers start with blocksCommit: false until they report findings.
       // The agent adjudicates findings and the verifier re-runs with findings.
       blocksCommit: subagentName === "ged-verifier" ? undefined : undefined,
@@ -87,10 +88,142 @@ async function recordGedSubagentCheckpoint(
     isTaskAgent ? "auto" : undefined,
   );
   const next =
-    subagentName === "ged-verifier"
+    subagentName === "ged-verifier" && status === "completed"
       ? markCheckpointVerified(recorded)
       : recorded;
   await writeCheckpointState(cwd, next);
+}
+
+async function recordGedSubagentCheckpoints(
+  cwd: string,
+  subagentNames: string[],
+  status: "completed" | "failed" = "completed",
+): Promise<void> {
+  for (const subagentName of [...new Set(subagentNames)]) {
+    await recordGedSubagentCheckpoint(cwd, subagentName, status);
+  }
+}
+
+function subagentCompletionNames(raw: unknown): string[] {
+  const result = raw as {
+    agent?: unknown;
+    success?: unknown;
+    status?: unknown;
+    state?: unknown;
+    exitCode?: unknown;
+    detached?: unknown;
+    interrupted?: unknown;
+    progress?: { status?: unknown };
+    results?: Array<{
+      agent?: unknown;
+      success?: unknown;
+      status?: unknown;
+      state?: unknown;
+      exitCode?: unknown;
+      detached?: unknown;
+      interrupted?: unknown;
+      progress?: { status?: unknown };
+    }>;
+  };
+  const names: string[] = [];
+  if (isSuccessfulSubagentResult(result) && typeof result.agent === "string") {
+    const detected = detectSubagentDispatch("subagent", {
+      agent: result.agent,
+    });
+    if (detected) names.push(detected);
+  }
+  if (Array.isArray(result.results)) {
+    for (const child of result.results) {
+      if (
+        !isSuccessfulSubagentResult(child) ||
+        typeof child.agent !== "string"
+      ) {
+        continue;
+      }
+      const detected = detectSubagentDispatch("subagent", {
+        agent: child.agent,
+      });
+      if (detected) names.push(detected);
+    }
+  }
+  return names;
+}
+
+function isSuccessfulSubagentResult(result: {
+  success?: unknown;
+  status?: unknown;
+  state?: unknown;
+  exitCode?: unknown;
+  detached?: unknown;
+  interrupted?: unknown;
+  progress?: { status?: unknown };
+}): boolean {
+  if (result.detached === true || result.interrupted === true) return false;
+  if (
+    result.progress?.status === "running" ||
+    result.progress?.status === "pending" ||
+    result.progress?.status === "paused" ||
+    result.progress?.status === "detached"
+  ) {
+    return false;
+  }
+  if (
+    result.status === "failed" ||
+    result.status === "paused" ||
+    result.status === "detached" ||
+    result.status === "running" ||
+    result.status === "pending"
+  ) {
+    return false;
+  }
+  if (
+    result.state === "failed" ||
+    result.state === "paused" ||
+    result.state === "detached" ||
+    result.state === "running" ||
+    result.state === "pending"
+  ) {
+    return false;
+  }
+  if (typeof result.success === "boolean") return result.success;
+  if (typeof result.exitCode === "number") return result.exitCode === 0;
+  if (result.status === "completed") return true;
+  if (result.state === "complete" || result.state === "completed") return true;
+  return false;
+}
+
+function subagentForegroundCompletionNames(details: unknown): string[] {
+  if (!details || typeof details !== "object" || Array.isArray(details)) {
+    return [];
+  }
+  const record = details as Record<string, unknown>;
+  if (typeof record.asyncId === "string") return [];
+  if (!Array.isArray(record.results)) return [];
+  const names: string[] = [];
+  for (const child of record.results) {
+    if (!child || typeof child !== "object" || Array.isArray(child)) continue;
+    const result = child as {
+      agent?: unknown;
+      success?: unknown;
+      status?: unknown;
+      state?: unknown;
+      exitCode?: unknown;
+      detached?: unknown;
+      interrupted?: unknown;
+      progress?: { status?: unknown };
+    };
+    if (
+      !isSuccessfulSubagentResult(result) ||
+      typeof result.agent !== "string"
+    ) {
+      continue;
+    }
+    const detected = detectSubagentDispatch("subagent", {
+      agent: result.agent,
+    });
+    if (detected) names.push(detected);
+  }
+  return [...new Set(names)];
 }
 
 export default async function gedCoreExtension(
@@ -110,6 +243,15 @@ export default async function gedCoreExtension(
     });
     if (!subagentName) return;
     void recordGedSubagentCheckpoint(activeCwd, subagentName).catch(() => {
+      // Non-fatal — lifecycle events should not break the subagent runtime.
+    });
+  });
+
+  api.events?.on("subagent:async-complete", (raw: unknown) => {
+    if (!activeCwd) return;
+    const names = subagentCompletionNames(raw);
+    if (names.length === 0) return;
+    void recordGedSubagentCheckpoints(activeCwd, names).catch(() => {
       // Non-fatal — lifecycle events should not break the subagent runtime.
     });
   });
@@ -238,7 +380,7 @@ export default async function gedCoreExtension(
               customType: "ged-checkpoint-blocked",
               content: isCheckpointClosed(state)
                 ? "GedPi checkpoint guard: previous task is closed. Classify the current task first before inspecting source files. Only .md and .ged/ files may be read for recovery."
-                : "GedPi explorer-first guard: for non-trivial work, source file inspection (read/grep/find) is blocked until ged-explorer has completed its initial reconnaissance. Recovery: dispatch ged-explorer with the Agent tool now, retrieve the result with get_subagent_result(..., wait: true), then continue the workflow. Only .md and .ged/ files may be read before explorer runs.",
+                : "GedPi explorer-first guard: for non-trivial work, source file inspection (read/grep/find) is blocked until ged-explorer has completed its initial reconnaissance. Recovery: dispatch ged-explorer with the subagent tool now, wait for the result, then continue the workflow. Only .md and .ged/ files may be read before explorer runs.",
               display: true,
               details: {
                 title: "explorer-first-guard",
@@ -249,7 +391,7 @@ export default async function gedCoreExtension(
               block: true,
               reason: isCheckpointClosed(state)
                 ? "GedPi checkpoint guard: classify the current task before inspecting source files."
-                : "GedPi explorer-first guard: dispatch ged-explorer now, retrieve the result, then continue before inspecting source files.",
+                : "GedPi explorer-first guard: dispatch ged-explorer with subagent now, wait for the result, then continue before inspecting source files.",
             };
           }
         }
@@ -365,6 +507,13 @@ export default async function gedCoreExtension(
   });
 
   api.on("tool_result", async (event, ctx) => {
+    if (event.toolName === "subagent" && !event.isError) {
+      const names = subagentForegroundCompletionNames(event.details);
+      if (names.length > 0) {
+        await recordGedSubagentCheckpoints(ctx.cwd, names);
+      }
+    }
+
     if (event.toolName !== "bash" || event.isError) return;
     const input = event.input as Record<string, unknown>;
     const command = input.command;

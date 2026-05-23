@@ -7,6 +7,7 @@ import {
   type AgentModelConfig,
   formatGedAgentsStatus,
   GED_AGENT_ROLES,
+  GED_CRITIQUE_MODES,
   type GedAgentRole,
   type GedAgentsSettings,
   globalGedSettingsPath,
@@ -116,6 +117,49 @@ function withThinking(
   return thinking ? { ...config, thinking } : config;
 }
 
+function roleModelObject(
+  value: AgentModelConfig | undefined,
+): Record<string, unknown> {
+  if (!value) return {};
+  return typeof value === "string" ? { model: value } : { ...value };
+}
+
+function configuredRoleModel(
+  settings: GedAgentsSettings,
+  role: GedAgentRole,
+): AgentModelConfig | undefined {
+  const roleSettings = settings.roles?.[role];
+  if (roleSettings && typeof roleSettings.model === "string") {
+    return roleModelObject(
+      roleSettings as AgentModelConfig,
+    ) as AgentModelConfig;
+  }
+  return settings.models?.[role];
+}
+
+function setRoleModelInSettings(
+  settings: GedAgentsSettings,
+  role: GedAgentRole,
+  model: AgentModelConfig | undefined,
+): GedAgentsSettings {
+  const roles = { ...(settings.roles ?? {}) };
+  const current = { ...(roles[role] ?? {}) };
+  delete current.fallbackModels;
+  delete current.fallback;
+  delete current.thinking;
+  delete current.model;
+  if (model) Object.assign(current, roleModelObject(model));
+  if (Object.keys(current).length > 0) roles[role] = current;
+  else delete roles[role];
+  const models = { ...(settings.models ?? {}) };
+  delete models[role];
+  return {
+    ...settings,
+    roles: Object.keys(roles).length > 0 ? roles : undefined,
+    models: Object.keys(models).length > 0 ? models : undefined,
+  };
+}
+
 function formatRoleSetup(config: RoleSetupConfig): string {
   return config.thinking
     ? `${config.model} [thinking: ${config.thinking}]`
@@ -149,17 +193,19 @@ async function setAgentModel(
       next.defaultModel = modelId;
     }
   } else {
-    const models = { ...(next.models ?? {}) };
-    if (modelId === null) {
-      delete models[role];
-    } else {
-      models[role] = modelId;
-    }
-    if (Object.keys(models).length === 0) {
-      delete next.models;
-    } else {
-      next.models = models;
-    }
+    const current = roleModelObject(configuredRoleModel(next, role));
+    if (modelId === null) delete current.model;
+    else current.model = modelId;
+    Object.assign(
+      next,
+      setRoleModelInSettings(
+        next,
+        role,
+        typeof current.model === "string"
+          ? (current as AgentModelConfig)
+          : undefined,
+      ),
+    );
   }
 
   await writeGedAgentsSettings(filePath, next);
@@ -470,7 +516,7 @@ async function executeGedAgentsCommand(
     const [role, modelId] = remaining;
 
     if (!role) {
-      return "Usage: /ged-agents model <role> <model-id> [--project|--global]\nRoles: default, ged-explorer, ged-planner, ged-verifier\nUse `--clear` instead of a model-id to remove an override.";
+      return `Usage: /ged-agents model <role> <model-id> [--project|--global]\nRoles: default, ${GED_AGENT_ROLES.join(", ")}\nUse \`--clear\` instead of a model-id to remove an override.`;
     }
 
     if (role !== "default" && !GED_AGENT_ROLES.includes(role as GedAgentRole)) {
@@ -496,7 +542,213 @@ async function executeGedAgentsCommand(
     );
   }
 
-  return "Usage: /ged-agents [status|models|setup|on|off|model] [--project|--global]";
+  if (action === "role") {
+    const { targetPath, remaining } = resolveScope(rest);
+    const [role, value] = remaining;
+    if (!role || !value) {
+      return `Usage: /ged-agents role <role> <on|off> [--project|--global]\nRoles: ${GED_AGENT_ROLES.join(", ")}`;
+    }
+    if (!GED_AGENT_ROLES.includes(role as GedAgentRole)) {
+      return `Unknown role: ${role}. Valid roles: ${GED_AGENT_ROLES.join(", ")}.`;
+    }
+    if (value !== "on" && value !== "off") {
+      return "Role value must be `on` or `off`.";
+    }
+    const filePath = resolveTargetPath(cwd, targetPath);
+    const existing = await readGedRuntimeSettings(filePath);
+    const roles = { ...(existing.agents?.roles ?? {}) };
+    roles[role as GedAgentRole] = {
+      ...(roles[role as GedAgentRole] ?? {}),
+      enabled: value === "on",
+    };
+    await writeGedAgentsSettings(filePath, {
+      ...(existing.agents ?? {}),
+      roles,
+    });
+    await syncGedSubagentRuntimeConfig(cwd, {
+      modelAvailability: modelAvailabilityFromRegistry(
+        ctx?.runtime?.ctx.modelRegistry,
+      ),
+    });
+    return `Set ${role} ${value === "on" ? "enabled" : "disabled"}.`;
+  }
+
+  if (action === "intercom") {
+    const { targetPath, remaining } = resolveScope(rest);
+    const [value] = remaining;
+    if (value !== "on" && value !== "off") {
+      return "Usage: /ged-agents intercom <on|off> [--project|--global]";
+    }
+    const filePath = resolveTargetPath(cwd, targetPath);
+    const existing = await readGedRuntimeSettings(filePath);
+    await writeGedAgentsSettings(filePath, {
+      ...(existing.agents ?? {}),
+      intercomBridge: value === "on",
+    });
+    await syncGedSubagentRuntimeConfig(cwd, {
+      modelAvailability: modelAvailabilityFromRegistry(
+        ctx?.runtime?.ctx.modelRegistry,
+      ),
+    });
+    return `Ged intercom bridge ${value === "on" ? "enabled" : "disabled"}.`;
+  }
+
+  if (action === "critique") {
+    const { targetPath, remaining } = resolveScope(rest);
+    const [mode] = remaining;
+    if (!GED_CRITIQUE_MODES.includes(mode as never)) {
+      return `Usage: /ged-agents critique <${GED_CRITIQUE_MODES.join("|")}> [--project|--global]`;
+    }
+    const filePath = resolveTargetPath(cwd, targetPath);
+    const existing = await readGedRuntimeSettings(filePath);
+    await writeGedAgentsSettings(filePath, {
+      ...(existing.agents ?? {}),
+      critiqueMode: mode as (typeof GED_CRITIQUE_MODES)[number],
+    });
+    return `Ged plan critique mode set to ${mode}.`;
+  }
+
+  if (action === "thinking") {
+    const { targetPath, remaining } = resolveScope(rest);
+    const [role, value] = remaining;
+    if (!role || !value) {
+      return `Usage: /ged-agents thinking <role> <${THINKING_LEVELS.join("|")}|inherit> [--project|--global]`;
+    }
+    if (role !== "default" && !GED_AGENT_ROLES.includes(role as GedAgentRole)) {
+      return `Unknown role: ${role}. Valid roles: default, ${GED_AGENT_ROLES.join(", ")}.`;
+    }
+    if (
+      value !== "inherit" &&
+      !THINKING_LEVELS.includes(value as ThinkingLevel)
+    ) {
+      return `Thinking level must be one of: inherit, ${THINKING_LEVELS.join(", ")}.`;
+    }
+    const filePath = resolveTargetPath(cwd, targetPath);
+    const existing = await readGedRuntimeSettings(filePath);
+    let next: GedAgentsSettings = { ...(existing.agents ?? {}) };
+    if (role === "default") {
+      const config = roleModelObject(next.defaultModel);
+      if (value === "inherit") delete config.thinking;
+      else config.thinking = value;
+      next.defaultModel =
+        typeof config.model === "string"
+          ? (config as AgentModelConfig)
+          : next.defaultModel;
+    } else {
+      const current = roleModelObject(
+        configuredRoleModel(next, role as GedAgentRole),
+      );
+      if (value === "inherit") delete current.thinking;
+      else current.thinking = value;
+      next = setRoleModelInSettings(
+        next,
+        role as GedAgentRole,
+        typeof current.model === "string"
+          ? (current as AgentModelConfig)
+          : undefined,
+      );
+    }
+    await writeGedAgentsSettings(filePath, next);
+    await syncGedSubagentRuntimeConfig(cwd, {
+      modelAvailability: modelAvailabilityFromRegistry(
+        ctx?.runtime?.ctx.modelRegistry,
+      ),
+    });
+    return `Set ${role} thinking to ${value}.`;
+  }
+
+  if (action === "fallback") {
+    const { targetPath, remaining } = resolveScope(rest);
+    const [role, op, modelId] = remaining;
+    if (!role || !op || (op === "add" && !modelId)) {
+      return "Usage: /ged-agents fallback <role> <add <model-id>|clear> [--project|--global]";
+    }
+    if (role !== "default" && !GED_AGENT_ROLES.includes(role as GedAgentRole)) {
+      return `Unknown role: ${role}. Valid roles: default, ${GED_AGENT_ROLES.join(", ")}.`;
+    }
+    if (op !== "add" && op !== "clear")
+      return "Fallback operation must be add or clear.";
+    const filePath = resolveTargetPath(cwd, targetPath);
+    const existing = await readGedRuntimeSettings(filePath);
+    let next: GedAgentsSettings = { ...(existing.agents ?? {}) };
+    const apply = (config: Record<string, unknown>) => {
+      if (op === "clear") delete config.fallback;
+      else {
+        const fallback = Array.isArray(config.fallback)
+          ? [...config.fallback]
+          : [];
+        if (!fallback.includes(modelId)) fallback.push(modelId);
+        config.fallback = fallback;
+      }
+    };
+    if (role === "default") {
+      const config = roleModelObject(next.defaultModel);
+      apply(config);
+      next.defaultModel =
+        typeof config.model === "string"
+          ? (config as AgentModelConfig)
+          : next.defaultModel;
+    } else {
+      const config = roleModelObject(
+        configuredRoleModel(next, role as GedAgentRole),
+      );
+      apply(config);
+      next = setRoleModelInSettings(
+        next,
+        role as GedAgentRole,
+        typeof config.model === "string"
+          ? (config as AgentModelConfig)
+          : undefined,
+      );
+    }
+    await writeGedAgentsSettings(filePath, next);
+    await syncGedSubagentRuntimeConfig(cwd, {
+      modelAvailability: modelAvailabilityFromRegistry(
+        ctx?.runtime?.ctx.modelRegistry,
+      ),
+    });
+    return op === "clear"
+      ? `Cleared ${role} fallback models.`
+      : `Added ${modelId} as ${role} fallback model.`;
+  }
+
+  if (action === "worker") {
+    const { targetPath, remaining } = resolveScope(rest);
+    const [setting, value] = remaining;
+    if (!setting || !value) {
+      return "Usage: /ged-agents worker <max-parallel <n>|worktree <on|off>> [--project|--global]";
+    }
+    const filePath = resolveTargetPath(cwd, targetPath);
+    const existing = await readGedRuntimeSettings(filePath);
+    const roles = { ...(existing.agents?.roles ?? {}) };
+    const worker = { ...(roles["ged-worker"] ?? {}) };
+    if (setting === "max-parallel") {
+      const parsed = Number(value);
+      if (!Number.isInteger(parsed) || parsed < 1) {
+        return "Worker max-parallel must be a positive integer.";
+      }
+      worker.maxParallel = parsed;
+    } else if (setting === "worktree") {
+      if (value !== "on" && value !== "off")
+        return "Worker worktree must be on or off.";
+      worker.preferWorktreeIsolation = value === "on";
+    } else {
+      return "Usage: /ged-agents worker <max-parallel <n>|worktree <on|off>> [--project|--global]";
+    }
+    roles["ged-worker"] = worker;
+    await writeGedAgentsSettings(filePath, {
+      ...(existing.agents ?? {}),
+      roles,
+    });
+    await syncGedSubagentRuntimeConfig(cwd, {
+      modelAvailability: modelAvailabilityFromRegistry(
+        ctx?.runtime?.ctx.modelRegistry,
+      ),
+    });
+    return `Updated ged-worker ${setting}.`;
+  }
+
+  return "Usage: /ged-agents [status|models|setup|on|off|model|role|thinking|fallback|intercom|critique|worker] [--project|--global]";
 }
 
 async function executeGedSettingsCommand(
@@ -588,7 +840,7 @@ Use \`grill-with-docs\` instead when clarification should also update domain lan
     {
       name: "ged-agents",
       description:
-        "Configure optional read-only Ged subagents (status, setup, on, off)",
+        "Configure Ged subagents, intercom, critique, models, and optional workers",
       async execute(context) {
         return await executeGedAgentsCommand(
           context.cwd,

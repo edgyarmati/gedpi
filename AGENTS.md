@@ -17,7 +17,7 @@ GedPi is a batteries-included Pi package built around a single conversational br
 
 **Agent flow**: GedPi always starts in full workflow mode. One brain clarifies ambiguous requests, writes the spec into `.ged/`, breaks work into bounded slices, implements them, and records verification/results in durable memory. The agent classifies tasks as trivial or non-trivial and adjusts its behavior accordingly — no manual toggle needed.
 
-Future orchestration work should follow `docs/single-writer-intelligence-orchestration.md`: keep the primary Ged brain as the default writer and decision owner, use additional agents/model calls as read-only scouts, smart friends, or clean-context reviewers, and only allow writer workers through explicit branch/worktree-backed isolation. Do not reintroduce unstructured multi-agent writer swarms.
+Future orchestration work should follow `docs/single-writer-intelligence-orchestration.md`: keep the primary Ged brain as the user-facing decision owner, use `pi-subagents` for explorer/planner/plan-reviewer/verifier roles, use `pi-intercom` only for blocked decisions or progress-changing discoveries, and keep `ged-worker` optional/settings-gated. Do not expose generic bundled subagent agents by default, and do not reintroduce unstructured writer swarms.
 
 **Memory**: `.ged/` files hold durable project standards, context, and Ged workflow state — not source code. `.pi/` is Pi-runtime-local state and should stay out of Git.
 
@@ -27,7 +27,8 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `ged-core` — brain workflow, header, shortcuts, updater, and `.ged/` durable memory bootstrap
 - `glimpseui` — native micro-UI windows and floating companion widget
 - `pi-web-access` — web search and fetch tools
-- `@tintinweb/pi-subagents` — read-only scout, planner, and verifier subagent tools
+- `pi-subagents` — subagent tool, chains/parallelism, Ged-specific roles, and optional settings-gated worker support
+- `pi-intercom` — direct supervisor coordination for blocked subagent decisions
 - `pi-diff-review` — diff review surface
 - `pi-prompt-template-model` — prompt template / model wiring
 - `@plannotator/pi-extension` — visual plan/code review UI used by the `plannotator` draft-plan review preference
@@ -49,12 +50,12 @@ When changing Ged's workflow, update the durable documentation and generated pro
 
 - `src/brain.ts` controls the text appended to the main agent system prompt.
 - `src/orchestration.ts` controls the detailed subagent orchestration contract and guard messages.
-- `src/agent-settings.ts` controls the bundled `ged-explorer`, `ged-planner`, and `ged-verifier` runtime agent prompts generated into `.pi/agents/`.
+- `src/agent-settings.ts` controls the bundled Ged runtime agent prompts generated into `.pi/agents/`: `ged-explorer`, `ged-planner`, `ged-plan-reviewer`, `ged-verifier`, and optional `ged-worker`.
 - `src/commit-settings.ts` controls user-configurable workflow preferences that are also appended to the system prompt.
 - `AGENTS.md` documents the intended workflow for future coding sessions.
 - Keep GedOC parity in mind when prompt/checkpoint behavior is duplicated there.
 
-For non-trivial work, the main agent must run the first clarification/sufficiency pass before drafting a plan. Use grill-me in chat when goal, users/audience, scope, constraints, relevant context, risks, tests, or success criteria are unclear. If the request is already clear, synthesize that evidence instead of asking unnecessary questions. With subagents enabled, dispatch `ged-explorer` after clarification to perform read-only skill-fit reconnaissance (inventory/evaluate/search) plus codebase discovery; the main agent then adjudicates findings and performs any mutating project-skill install/create actions. Honor `reviewPlanBeforePlannerHandoff` before planner handoff: `off` skips separate human draft-plan approval, `chat` requests approval in chat, and `plannotator` uses Plannotator's visual review when available with chat approval as the fallback. After the draft plan is approved when required, the planner subagent judges semantic sufficiency across the entire handoff; it must not require an exact `## Grill-me evidence` heading. If the planner says information is missing, the main agent must run grill-me for those gaps, update the plan, repeat required plan approval, and re-dispatch the planner.
+For non-trivial work, the main agent must run the first clarification/sufficiency pass before planning. Use grill-me in chat when goal, users/audience, scope, constraints, relevant context, risks, tests, or success criteria are unclear. If the request is already clear, synthesize that evidence instead of asking unnecessary questions. With subagents enabled, dispatch `ged-explorer` after clarification to perform read-only skill-fit reconnaissance (inventory/evaluate/search) plus codebase discovery; the main agent then adjudicates findings and performs any mutating project-skill install/create actions. The `ged-planner` role now authors the draft SPEC/TASKS/TESTS plan from clarified requirements and explorer findings; the main agent accepts/edits/rejects that draft and writes final `.ged` plan files. Human/Glimpse plan review applies to the written draft, followed by optional `ged-plan-reviewer` critique according to critique mode. `ged-worker` is disabled by default and should only be enabled for bounded, disjoint, approved implementation slices; worker completion never replaces verifier review or main-agent acceptance.
 
 The Ged workflow is always active:
 - lazily initialize or migrate `.ged/` on the first real agent turn

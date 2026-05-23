@@ -1,6 +1,11 @@
 import { execFile } from "node:child_process";
 import { mkdir, readFile } from "node:fs/promises";
 import { promisify } from "node:util";
+import {
+  type EffectiveGedAgentsSettings,
+  GED_AGENT_ROLES,
+  type GedAgentRole,
+} from "./agent-settings.js";
 import { writeFileAtomic } from "./atomic.js";
 import { activeGedPaths } from "./ged-paths.js";
 import type {
@@ -94,7 +99,7 @@ export function plannerGuardMessage(validation: CheckpointValidation): string {
   ) {
     return `GedPi planner guard: ged-planner requested more clarification. Run a main-agent grill-me session in chat, update the plan with the answers, repeat any required user plan-review approval, then re-dispatch ged-planner. Missing checkpoints: ${validation.missing.join(", ")}.`;
   }
-  return `GedPi planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner with the Agent tool, or reclassify the task as trivial.`;
+  return `GedPi planner guard: non-trivial work requires dispatching ged-planner before editing source files. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-planner with the subagent tool, record a role-disabled fallback checkpoint, or reclassify the task as trivial.`;
 }
 
 export function verifierGuardMessage(validation: CheckpointValidation): string {
@@ -110,7 +115,7 @@ export function verifierGuardMessage(validation: CheckpointValidation): string {
   if (validation.missing.some((item) => item.includes("blocked commit"))) {
     return `GedPi verifier guard: the verifier checkpoint reports commit-blocking findings. Missing/blocking checkpoints: ${validation.missing.join(", ")}. Resolve and adjudicate verifier findings, then update .ged/runtime/<work-id>/checkpoints.json to set blocksCommit: false on the verifier checkpoint before committing.`;
   }
-  return `GedPi verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier with the Agent tool for clean-context review.`;
+  return `GedPi verifier guard: non-trivial work requires dispatching ged-verifier before committing. Missing checkpoints: ${validation.missing.join(", ")}. Dispatch ged-verifier with the subagent tool or record main-agent fallback verification when the role is disabled.`;
 }
 
 // ─── Auto-recording ─────────────────────────────────────────────────────
@@ -119,32 +124,167 @@ export function detectSubagentDispatch(
   toolName: string,
   input: Record<string, unknown>,
 ): string | null {
-  if (toolName !== "Agent") return null;
+  return detectSubagentDispatches(toolName, input)[0] ?? null;
+}
 
-  const subagentType = input.subagent_type;
-  if (typeof subagentType !== "string") return null;
+export function detectSubagentDispatches(
+  toolName: string,
+  input: Record<string, unknown>,
+): string[] {
+  const found: string[] = [];
+  const add = (candidate: unknown) => {
+    if (typeof candidate !== "string") return;
+    const normalized = candidate.toLowerCase();
+    if (
+      normalized === "ged-explorer" ||
+      normalized === "ged-planner" ||
+      normalized === "ged-plan-reviewer" ||
+      normalized === "ged-verifier" ||
+      normalized === "ged-worker"
+    ) {
+      found.push(normalized);
+    }
+  };
 
-  const normalized = subagentType.toLowerCase();
-  if (
-    normalized === "ged-explorer" ||
-    normalized === "ged-planner" ||
-    normalized === "ged-verifier"
-  ) {
-    return normalized;
+  if (toolName === "Agent") {
+    add(input.subagent_type);
+    return [...new Set(found)];
   }
-  return null;
+
+  if (toolName !== "subagent") return [];
+
+  add(input.agent);
+  if (Array.isArray(input.tasks)) {
+    for (const task of input.tasks) {
+      if (!task || typeof task !== "object") continue;
+      const taskRecord = task as Record<string, unknown>;
+      add(taskRecord.agent);
+    }
+  }
+  const visitChainStep = (step: unknown) => {
+    if (!step || typeof step !== "object") return;
+    const stepRecord = step as Record<string, unknown>;
+    add(stepRecord.agent);
+    if (Array.isArray(stepRecord.parallel)) {
+      for (const parallelStep of stepRecord.parallel)
+        visitChainStep(parallelStep);
+    }
+  };
+  if (Array.isArray(input.chain)) {
+    for (const step of input.chain) visitChainStep(step);
+  }
+
+  return [...new Set(found)];
 }
 
 // ─── Orchestration prompt ───────────────────────────────────────────────
 
-export function buildOrchestrationPrompt(agentsEnabled: boolean): string {
-  if (!agentsEnabled) {
+type OrchestrationPromptInput =
+  | boolean
+  | Pick<
+      EffectiveGedAgentsSettings,
+      "enabled" | "intercomBridge" | "critiqueMode" | "roles"
+    >;
+
+const DEFAULT_PROMPT_ROLE_ENABLED: Record<GedAgentRole, boolean> = {
+  "ged-explorer": true,
+  "ged-planner": true,
+  "ged-plan-reviewer": true,
+  "ged-verifier": true,
+  "ged-worker": false,
+};
+
+function normalizePromptSettings(
+  input: OrchestrationPromptInput,
+): Pick<
+  EffectiveGedAgentsSettings,
+  "enabled" | "intercomBridge" | "critiqueMode" | "roles"
+> {
+  if (typeof input !== "boolean") return input;
+  return {
+    enabled: input,
+    intercomBridge: true,
+    critiqueMode: "risk-based",
+    roles: Object.fromEntries(
+      GED_AGENT_ROLES.map((role) => [
+        role,
+        {
+          enabled: input && DEFAULT_PROMPT_ROLE_ENABLED[role],
+          maxParallel: role === "ged-worker" ? 2 : undefined,
+          preferWorktreeIsolation: false,
+        },
+      ]),
+    ) as Pick<EffectiveGedAgentsSettings, "roles">["roles"],
+  };
+}
+
+function roleSettingsSummary(
+  settings: Pick<EffectiveGedAgentsSettings, "roles">,
+): string {
+  return GED_AGENT_ROLES.map((role) => {
+    const roleSettings = settings.roles[role];
+    const status = roleSettings.enabled
+      ? "enabled"
+      : "disabled — main-agent fallback checkpoint required";
+    const worker =
+      role === "ged-worker"
+        ? `; maxParallel ${roleSettings.maxParallel ?? 2}; worktree ${roleSettings.preferWorktreeIsolation ? "preferred" : "optional"}`
+        : "";
+    return `- ${role}: ${status}${worker}`;
+  }).join("\n");
+}
+
+function critiqueInstruction(
+  settings: Pick<EffectiveGedAgentsSettings, "critiqueMode" | "roles">,
+): string {
+  if (!settings.roles["ged-plan-reviewer"].enabled) {
+    return "ged-plan-reviewer is disabled; perform plan critique yourself and record a fallback/skipped checkpoint with a reason.";
+  }
+  if (settings.critiqueMode === "off") {
+    return "Critique mode is off; skip ged-plan-reviewer unless the user explicitly requests an extra plan critique.";
+  }
+  if (settings.critiqueMode === "always") {
+    return "Critique mode is always; run ged-plan-reviewer for every non-trivial accepted plan before implementation.";
+  }
+  return "Critique mode is risk-based; run ged-plan-reviewer for risky, large, ambiguous, multi-file, migration, security, or worker-delegated plans.";
+}
+
+function workerInstruction(
+  settings: Pick<EffectiveGedAgentsSettings, "roles">,
+): string {
+  const worker = settings.roles["ged-worker"];
+  if (!worker.enabled) {
+    return "ged-worker is disabled; do not call it. Implement approved slices yourself.";
+  }
+  return `ged-worker is enabled. Delegate only disjoint, approved, low-ambiguity slices; use at most ${worker.maxParallel ?? 2} worker tasks at once${worker.preferWorktreeIsolation ? " and prefer `worktree: true` for parallel worker runs" : ""}.`;
+}
+
+function intercomInstruction(
+  settings: Pick<EffectiveGedAgentsSettings, "intercomBridge">,
+): string {
+  return settings.intercomBridge
+    ? "GedPi uses pi-intercom/contact_supervisor for blocked decisions and progress-changing discoveries from child agents."
+    : "Intercom bridge is disabled; do not rely on contact_supervisor. Subagents must return blocked decisions and discoveries in their normal pi-subagents result.";
+}
+
+export function buildOrchestrationPrompt(
+  input: OrchestrationPromptInput,
+): string {
+  const settings = normalizePromptSettings(input);
+  if (!settings.enabled) {
     return "";
   }
 
   return `## Subagent orchestration (mandatory for non-trivial work)
 
-Single-writer invariant: you are the sole active-worktree writer, synthesizer, and decision owner. Subagents inject read-only intelligence; they do not own product decisions, commits, PR decisions, or final verification judgments.
+Main-agent ownership invariant: you are the user-facing decision owner, scope owner, final .ged artifact owner, verification adjudicator, and committer. Subagents can gather context, draft plans, critique, verify, and — only when explicitly enabled — implement bounded worker slices. Subagents do not own product decisions, final acceptance, commits, pushes, or PR decisions.
+
+### Current orchestration settings
+
+Intercom bridge: ${settings.intercomBridge ? "enabled" : "disabled"}
+Critique mode: ${settings.critiqueMode}
+Roles:
+${roleSettingsSummary(settings)}
 
 ### Task classification (FIRST STEP for every new request)
 
@@ -164,7 +304,7 @@ All source file edits and git commits are **structurally guarded**:
 
 1. **Classification is required** — If \`.ged/runtime/<work-id>/checkpoints.json\` does not exist, **all source file edits and commits are blocked**. You must classify the task and write the state file before editing any source code.
 2. **Trivial classification** allows immediate edits and commits — no subagent dispatches needed.
-3. **Non-trivial classification** requires an explicit clarification sufficiency decision (\`grill-me: needed\` or \`grill-me: skipped; reason: ...\`), \`ged-explorer\` skill-fit reconnaissance before planning, dispatching \`ged-planner\` with the \`Agent\` tool before edits, and both \`ged-planner\` + \`ged-verifier\` before \`git commit\` or \`git commit --amend\`. Do not end the turn after only narrating that you will inspect, plan, or apply changes; immediately make the next required tool call in the same response.
+3. **Non-trivial classification** requires an explicit clarification sufficiency decision (\`grill-me: needed\` or \`grill-me: skipped; reason: ...\`), \`ged-explorer\` skill-fit reconnaissance before planning when enabled, \`ged-planner\` plan drafting when enabled before edits, main-agent acceptance of the final .ged plan, and \`ged-verifier\` before \`git commit\` or \`git commit --amend\` when enabled. Disabled roles become main-agent responsibilities and must be recorded with a skipped/fallback reason. Do not end the turn after only narrating that you will inspect, plan, or apply changes; immediately make the next required tool call in the same response.
 4. **Planner clarification refusals block continuation** — If \`ged-planner\` asks for grill-me/clarification or records \`outcome: "refused-needs-clarification"\`, you must run a main-agent grill-me session in chat, update the plan, repeat any required user plan-review approval, and re-dispatch \`ged-planner\`. Do not dismiss the planner's clarification request as unnecessary.
 5. **Verifier blockers stop commits** — If a verifier checkpoint records \`blocksCommit: true\`, commits are blocked until findings are resolved and adjudicated. After adjudicating, update \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\` on the verifier checkpoint. Source file edits automatically invalidate verifier checkpoints, so you must re-run the verifier after fixing code.
 6. **Auto-escalation** — If you classify as trivial but touch more than one source file, the system auto-escalates to non-trivial. You must then dispatch ged-planner before continuing.
@@ -177,20 +317,24 @@ When subagents are enabled and the task is non-trivial, use mandatory intelligen
 
 0. **clarification** — Before drafting a non-trivial plan, perform a main-agent sufficiency check and make it visible. Start the clarification response with exactly one of: \`grill-me: needed\` or \`grill-me: skipped; reason: <why sufficient>\`. If needed, use \`grill-me\` in chat when any goal, user/audience, scope, constraint, risk, relevant context, or success criterion is unclear: one concise question at a time with a recommended answer/default. Use \`grill-with-docs\` instead when terminology, glossary, domain-model, CONTEXT.md, or ADR decisions should be captured. If skipped, synthesize the clarification evidence from the request instead of asking unnecessary questions. Record the clarification in \`.ged/runtime/<work-id>/checkpoints.json\`: completed clarification uses \`status: "completed"\` with evidence; skipped/sufficient clarification uses \`status: "skipped"\`, \`sufficiency: "sufficient-from-request"\`, and a non-empty \`skipReason\`.
 
-1. **ged-explorer skill-fit reconnaissance + discovery** — After clarification and before source inspection/planning, dispatch \`ged-explorer\` with the \`Agent\` tool immediately in the same response, then retrieve the result with \`get_subagent_result(..., wait: true)\` and continue. Include the clarified task brief and ask it to inventory bundled/project/user skills, evaluate which are relevant, search the ecosystem with \`npx skills find\` only when there is a real coverage gap, and report recommended skills/gaps without installing or creating anything. Also ask it to perform evidence-backed codebase discovery when relevant code context is needed.
+1. **ged-explorer skill-fit reconnaissance + discovery** — After clarification and before source inspection/planning, use \`subagent({ agent: "ged-explorer", task: "..." })\` or a \`subagent\` chain/parallel call when enabled. Include the clarified task brief and ask it to inventory bundled/project/user skills, evaluate relevance, search the ecosystem with \`npx skills find\` only when there is a real coverage gap, and report recommended skills/gaps without installing or creating anything. Also ask it to perform evidence-backed codebase discovery when relevant code context is needed. If the role is disabled, do this work yourself and record a role-disabled fallback reason.
 
 2. **main-agent skill decisions** — After receiving the explorer's skill-fit findings, decide what to do: accept recommended bundled/project/user skills, install external skills through the project-skill mechanism if warranted, or create narrow project-local skills with \`skill-creator\` when no adequate external skill exists and the gap is reusable. These are mutating actions that only you perform. Never install global/user skills automatically.
 
-3. **ged-planner** — Before dispatching, honor the Plan Review Preference: \`off\` means dispatch ged-planner without separate human draft-plan approval; \`chat\` means show the draft plan in chat and wait for explicit approval; \`plannotator\` means call \`gedpi_plan_review\` with the path to the draft plan file (e.g. \`.ged/work/<work-id>/TASKS.md\`) to open visual review (Glimpse preferred, browser fallback), wait for the result, apply feedback if denied, and retry — fall back to chat approval only if the tool reports no visual review surface is available. Do not use \`/plannotator\` or \`plannotator_submit_plan\` directly. The planner handoff must include the clarified goal, users/audience, scope, constraints, relevant implementation context, and approved draft plan. Then dispatch with the \`Agent\` tool before finalizing or materially changing .ged/work/<work-id>/SPEC.md, TASKS.md, or TESTS.md. The planner judges semantic sufficiency across the entire dispatch and critiques your plan; it must not require an exact evidence heading. If the planner asks for grill-me/clarification or returns \`outcome: "refused-needs-clarification"\`, run grill-me in the main chat, update the plan, repeat any required user approval, and re-dispatch ged-planner. You adjudicate the findings and write the final planning files.
+3. **ged-planner authors the plan draft** — Pass clarified requirements, users/audience, scope, constraints, and explorer findings to \`subagent({ agent: "ged-planner", task: "draft SPEC/TASKS/TESTS..." })\`. The planner drafts; you review, accept/edit/reject, and write the final .ged/work/<work-id>/SPEC.md, TASKS.md, and TESTS.md files. Source edits are not safe until you have accepted/written the final plan. If the planner asks for grill-me/clarification or returns \`outcome: "refused-needs-clarification"\`, run grill-me in the main chat, update the brief, and re-dispatch ged-planner.
 
-4. **ged-verifier** — Dispatch with the \`Agent\` tool for clean-context review before committing meaningful implementation changes. The verifier reviews your diff and tests with minimal prior assumptions. You adjudicate each finding (accept, reject, needs-user), fix accepted issues, and rerun verification.
+4. **plan review / critique** — After you accept and write the planner draft, honor the Plan Review Preference on the written plan files. ${critiqueInstruction(settings)} You adjudicate reviewer findings.
 
-Use \`Agent({ subagent_type: "ged-planner", prompt: "...", description: "...", run_in_background: true })\`, then \`get_subagent_result({ agent_id: "<id>", wait: true })\` when you need the result. Background execution lets GedPi record checkpoints from tintinweb/pi-subagents completion events. Do not force foreground Ged role agents unless explicitly instructed.
+5. **ged-worker (optional)** — ${workerInstruction(settings)} Workers may edit assigned implementation files but must not commit, push, rebase, merge, or make product/scope decisions. Worker completion never substitutes for verification or main-agent acceptance.
+
+6. **ged-verifier** — Use \`subagent({ agent: "ged-verifier", task: "review diff and verification evidence..." })\` for clean-context review before committing meaningful implementation changes when enabled. The verifier reviews your diff and tests with minimal prior assumptions. You adjudicate each finding (accept, reject, needs-user), fix accepted issues, and rerun verification. If disabled, perform and record main-agent fallback verification.
+
+Use the \`subagent\` tool from \`pi-subagents\` for single, chain, parallel, and async runs. GedPi records checkpoints from successful foreground \`subagent\` results and \`subagent:async-complete\` events. Do not mark checkpoints complete on launch alone.
 
 ### Clean-context review flow (before every meaningful commit)
 
 1. Run all planned checks from .ged/work/<work-id>/TESTS.md
-2. Dispatch ged-verifier for clean-context review of the diff and tests
+2. Dispatch ged-verifier for clean-context review of the diff and tests when enabled, or perform explicit main-agent fallback verification when disabled
 3. Adjudicate each finding: accept (fix before commit), reject (record reason), or needs-user (ask)
 4. Fix accepted issues and rerun verification
 5. Update the verifier checkpoint in \`.ged/runtime/<work-id>/checkpoints.json\` to set \`blocksCommit: false\`
@@ -198,9 +342,9 @@ Use \`Agent({ subagent_type: "ged-planner", prompt: "...", description: "...", r
 
 ### Subagent communication
 
-GedPi uses tintinweb/pi-subagents for subagent lifecycle, result retrieval, and steering. Do not rely on pi-intercom for normal Ged workflow coordination. If a subagent is blocked, it should return a needs-decision finding; you decide whether to ask the user or rerun/steer the agent.
+GedPi uses pi-subagents for subagent lifecycle, chaining, parallel runs, and async completion. ${intercomInstruction(settings)} Do not use intercom for routine completion handoffs; normal results should return through pi-subagents.
 
-There is no writer subagent role. Do not delegate source edits, planning-file ownership, scope decisions, verification adjudication, commits, pushes, or PR decisions to subagents.`;
+Planner may draft plan text, but you own final .ged planning files. Optional workers may edit implementation slices only when enabled; you still own final acceptance, conflict resolution, verification adjudication, commits, pushes, and PR decisions.`;
 }
 
 // ─── Git commit detection ───────────────────────────────────────────────

@@ -103,8 +103,11 @@ describe("Ged command surface", () => {
     expect(result).toMatch(/Subagents: (enabled|disabled)/u);
     expect(result).toContain("ged-explorer");
     expect(result).toContain("ged-planner");
+    expect(result).toContain("ged-plan-reviewer");
     expect(result).toContain("ged-verifier");
-    expect(result).toContain("Writer roles: disabled/not registered");
+    expect(result).toContain("ged-worker");
+    expect(result).toContain("Default/builtin pi-subagents agents");
+    expect(result).toContain("Worker role: optional");
   });
 
   test("ged-agents project toggles preserve configured models", async () => {
@@ -123,7 +126,7 @@ describe("Ged command surface", () => {
 
     expect(status).toContain("Subagents: enabled");
     expect(status).toContain("Default model: openai/gpt-5-mini");
-    expect(status).toContain("- ged-planner: openai/gpt-5.5");
+    expect(status).toContain("- ged-planner: enabled; openai/gpt-5.5");
   });
 
   test("ged-agents models shows current assignments", async () => {
@@ -230,6 +233,81 @@ describe("Ged command surface", () => {
     });
 
     expect(result).toContain("Unknown role");
+  });
+
+  test("ged-agents configures worker, intercom, critique, thinking, and fallbacks", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    const piAgentDir = await mkdtemp(path.join(os.tmpdir(), "ged-agent-dir-"));
+    const previousPiAgentDir = process.env.PI_CODING_AGENT_DIR;
+    process.env.PI_CODING_AGENT_DIR = piAgentDir;
+
+    try {
+      await command?.execute({
+        cwd,
+        args: ["role", "ged-worker", "on", "--project"],
+      });
+      await command?.execute({
+        cwd,
+        args: ["worker", "max-parallel", "4", "--project"],
+      });
+      await command?.execute({
+        cwd,
+        args: ["worker", "worktree", "on", "--project"],
+      });
+      await command?.execute({ cwd, args: ["intercom", "off", "--project"] });
+      await command?.execute({
+        cwd,
+        args: ["critique", "always", "--project"],
+      });
+      await command?.execute({
+        cwd,
+        args: ["model", "ged-worker", "openai/gpt-5-mini", "--project"],
+      });
+      await command?.execute({
+        cwd,
+        args: ["thinking", "ged-worker", "medium", "--project"],
+      });
+      await command?.execute({
+        cwd,
+        args: ["model", "ged-worker", "openai/gpt-5.5", "--project"],
+      });
+      await command?.execute({
+        cwd,
+        args: [
+          "fallback",
+          "ged-worker",
+          "add",
+          "anthropic/claude-sonnet-4",
+          "--project",
+        ],
+      });
+
+      const settings = await readGedRuntimeSettings(
+        projectGedSettingsPath(cwd),
+      );
+      expect(settings.agents).toMatchObject({
+        intercomBridge: false,
+        critiqueMode: "always",
+        roles: {
+          "ged-worker": {
+            enabled: true,
+            model: "openai/gpt-5.5",
+            thinking: "medium",
+            fallback: ["anthropic/claude-sonnet-4"],
+            maxParallel: 4,
+            preferWorktreeIsolation: true,
+          },
+        },
+      });
+      expect(settings.agents?.models?.["ged-worker"]).toBeUndefined();
+    } finally {
+      if (previousPiAgentDir === undefined)
+        delete process.env.PI_CODING_AGENT_DIR;
+      else process.env.PI_CODING_AGENT_DIR = previousPiAgentDir;
+    }
   });
 
   test("ged-agents setup stores selected thinking levels", async () => {

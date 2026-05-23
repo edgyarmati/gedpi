@@ -64,7 +64,8 @@
     "extensions": [
       "./extensions/ged-core/index.ts",
       "./node_modules/pi-web-access/index.ts",
-      "./node_modules/@tintinweb/pi-subagents/src/index.ts",
+      "./node_modules/pi-subagents/src/extension/index.ts",
+      "./node_modules/pi-intercom/index.ts",
       "./vendor/pi-diff-review/src/index.ts",
       "./node_modules/pi-prompt-template-model/index.ts",
       "./node_modules/@plannotator/pi-extension/index.ts",
@@ -77,7 +78,9 @@
       "./node_modules/glimpseui/skills",
       "./node_modules/pi-web-access/skills",
       "./node_modules/pi-prompt-template-model/skills",
-      "./node_modules/@plannotator/pi-extension/skills"
+      "./node_modules/@plannotator/pi-extension/skills",
+      "./node_modules/pi-subagents/skills",
+      "./node_modules/pi-intercom/skills"
     ],
     "prompts": [
       "./prompts"
@@ -91,11 +94,14 @@
     "@earendil-works/pi-coding-agent": "0.75.4",
     "@earendil-works/pi-tui": "0.75.4",
     "@howaboua/pi-codex-conversion": "1.5.13",
+    "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@0.75.4",
+    "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.75.4",
     "@plannotator/pi-extension": "0.19.18",
-    "@tintinweb/pi-subagents": "^0.7.0",
     "glimpseui": "0.8.1",
     "jiti": "^2.7.0",
+    "pi-intercom": "0.6.0",
     "pi-prompt-template-model": "^0.9.1",
+    "pi-subagents": "0.25.0",
     "pi-web-access": "^0.10.7"
   },
   "overrides": {

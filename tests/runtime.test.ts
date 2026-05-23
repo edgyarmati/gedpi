@@ -1,7 +1,7 @@
 import { access, mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-
+import { createJiti } from "jiti";
 import { describe, expect, test } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
 import packageLock from "../package-lock.json" with { type: "json" };
@@ -40,29 +40,39 @@ describe("Ged runtime flow", () => {
     });
   });
 
-  test("bundles tintinweb subagents without default pi-intercom", () => {
+  test("bundles current pi-subagents and pi-intercom", () => {
     expect(packageJson.dependencies).toMatchObject({
-      "@tintinweb/pi-subagents": expect.any(String),
+      "pi-subagents": "0.25.0",
+      "pi-intercom": "0.6.0",
+      "@mariozechner/pi-coding-agent":
+        "npm:@earendil-works/pi-coding-agent@0.75.4",
+      "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.75.4",
     });
-    expect(packageJson.dependencies).not.toHaveProperty("pi-intercom");
-    expect(packageJson.dependencies).not.toHaveProperty("pi-subagents");
+    expect(packageJson.dependencies).not.toHaveProperty(
+      "@tintinweb/pi-subagents",
+    );
     expect(packageJson.pi.extensions).toEqual(
       expect.arrayContaining([
-        "./node_modules/@tintinweb/pi-subagents/src/index.ts",
+        "./node_modules/pi-subagents/src/extension/index.ts",
+        "./node_modules/pi-intercom/index.ts",
       ]),
     );
     expect(packageJson.pi.extensions).not.toContain(
-      "./node_modules/pi-intercom/index.ts",
+      "./node_modules/@tintinweb/pi-subagents/src/index.ts",
     );
-    expect(packageJson.pi.extensions).not.toContain(
-      "./node_modules/pi-subagents/src/extension/index.ts",
-    );
-    expect(packageJson.pi.skills).not.toContain(
+    expect(packageJson.pi.skills).toContain(
       "./node_modules/pi-intercom/skills",
     );
-    expect(packageJson.pi.skills).not.toContain(
+    expect(packageJson.pi.skills).toContain(
       "./node_modules/pi-subagents/skills",
     );
+
+    expect(packageLock.packages["node_modules/pi-subagents"]).toMatchObject({
+      version: "0.25.0",
+    });
+    expect(packageLock.packages["node_modules/pi-intercom"]).toMatchObject({
+      version: "0.6.0",
+    });
   });
 
   test("configured Pi extension paths exist", async () => {
@@ -73,6 +83,14 @@ describe("Ged runtime flow", () => {
           expect(access(path.resolve(extensionPath))).resolves.toBeUndefined(),
         ),
     );
+  });
+
+  test("pi-intercom loads through compatibility aliases", async () => {
+    const jiti = createJiti(import.meta.url);
+    const intercomModule = await jiti.import<{ default?: unknown }>(
+      path.resolve("node_modules/pi-intercom/index.ts"),
+    );
+    expect(typeof intercomModule.default).toBe("function");
   });
 
   test("prepareNextTaskDispatch creates a task brief and marks the task in progress", async () => {

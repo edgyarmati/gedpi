@@ -4,6 +4,7 @@
 
 ### Dependencies
 
+- Replaced the legacy `@tintinweb/pi-subagents` dependency with pinned `pi-subagents` 0.25.0 and `pi-intercom` 0.6.0, including compatibility aliases for the older `@mariozechner/*` peer names used by `pi-intercom`.
 - Bundled and enabled the pinned `@howaboua/pi-codex-conversion` 1.5.13 extension by default so OpenAI/Codex models get the Codex-oriented tool and prompt adapter.
 - Removed unused direct `@anthropic-ai/claude-agent-sdk` and `zod` dependencies from GedPi.
 - Removed the `amp-themes` dependency and its bundled `pi-tool-display` path by localizing the shipped Amp-style themes and user-message styling.
@@ -11,6 +12,7 @@
 
 ### Fixes
 
+- Updated GedPi subagent orchestration for planner-authored draft plans, role-aware settings, default builtin subagent suppression, pi-intercom decision coordination, and optional disabled-by-default worker roles.
 - Removed dead GedPi extension surface: the empty `ged-memory` extension entry, no-op `ged-skills`/`ged-status` stubs, and the disabled packaged `pi-fixed-editor` vendor files.
 
 ## 0.18.1 - 2026-05-21

@@ -1,324 +1,151 @@
-# Single-Writer Intelligence Orchestration
+# Main-Owned Intelligence Orchestration
 
 ## Purpose
 
-This is the implementation handoff for bringing the current GedOC orchestration model back into GedPi.
+GedPi uses `pi-subagents` and `pi-intercom` to delegate context gathering, planning drafts, critique, verification, and optional implementation slices while keeping the main GedPi brain as the user-facing decision owner.
 
 The rule to preserve is:
 
-> Context can be parallelized. Intelligence can be parallelized. Writes, scope decisions, verification judgment, commits, and PR decisions stay with the primary Ged brain.
+> Context and implementation slices can be delegated. Scope decisions, final `.ged` artifacts, verification adjudication, commits, pushes, and PR decisions stay with the primary Ged brain.
 
-This replaces any older worker-subagent direction. GedPi should not reintroduce a writer worker, planner owner, expert writer, or shared-worktree multi-agent swarm.
+## Current decisions
 
-## Final decisions from GedOC
-
-- The primary `gedpi` / GedPi brain is the only active-worktree writer and decision owner.
-- Optional subagents are read-only intelligence contributors only.
-- Supported roles are exactly:
-  - `ged-explorer` — evidence-backed discovery packets.
-  - `ged-planner` — smart-friend planning critique and risk review.
-  - `ged-verifier` — verification support and clean-context review.
-- There is no `ged-worker` or writer subagent role.
-- Do not implement branch/worktree-backed writer workers for this pass. If that idea returns later, it needs a separate explicit design and user-facing mode.
-- The planner may recommend a plan, but the primary brain writes the actual `.ged/` plan and owns what is accepted.
-- The verifier may report findings, but the primary brain adjudicates accepted vs rejected findings and performs fixes.
-- Subagents must not edit source, write `.ged/` planning files, run mutating shell commands, commit, push, or open PRs.
+- GedPi bundles `pi-subagents` and `pi-intercom` instead of the legacy `@tintinweb/pi-subagents` package.
+- Generic/default agents bundled by `pi-subagents` are hidden by default via `subagents.disableBuiltins: true`; Ged exposes its own roles.
+- Main agent clarifies requirements and owns user-facing decisions.
+- `ged-explorer` performs read-only code/context and skill-fit reconnaissance.
+- `ged-planner` authors draft `SPEC.md`, `TASKS.md`, and `TESTS.md` content from clarified requirements and explorer findings.
+- Main agent accepts, edits, or rejects planner drafts and writes final `.ged` artifacts.
+- `ged-plan-reviewer` provides optional/risk-based critique after the main agent has accepted/written the draft plan.
+- `ged-verifier` performs clean-context review of diffs and verification evidence before commits.
+- `ged-worker` is optional and disabled by default. When enabled, it may implement bounded approved slices, including parallel disjoint slices. It must not commit, push, rebase, merge, make product decisions, or replace verifier/main acceptance.
+- Intern/ops agent remains deferred/absent.
+- `pi-intercom` / `contact_supervisor` is for blocked decisions or progress-changing discoveries, not routine completion handoffs.
 
 ## Settings model
 
-Agent settings should live outside `.ged/`, because `.ged/` is durable workflow memory, not runtime/model configuration.
+Agent settings live outside `.ged/` because `.ged/` is durable workflow memory, not runtime/model configuration.
 
 Use:
 
-- global settings: `~/.gedoc/settings.json` or GedPi's equivalent global config path;
+- global settings: `~/.gedoc/settings.json`;
 - project override: `.gedoc/settings.json`, gitignored;
-- never `.ged/` for model settings.
+- runtime Pi suppression: `.pi/settings.json` with `subagents.disableBuiltins: true`.
 
-The current settings shape supports string models and richer model objects:
+Representative shape:
 
 ```json
 {
   "agents": {
     "enabled": true,
-    "defaultModel": "provider/model",
-    "models": {
-      "ged-explorer": "opencode/nemotron-3-super-free",
-      "ged-planner": {
-        "model": "openai/gpt-5.5",
-        "reasoningEffort": "high"
-      },
-      "ged-verifier": {
-        "model": "openai/gpt-5.5",
-        "reasoningEffort": "low"
+    "intercomBridge": true,
+    "critiqueMode": "risk-based",
+    "defaultModel": {
+      "model": "provider/model",
+      "thinking": "medium",
+      "fallback": ["provider/fallback"]
+    },
+    "roles": {
+      "ged-explorer": { "enabled": true },
+      "ged-planner": { "enabled": true, "thinking": "high" },
+      "ged-plan-reviewer": { "enabled": true },
+      "ged-verifier": { "enabled": true },
+      "ged-worker": {
+        "enabled": false,
+        "maxParallel": 2,
+        "preferWorktreeIsolation": false
       }
     }
   }
 }
 ```
 
-Implementation requirements:
+Compatibility requirements:
 
 - `agents.enabled` defaults to `false`.
-- Missing `defaultModel` means subagents inherit the invoking/orchestrator model unless a per-agent model is set.
-- `agents.models` may contain either:
-  - a model string, e.g. `"provider/model"`; or
-  - an object with at least `model`, plus provider-supported options such as `reasoningEffort`.
+- Missing model settings inherit the invoking/orchestrator model.
+- Existing legacy `agents.models` string/object entries remain readable and are merged into role settings.
 - Project settings override global settings.
-- Unknown/unsupported role keys must be ignored or cleaned during settings writes.
-- In particular, stale `ged-worker` entries must not register a subagent or appear in permissions.
-- Settings writes should persist only selected user values, not bundled prompt text or default agent definitions.
+- Unknown roles are ignored/cleaned; `ged-worker` is now a valid optional role.
+- Generated `pi-subagents` frontmatter uses the current package contract: required `name`/`description`, plus `fallbackModels`, `systemPromptMode`, `inheritProjectContext`, `inheritSkills`, and `completionGuard`.
 
-## Runtime registration
-
-When `agents.enabled` is false, register only the primary Ged agent.
-
-When true, register the three optional intelligence roles:
-
-- `ged-explorer`
-- `ged-planner`
-- `ged-verifier`
-
-The primary brain may delegate tasks only to these roles. A safe permission shape is:
-
-```json
-{
-  "Agent": {
-    "subagent_type": ["ged-explorer", "ged-planner", "ged-verifier"]
-  }
-}
-```
-
-Do not include `ged-worker`.
-
-## Role contracts
+## Runtime roles
 
 ### `ged-explorer`
 
-Purpose: read-only repo and skill-fit discovery.
-
-Allowed:
-
-- search files;
-- read files;
-- inspect docs, tests, standards, prior plans, and skill files;
-- inventory bundled/project/user skills, evaluate relevance, and search the skill ecosystem with `npx skills find` when there is a real coverage gap;
-- return concise evidence-backed discovery packets.
-
-Required output:
-
-```md
-## Files inspected
-- ...
-
-## Skill-fit reconnaissance
-- Relevant bundled/project/user skills: ...
-- Coverage gaps: ...
-- External candidates, if searched: ...
-- Recommended main-agent decisions: ...
-
-## Findings
-- ...
-
-## Evidence
-- `path/to/file.ts:42` — relevant fact
-
-## Risks / edge cases
-- ...
-
-## Uncertainty
-- ...
-
-## Recommended next inspection
-- ...
-```
-
-Forbidden: edits, mutating shell commands, planning-file writes, skill installs, `npx skills add`, `.ged/project-skills/` writes, `.ged/SKILLS.md` updates, commits, pushes, PRs.
+Read-only repo and skill-fit discovery. It may read/search files, inspect docs/tests/standards/skills, run safe discovery commands, and report evidence. It must not edit, install skills, write `.ged` plans, commit, push, or make scope decisions.
 
 ### `ged-planner`
 
-Purpose: smart-friend planning critique.
+Planning author. It drafts plan artifacts from clarified requirements and explorer findings. It must refuse with `outcome: refused-needs-clarification` when the dispatch lacks enough goal, audience, scope, constraints, risks, or acceptance criteria. The main brain writes final `.ged` files.
 
-It helps the primary brain identify missing context, edge cases, test seams, non-goals, and safer slice boundaries.
+### `ged-plan-reviewer`
 
-It should answer broadly enough to catch flaws, but must say what to inspect next rather than inventing facts.
-
-Required output:
-
-```md
-## Plan critique
-- ...
-
-## Missing questions or constraints
-- ...
-
-## Suggested slices
-- ...
-
-## Test strategy
-- ...
-
-## Risks / non-goals
-- ...
-
-## Recommended next inspection
-- ...
-```
-
-The primary brain decides what to accept and writes `SPEC.md`, `TASKS.md`, and `TESTS.md`.
+Risk reviewer for accepted planner drafts. It separates blockers from non-blocking suggestions and does not implement or rewrite scope on its own.
 
 ### `ged-verifier`
 
-Purpose: clean-context review and verification support.
+Clean-context review and verification support. It reports findings with evidence, confidence, suggested fix, and commit-blocking status. The main brain adjudicates and fixes.
 
-Use after the primary brain implements a slice and runs planned checks.
+### `ged-worker`
 
-Required output:
-
-```md
-## Verification review
-
-### Findings
-- Severity:
-- Evidence:
-- Suggested fix:
-- Confidence:
-- Blocks commit: yes/no
-
-## Test/coverage gaps
-- ...
-
-## Scope or contract mismatches
-- ...
-```
-
-The primary brain adjudicates each finding, fixes accepted issues, reruns verification, updates session notes, and commits.
+Optional implementation worker, disabled by default and generated only when enabled. Use it only for approved, bounded, low-ambiguity, disjoint slices with a clear verification path. It may edit implementation files but must not run git commit/push/rebase/merge or make product/scope decisions. Parallel workers should target separate slices or file areas; optional worktree isolation may be preferred for safer parallelism.
 
 ## Workflow integration
 
-GedPi should follow this sequence for change requests when Ged mode is active:
+When Ged mode is active:
 
-1. Run a collaboration/status checkpoint if branch/work memory exists.
-2. Clarify with the user before planning unless the request is already concrete.
-3. With subagents enabled, use `ged-explorer` for read-only skill-fit reconnaissance and codebase discovery; without subagents, the primary brain runs the skill-fit checkpoint itself.
-4. Primary brain adjudicates skill findings and performs any mutating project-skill install/create actions.
-5. Use `ged-planner` for risky or non-trivial planning critique.
-6. Primary brain writes/refines `.ged/` planning artifacts.
-7. Implement one bounded slice at a time.
-8. Run planned checks.
-9. Use `ged-verifier` or equivalent clean-context review before meaningful commits.
-10. Primary brain adjudicates findings, fixes accepted issues, reruns checks, records progress, and commits.
+1. Classify the task.
+2. Clarify with the user unless the request is already concrete.
+3. Use `ged-explorer` when enabled; otherwise the main brain performs and records fallback discovery.
+4. Main brain adjudicates skill findings and performs any mutating project-skill install/create actions.
+5. Use `ged-planner` to draft the implementation plan when enabled; otherwise main authors it.
+6. Main brain accepts/edits/rejects the draft and writes final `.ged` plan artifacts.
+7. Run configured human/Glimpse plan review on the written draft.
+8. Run `ged-plan-reviewer` according to critique mode: `off`, `risk-based`, or `always`.
+9. Implement one bounded slice at a time, optionally using enabled `ged-worker` for disjoint approved slices.
+10. Run planned checks.
+11. Use `ged-verifier` when enabled, or explicit main-agent fallback verification when disabled.
+12. Main brain adjudicates findings, fixes accepted issues, records progress, and commits.
 
-### Mandatory checkpoints when subagents are enabled
+## Mandatory checkpoints
 
-When native subagents are enabled, the above checkpoints are **mandatory for non-trivial change requests**, not merely preferred:
+For non-trivial changes with agents enabled:
 
-- use `ged-explorer` for read-only skill-fit reconnaissance and evidence-backed discovery before source inspection/planning;
-- use `ged-planner` before finalizing or materially changing `SPEC.md`, `TASKS.md`, or `TESTS.md`;
-- use `ged-verifier` for checks or clean-context review before committing meaningful implementation changes.
+- classification and clarification/sufficiency are required before planning;
+- `ged-explorer` or a role-disabled fallback is required before source inspection/planning;
+- `ged-planner` draft plus main accepted/written plan, or planner-disabled fallback plan, is required before source edits;
+- `ged-verifier` or verifier-disabled fallback verification is required before meaningful commits;
+- worker completion never satisfies verifier/commit requirements.
 
-Allowed skip reasons: the task is trivial/mechanical, native subagents are disabled, the runtime does not make a subagent available, the subagent call fails, or the user explicitly asks not to delegate. Record the skip reason in the response and active planning or verification notes.
+Checkpoint recording should use successful `subagent` foreground results and `subagent:async-complete` events. Launch alone does not complete a checkpoint.
 
 ## `/ged-agents` setup command
 
-Add or update a setup command with these actions:
+The setup/status UI should show:
 
-- `status` — show global, project, and effective settings.
-- `on` / `off` — enable or disable globally.
-- `on --project` / `off --project` — enable or disable the project override.
-- `setup` — guided setup.
+- effective `agents.enabled` state;
+- global and project settings paths;
+- intercom bridge state;
+- critique mode;
+- per-role enabled state, model, thinking level, and fallback models;
+- worker `maxParallel` and worktree preference;
+- default builtin suppression state.
 
-Guided setup should:
+Guided setup should use Pi's runtime model registry for primary and fallback model selection and avoid invented model IDs.
 
-1. Explain the single-writer invariant and mandatory checkpoints before recommending models.
-2. Show current settings and any model recommendations file.
-3. Try to list available runtime models; if not possible, accept manual `<provider>/<model>` strings. Do not invent model IDs; prefer exact IDs visible in the runtime model list or provided by the user.
-4. Ask one question at a time:
-   - enable subagents?
-   - global or project settings?
-   - inherit orchestrator model or choose a shared default?
-   - choose optional per-agent models/options?
-   - optionally choose provider options by using an object config such as `{ "model": "openai/gpt-5.5", "reasoningEffort": "high" }` instead of a plain model string.
-5. Recommend:
-   - cheaper/faster model for `ged-explorer`;
-   - strongest reasoning model for `ged-planner`;
-   - reliable/tool-capable model for `ged-verifier`.
-6. Before writing, summarize the exact settings that will be written and confirm ambiguous model IDs.
-7. Write only the selected settings values. Preserve object configs when the user selected provider options.
-8. Explain that changes take effect after the runtime reloads configuration.
+## Tests to keep current
 
-Status display should:
-
-- Show the effective `agents.enabled` state.
-- Show global and project settings paths.
-- Show the default model or "inherit invoking model".
-- Show resolved per-agent configs with model and provider options in human-readable form (not raw JSON).
-- Show checkpoint policy: active for non-trivial changes when enabled, inactive when disabled.
-- Show model recommendations path if present.
-
-## Environment isolation warning from GedOC
-
-GedOC isolates OpenCode by launching it with `XDG_CONFIG_HOME=~/.config/gedoc`. That successfully protects the user's normal OpenCode config, but it leaked into child shell tools and made unrelated CLIs such as `gh` miss their normal auth config.
-
-GedOC fixed this by having the plugin detect the GedOC-overridden `XDG_CONFIG_HOME` and prefix bash tool commands with `env -u XDG_CONFIG_HOME` so user CLIs see their normal config while OpenCode continues using the isolated config for its own config loading.
-
-If GedPi adds similar isolation, apply the same fix:
-
-- Detect when the runtime has overridden `XDG_CONFIG_HOME` for config isolation.
-- Strip the override from tool subprocess commands by prefixing with `env -u XDG_CONFIG_HOME` (or the platform equivalent).
-- Do not strip it for runtime-internal config loading — only for generic user-facing tool shells.
-- Test that `gh auth status` and similar user CLIs see the user's normal auth/config after the fix.
-
-Acceptance criterion: `gh auth status` and similar user CLIs should see the user's normal auth/config unless a command intentionally opts into the isolated runtime config.
-
-## Tests to add
-
-- Settings merge: defaults, global, project override.
-- Settings parser accepts string models and object model configs.
-- Object model configs with provider options are preserved through read/write cycles.
-- Unknown roles and stale `ged-worker` are ignored/cleaned.
-- Disabled agents register no optional subagents.
-- Enabled agents register only explorer/planner/verifier.
-- Primary brain task permissions deny `*` and allow only the three intelligence roles.
-- Prompts for all roles forbid edits and mutating commands.
-- `/ged-agents status/on/off/setup` writes only user settings.
-- Status display shows resolved per-agent model configs with provider options, not raw JSON.
-- Status display shows checkpoint policy as active when enabled, inactive when disabled.
-- Status display shows defaultModel fallback for unconfigured agents.
-- Setup confirms before writing and preserves object configs.
-- Clean-context review output requires evidence, confidence, suggested fix, and block/non-block status.
-- Mandatory checkpoint guidance appears in agent prompts and command templates.
-- Skip-with-reason guidance appears in agent prompts and command templates.
-- Tool subprocesses do not inherit runtime config isolation in a way that breaks user CLI auth.
-- `env -u XDG_CONFIG_HOME` prefix is applied to tool shell commands when GedOC-style isolation is detected.
+- Dependency/package tests: `pi-subagents` and `pi-intercom` are pinned; legacy `@tintinweb/pi-subagents` is absent.
+- Runtime path tests: configured extension/skill paths exist.
+- Default suppression tests: `subagents.disableBuiltins: true` is written/preserved and generic builtins are hidden.
+- Settings merge/migration tests: global/project, legacy `models`, role settings, fallback models, thinking levels, critique mode, intercom bridge, and worker settings.
+- Agent generation tests: current `pi-subagents` frontmatter names are emitted and worker is absent until enabled.
+- Orchestration tests: planner-authored draft flow, disabled-role fallback, intercom guidance, worker guardrails, and verifier/commit behavior.
 
 ## Success criteria
 
-- GedPi preserves one active-worktree writer: the primary Ged brain.
-- Subagents improve discovery, planning, and verification without owning decisions.
-- When enabled, subagent checkpoints are mandatory for non-trivial changes with skip-with-reason for trivial/unavailable/disabled cases.
-- Model settings support per-agent model strings and richer option objects.
-- No writer role is registered, documented, recommended, or permissioned.
-- The setup flow makes the no-writer model clear to users.
-- Status display shows resolved per-agent configs with provider options and checkpoint policy.
-- User CLI config/auth is not broken by runtime config isolation.
-
-## Implementation Status (2026-05-04)
-
-### Implemented
-- Orchestration prompt injected into brain system prompt when `agents.enabled: true`
-- Task classification gate: trivial tasks skip subagent workflow, non-trivial get mandatory checkpoints
-- Checkpoint state tracking in `.ged/runtime/<work-id>/checkpoints.json`
-- Turn-end validation: warns if commits happen without ged-verifier checkpoint for non-trivial work
-- Skip-with-reason recording for intentionally skipped checkpoints
-- Prompt instructs brain to dispatch subagents via the `Agent` tool at three mandatory checkpoints and retrieve background results with `get_subagent_result`
-
-### How enforcement works
-1. **Prompt enforcement**: The orchestration prompt tells the brain exactly when to dispatch each subagent and how to record checkpoints
-2. **Code enforcement**: The `turn_end` hook detects recent commits and validates that ged-verifier was run (or explicitly skipped) for non-trivial tasks
-3. **Classification gate**: The brain classifies each request as trivial or non-trivial at the start. Trivial tasks bypass all subagent checkpoints.
-
-### Files involved
-- `src/orchestration.ts` — checkpoint state management, validation, orchestration prompt
-- `src/brain.ts` — conditional orchestration prompt injection
-- `src/contracts.ts` — checkpoint and classification types
-- `extensions/ged-core/index.ts` — turn_end checkpoint validation hook
+- GedPi exposes Ged-specific roles by default, not generic bundled subagents.
+- Planner intelligence authors draft plans while the main brain owns final artifacts.
+- Optional worker parallelism is available only when explicitly enabled and documented.
+- Subagent/worker results improve throughput without weakening main-agent acceptance, verification, or commit ownership.
