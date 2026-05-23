@@ -54,7 +54,7 @@ interface GlimpseFallbackDiagnostic {
 let lastGlimpseFallbackDiagnostic: GlimpseFallbackDiagnostic | null = null;
 
 interface GlimpseModule {
-  prompt: (
+  open: (
     html: string,
     options: {
       width: number;
@@ -63,7 +63,22 @@ interface GlimpseModule {
       floating?: boolean;
       openLinks?: boolean;
     },
-  ) => Promise<GlimpsePromptResult | null>;
+  ) => GlimpseWindow;
+}
+
+interface GlimpseWindow {
+  on(event: "message", listener: (data: unknown) => void): this;
+  on(event: "closed", listener: () => void): this;
+  on(event: "error", listener: (error: Error) => void): this;
+  removeListener(event: "message", listener: (data: unknown) => void): this;
+  removeListener(event: "closed", listener: () => void): this;
+  removeListener(event: "error", listener: (error: Error) => void): this;
+  close(): void;
+}
+
+interface PlanReviewDependencies {
+  importGlimpse: () => Promise<GlimpseModule>;
+  startServer: (planContent: string) => Promise<PlanServerResult | null>;
 }
 
 export function registerPlanReviewTool(api: ExtensionAPI): void {
@@ -229,18 +244,32 @@ export function registerPlanReviewTool(api: ExtensionAPI): void {
 
 export async function requestGlimpsePlanReview(
   planContent: string,
+  deps: PlanReviewDependencies = {
+    importGlimpse: async () => (await import("glimpseui")) as GlimpseModule,
+    startServer: startNativePlanReviewServer,
+  },
 ): Promise<PlanReviewResult | null> {
   lastGlimpseFallbackDiagnostic = null;
   let glimpse: GlimpseModule;
   try {
-    glimpse = (await import("glimpseui")) as GlimpseModule;
+    glimpse = await deps.importGlimpse();
   } catch (err) {
     recordGlimpseFallback("glimpse-import", err);
     return null;
   }
 
-  const server = await startNativePlanReviewServer(planContent);
+  const server = await deps.startServer(planContent);
   if (!server) return null;
+
+  let window: GlimpseWindow | null = null;
+  const closeWindow = (): void => {
+    const windowToClose = window;
+    window = null;
+    if (!windowToClose) return;
+    try {
+      windowToClose.close();
+    } catch {}
+  };
 
   try {
     const decisionPromise = server
@@ -253,21 +282,26 @@ export async function requestGlimpsePlanReview(
         recordGlimpseFallback("native-decision", err);
         return { type: "prompt" as const, result: null };
       });
-    const promptPromise = glimpse
-      .prompt(buildGlimpsePlanReviewHtml(server.url), {
-        width: 1200,
-        height: 860,
-        title: "Review GedPi plan",
-        floating: true,
-        openLinks: true,
-      })
-      .then((result) => ({ type: "prompt" as const, result }));
+
+    window = glimpse.open(buildGlimpsePlanReviewHtml(server.url), {
+      width: 1200,
+      height: 860,
+      title: "Review GedPi plan",
+      floating: true,
+      openLinks: true,
+    });
+    const promptPromise = waitForGlimpsePromptResult(window).then((result) => ({
+      type: "prompt" as const,
+      result,
+    }));
 
     const result = await Promise.race([decisionPromise, promptPromise]);
     if (result.type === "decision") {
+      closeWindow();
       return normalizePlanReviewResult(result.decision);
     }
 
+    closeWindow();
     recordGlimpseFallback(
       "prompt-closed",
       result.result?.fallback
@@ -281,6 +315,47 @@ export async function requestGlimpsePlanReview(
   } finally {
     setTimeout(() => server.stop(), 1500);
   }
+}
+
+function waitForGlimpsePromptResult(
+  window: GlimpseWindow,
+): Promise<GlimpsePromptResult | null> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const cleanup = (): void => {
+      window.removeListener("message", onMessage);
+      window.removeListener("closed", onClosed);
+      window.removeListener("error", onError);
+    };
+
+    const settle = (result: GlimpsePromptResult | null): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    const onMessage = (data: unknown): void => {
+      const result = data as GlimpsePromptResult;
+      if (result?.fallback) {
+        settle(result);
+      }
+    };
+
+    const onClosed = (): void => settle(null);
+
+    const onError = (error: Error): void => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(error);
+    };
+
+    window.on("message", onMessage);
+    window.on("closed", onClosed);
+    window.on("error", onError);
+  });
 }
 
 async function startNativePlanReviewServer(

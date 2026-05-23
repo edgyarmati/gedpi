@@ -1,8 +1,10 @@
-import { describe, expect, test } from "vitest";
+import { EventEmitter } from "node:events";
+import { describe, expect, type Mock, test, vi } from "vitest";
 
 import {
   buildGlimpsePlanReviewHtml,
   importPlannotatorServer,
+  requestGlimpsePlanReview,
 } from "../src/plan-review.js";
 
 describe("Glimpse plan review", () => {
@@ -32,5 +34,62 @@ describe("Glimpse plan review", () => {
     expect(html).not.toContain("Deny / request changes");
     expect(html).not.toContain("Feedback / notes");
     expect(html).not.toContain("<pre>");
+  });
+
+  test("closes the Glimpse window when the embedded review returns a decision", async () => {
+    const window = new EventEmitter() as EventEmitter & {
+      close: Mock;
+    };
+    window.close = vi.fn();
+    const stop = vi.fn();
+
+    const decision = await requestGlimpsePlanReview("plan", {
+      importGlimpse: async () => ({
+        open: () => window,
+      }),
+      startServer: async () => ({
+        reviewId: "review-1",
+        url: "http://127.0.0.1:48123/",
+        waitForDecision: async () => ({
+          approved: true,
+          feedback: " looks good ",
+        }),
+        stop,
+      }),
+    });
+
+    expect(decision).toEqual({
+      approved: true,
+      feedback: "looks good",
+      savedPath: undefined,
+      agentSwitch: undefined,
+      permissionMode: undefined,
+    });
+    expect(window.close).toHaveBeenCalledTimes(1);
+  });
+
+  test("returns null for Glimpse browser fallback messages", async () => {
+    const window = new EventEmitter() as EventEmitter & {
+      close: Mock;
+    };
+    window.close = vi.fn();
+
+    const decision = requestGlimpsePlanReview("plan", {
+      importGlimpse: async () => ({
+        open: () => {
+          setTimeout(() => window.emit("message", { fallback: true }), 0);
+          return window;
+        },
+      }),
+      startServer: async () => ({
+        reviewId: "review-1",
+        url: "http://127.0.0.1:48123/",
+        waitForDecision: () => new Promise(() => {}),
+        stop: vi.fn(),
+      }),
+    });
+
+    await expect(decision).resolves.toBeNull();
+    expect(window.close).toHaveBeenCalledTimes(1);
   });
 });
