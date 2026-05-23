@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.19.0 - 2026-05-23
+
 ### Dependencies
 
 - Replaced the legacy `@tintinweb/pi-subagents` dependency with pinned `pi-subagents` 0.25.0 and `pi-intercom` 0.6.0, including compatibility aliases for the older `@mariozechner/*` peer names used by `pi-intercom`.
