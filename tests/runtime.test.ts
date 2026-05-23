@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { describe, expect, test } from "vitest";
 import packageJson from "../package.json" with { type: "json" };
+import packageLock from "../package-lock.json" with { type: "json" };
 import { prepareNextTaskDispatch } from "../src/work.js";
 import { initializeGedProject, planGedProject } from "../src/workflow.js";
 
@@ -12,6 +13,33 @@ async function createTempProject(prefix: string): Promise<string> {
 }
 
 describe("Ged runtime flow", () => {
+  test("bundles Codex conversion adapter with an exact lock", () => {
+    expect(packageJson.dependencies).toMatchObject({
+      "@howaboua/pi-codex-conversion": "1.5.13",
+    });
+    expect(packageJson.pi.extensions).toEqual(
+      expect.arrayContaining([
+        "./node_modules/@howaboua/pi-codex-conversion/src/index.ts",
+      ]),
+    );
+
+    const rootPackage = packageLock.packages[""];
+    expect(rootPackage?.dependencies).toMatchObject({
+      "@howaboua/pi-codex-conversion": "1.5.13",
+    });
+
+    const codexPackage =
+      packageLock.packages["node_modules/@howaboua/pi-codex-conversion"];
+    expect(codexPackage).toMatchObject({
+      version: "1.5.13",
+      resolved: expect.stringContaining(
+        "@howaboua/pi-codex-conversion/-/pi-codex-conversion-1.5.13.tgz",
+      ),
+      integrity:
+        "sha512-JvanGVIikldRL4C+3aWJ1ncVOV7ecxwI3nSny/BAK8hQABK8UTZSuuzDLxhyDPchbQu/Z5z7lWMHIY7cvO9ruQ==",
+    });
+  });
+
   test("bundles tintinweb subagents without default pi-intercom", () => {
     expect(packageJson.dependencies).toMatchObject({
       "@tintinweb/pi-subagents": expect.any(String),
@@ -40,7 +68,7 @@ describe("Ged runtime flow", () => {
   test("configured Pi extension paths exist", async () => {
     await Promise.all(
       packageJson.pi.extensions
-        .filter((extensionPath) => extensionPath.includes("pi-subagents"))
+        .filter((extensionPath) => extensionPath.includes("node_modules"))
         .map((extensionPath) =>
           expect(access(path.resolve(extensionPath))).resolves.toBeUndefined(),
         ),
