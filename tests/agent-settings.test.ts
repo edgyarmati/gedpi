@@ -218,8 +218,9 @@ describe("Ged optional agent settings", () => {
         "ged-planner": "openai/gpt-5.5",
       },
     });
+    const homeDir = await tempDir("ged-agent-sync-home-");
 
-    await syncGedSubagentRuntimeConfig(rootDir);
+    await syncGedSubagentRuntimeConfig(rootDir, { homeDir });
 
     const explorer = await readFile(
       path.join(rootDir, ".pi", "agents", "ged-explorer.md"),
@@ -268,8 +269,9 @@ describe("Ged optional agent settings", () => {
       enabled: true,
       models: { "ged-explorer": "openai/gpt-5-mini" },
     });
+    const homeDir = await tempDir("ged-agent-sync-home-");
 
-    await syncGedSubagentRuntimeConfig(rootDir);
+    await syncGedSubagentRuntimeConfig(rootDir, { homeDir });
 
     const jiti = createJiti(import.meta.url);
     const agentsModule = await jiti.import<{

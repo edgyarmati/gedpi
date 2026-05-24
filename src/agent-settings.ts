@@ -70,6 +70,7 @@ export interface ModelAvailability {
 }
 
 export interface SyncGedSubagentRuntimeOptions {
+  homeDir?: string;
   modelAvailability?: ModelAvailability;
 }
 
@@ -739,9 +740,11 @@ async function disableLegacyGedBrainSubagent(rootDir: string): Promise<void> {
 
 export async function syncGedSubagentRuntimeConfig(
   rootDir: string,
-  _options: SyncGedSubagentRuntimeOptions = {},
+  options: SyncGedSubagentRuntimeOptions = {},
 ): Promise<void> {
-  const effective = await readEffectiveGedAgentsSettings(rootDir);
+  const effective = await readEffectiveGedAgentsSettings(rootDir, {
+    homeDir: options.homeDir,
+  });
   await ensureIgnoredInGitignore(rootDir, ".gedoc/");
   await ensureIgnoredInGitignore(rootDir, ".gedcode/");
   await ensurePiSubagentSuppression(rootDir);
