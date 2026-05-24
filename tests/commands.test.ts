@@ -631,6 +631,58 @@ describe("Ged command surface", () => {
     expect(roleMenus.planner).not.toContain("Enable role");
   });
 
+  test("ged-agents menu labels resolve inherited role enabled defaults", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    await writeGedAgentsSettings(projectGedSettingsPath(cwd), {
+      enabled: true,
+      roles: {
+        "ged-explorer": { model: "openai/gpt-5.5" },
+        "ged-worker": { model: "anthropic/claude-sonnet-4" },
+      },
+    });
+    const models = [{ provider: "openai", id: "gpt-5.5", name: "GPT" }];
+    let topLevelOptions: string[] = [];
+
+    await command?.execute({
+      cwd,
+      args: [],
+      runtime: {
+        pi: {} as never,
+        ctx: {
+          hasUI: true,
+          ui: {
+            select: async (title: string, options: string[]) => {
+              if (title === "Ged agent orchestration setup") {
+                topLevelOptions = options;
+              }
+              return title === "Set up Ged subagents"
+                ? "This project only"
+                : "Done";
+            },
+            custom: async () => models[0],
+            confirm: async () => true,
+            notify: () => {},
+          },
+          modelRegistry: {
+            getAvailable: () => models,
+            find: () => models[0],
+          },
+        } as never,
+      },
+    });
+
+    expect(topLevelOptions).toContain("ged-explorer: enabled; openai/gpt-5.5");
+    expect(topLevelOptions).not.toContain(
+      "ged-explorer: inherit; openai/gpt-5.5",
+    );
+    expect(topLevelOptions).toContain(
+      "ged-worker: disabled; anthropic/claude-sonnet-4",
+    );
+  });
+
   test("ged-agents setup cancels without writing at thinking selection", async () => {
     const command = createGedCommands().find(
       (candidate) => candidate.name === "ged-agents",

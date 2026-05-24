@@ -170,7 +170,11 @@ function roleSummary(settings: GedAgentsSettings, role: GedAgentRole): string {
   const roleSettings = settings.roles?.[role];
   const enabled = roleSettings?.enabled;
   const status =
-    enabled === false ? "disabled" : enabled === true ? "enabled" : "inherit";
+    enabled === false
+      ? "disabled"
+      : enabled === true || role !== "ged-worker"
+        ? "enabled"
+        : "disabled";
   const config = configuredRoleModel(settings, role);
   return `${role}: ${status}; ${modelSummary(config)}`;
 }

@@ -6,6 +6,7 @@
 
 - Hardened GedPi worker orchestration prompts so optional workers require a main-agent suitability check and verifier findings are fixed directly by the main agent by default.
 - Improved `/ged-agents` so the bare command opens the interactive status/configuration menu in UI sessions, with guided model/thinking/fallback setup and safer role toggles.
+- Fixed `/ged-agents` role labels so configured default-enabled roles show `enabled` instead of `inherit` as their status.
 
 ## 0.19.0 - 2026-05-23
 
