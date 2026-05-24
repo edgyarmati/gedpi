@@ -94,7 +94,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/update` | Check for GedPi updates |
 | `/grill-me` | Start an explicit one-question-at-a-time clarification session, or record why clarification is skipped as sufficient |
 | `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |
-| `/ged-agents` | Configure Ged subagents, role models, thinking levels, ordered fallbacks, critique mode, intercom, and optional workers (`/ged-agents setup advanced` opens the role-aware flow) |
+| `/ged-agents` | Open the interactive subagent setup menu in UI sessions; configure role models, thinking levels, ordered fallbacks, critique mode, intercom, and optional workers. Use `/ged-agents status` for text status. |
 | `/ged-settings` | Configure workflow preferences, including accepted-plan review: no extra review, chat approval, or visual approval (Glimpse preferred, browser fallback) |
 
 ### Auto-Updater

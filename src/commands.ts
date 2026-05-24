@@ -47,11 +47,6 @@ type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 type ThinkingChoice = ThinkingLevel | "inherit";
 type ThinkingPickerResult = ThinkingChoice | "cancel";
 
-type RoleSetupConfig = {
-  model: string;
-  thinking?: ThinkingLevel;
-};
-
 // ─── Scope helpers ─────────────────────────────────────────────────────
 
 function resolveScope(args: string[]): {
@@ -110,13 +105,6 @@ function modelAvailabilityFromRegistry(
 
 // ─── Settings I/O ──────────────────────────────────────────────────────
 
-function withThinking(
-  config: { model: string; fallback: string[] },
-  thinking: ThinkingLevel | undefined,
-): AgentModelConfig {
-  return thinking ? { ...config, thinking } : config;
-}
-
 function roleModelObject(
   value: AgentModelConfig | undefined,
 ): Record<string, unknown> {
@@ -160,12 +148,6 @@ function setRoleModelInSettings(
   };
 }
 
-function formatRoleSetup(config: RoleSetupConfig): string {
-  return config.thinking
-    ? `${config.model} [thinking: ${config.thinking}]`
-    : `${config.model} [thinking: inherit/default]`;
-}
-
 function formatThinkingTag(config: AgentModelConfig | undefined): string {
   if (!config || typeof config === "string") return "";
   if (typeof config.thinking !== "string") return "";
@@ -173,6 +155,28 @@ function formatThinkingTag(config: AgentModelConfig | undefined): string {
   return THINKING_LEVELS.includes(thinking as ThinkingLevel)
     ? ` [thinking: ${thinking}]`
     : "";
+}
+
+function modelSummary(config: AgentModelConfig | undefined): string {
+  if (!config) return "inherit";
+  if (typeof config === "string") return config;
+  const fallback = Array.isArray(config.fallback)
+    ? config.fallback.filter((item): item is string => typeof item === "string")
+    : [];
+  return `${config.model}${formatThinkingTag(config)}${fallback.length > 0 ? ` → ${fallback.join(" → ")}` : ""}`;
+}
+
+function roleSummary(settings: GedAgentsSettings, role: GedAgentRole): string {
+  const roleSettings = settings.roles?.[role];
+  const enabled = roleSettings?.enabled;
+  const status =
+    enabled === false ? "disabled" : enabled === true ? "enabled" : "inherit";
+  const config = configuredRoleModel(settings, role);
+  return `${role}: ${status}; ${modelSummary(config)}`;
+}
+
+function defaultSummary(settings: GedAgentsSettings): string {
+  return `Default model: ${modelSummary(settings.defaultModel)}`;
 }
 
 async function setAgentModel(
@@ -217,99 +221,6 @@ async function setAgentModel(
     return `Cleared ${roleLabel} from ${scopeLabel} settings.`;
   }
   return `Set ${roleLabel} to \`${modelId}\` in ${scopeLabel} settings.`;
-}
-
-async function applyAgentConfig(
-  cwd: string,
-  targetPath: string,
-  config: {
-    explorer?: RoleSetupConfig;
-    planner?: RoleSetupConfig;
-    verifier?: RoleSetupConfig;
-  },
-  availability?: ModelAvailability,
-): Promise<string> {
-  const filePath = resolveTargetPath(cwd, targetPath);
-  const existing = await readGedRuntimeSettings(filePath);
-  const next: GedAgentsSettings = { ...(existing.agents ?? {}), enabled: true };
-
-  const models: Partial<Record<GedAgentRole, AgentModelConfig>> = {};
-
-  function buildConfig(
-    roleConfig: RoleSetupConfig | undefined,
-  ): AgentModelConfig | undefined {
-    if (!roleConfig) return undefined;
-    const primary = roleConfig.model;
-    const provider = primary.split("/")[0];
-    if (provider === "openai") {
-      return withThinking(
-        {
-          model: primary,
-          fallback: ["anthropic/claude-opus-4.7", "deepseek/deepseek-v4-pro"],
-        },
-        roleConfig.thinking,
-      );
-    }
-    if (provider === "anthropic") {
-      return withThinking(
-        {
-          model: primary,
-          fallback: ["openai/gpt-5.5", "deepseek/deepseek-v4-pro"],
-        },
-        roleConfig.thinking,
-      );
-    }
-    if (provider === "deepseek") {
-      return withThinking(
-        {
-          model: primary,
-          fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
-        },
-        roleConfig.thinking,
-      );
-    }
-    return withThinking(
-      {
-        model: primary,
-        fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
-      },
-      roleConfig.thinking,
-    );
-  }
-
-  if (config.explorer) {
-    const cfg = buildConfig(config.explorer);
-    if (cfg) models["ged-explorer"] = cfg;
-  }
-  if (config.planner) {
-    const cfg = buildConfig(config.planner);
-    if (cfg) models["ged-planner"] = cfg;
-  }
-  if (config.verifier) {
-    const cfg = buildConfig(config.verifier);
-    if (cfg) models["ged-verifier"] = cfg;
-  }
-
-  if (Object.keys(models).length > 0) {
-    next.models = models;
-  }
-
-  await writeGedAgentsSettings(filePath, next);
-  await syncGedSubagentRuntimeConfig(cwd, { modelAvailability: availability });
-
-  const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
-  const lines = [
-    `Ged subagents enabled for this ${scopeLabel}.`,
-    "",
-    config.explorer ? `- Explorer: ${formatRoleSetup(config.explorer)}` : "",
-    config.planner ? `- Planner: ${formatRoleSetup(config.planner)}` : "",
-    config.verifier ? `- Verifier: ${formatRoleSetup(config.verifier)}` : "",
-    "- Fallback chains: enabled",
-    "",
-    "Run `/ged-agents status` to review.",
-  ].filter(Boolean);
-
-  return lines.join("\n");
 }
 
 // ─── Formatters ────────────────────────────────────────────────────────
@@ -382,95 +293,6 @@ async function pickThinkingLevel(
   return choice.toLowerCase() as ThinkingLevel;
 }
 
-function selectedThinking(
-  choice: ThinkingPickerResult,
-): ThinkingLevel | undefined {
-  return choice === "inherit" || choice === "cancel" ? undefined : choice;
-}
-
-async function runInteractiveSetup(ctx: AppCommandContext): Promise<string> {
-  const ui = ctx.runtime?.ctx.ui;
-  const registry = ctx.runtime?.ctx.modelRegistry;
-  if (!ui || !registry) {
-    return formatCompactSetup();
-  }
-
-  // Step 1: Scope
-  const scopeChoice = await ui.select("Set up Ged subagents", [
-    "This project only",
-    "Globally",
-    "Cancel",
-  ]);
-  if (!scopeChoice || scopeChoice === "Cancel") {
-    return "Setup cancelled.";
-  }
-  const targetPath = scopeChoice === "This project only" ? "PROJECT" : "GLOBAL";
-  const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
-
-  // Step 2–4: Live fuzzy-search model pickers with thinking choices
-  const explorerModel = await pickModel(ui, registry, "Explorer model");
-  if (explorerModel === null) return "Setup cancelled.";
-  const explorerThinking = await pickThinkingLevel(
-    ui,
-    "Explorer thinking level",
-  );
-  if (explorerThinking === "cancel") return "Setup cancelled.";
-
-  const plannerModel = await pickModel(ui, registry, "Planner model");
-  if (plannerModel === null) return "Setup cancelled.";
-  const plannerThinking = await pickThinkingLevel(ui, "Planner thinking level");
-  if (plannerThinking === "cancel") return "Setup cancelled.";
-
-  const verifierModel = await pickModel(ui, registry, "Verifier model");
-  if (verifierModel === null) return "Setup cancelled.";
-  const verifierThinking = await pickThinkingLevel(
-    ui,
-    "Verifier thinking level",
-  );
-  if (verifierThinking === "cancel") return "Setup cancelled.";
-
-  // Step 5: Confirmation
-  const summary = [
-    `Scope: ${scopeLabel}`,
-    "",
-    `Explorer: ${formatRoleSetup({ model: formatModelRef(explorerModel), thinking: selectedThinking(explorerThinking) })}`,
-    `Planner: ${formatRoleSetup({ model: formatModelRef(plannerModel), thinking: selectedThinking(plannerThinking) })}`,
-    `Verifier: ${formatRoleSetup({ model: formatModelRef(verifierModel), thinking: selectedThinking(verifierThinking) })}`,
-    "",
-    "Fallback chains will be enabled automatically.",
-  ].join("\n");
-
-  const confirmed = await ui.confirm("Apply Ged subagent setup?", summary);
-  if (!confirmed) {
-    return "Setup cancelled.";
-  }
-
-  // Step 6: Apply
-  const result = await applyAgentConfig(
-    ctx.cwd,
-    targetPath,
-    {
-      explorer: {
-        model: formatModelRef(explorerModel),
-        thinking: selectedThinking(explorerThinking),
-      },
-      planner: {
-        model: formatModelRef(plannerModel),
-        thinking: selectedThinking(plannerThinking),
-      },
-      verifier: {
-        model: formatModelRef(verifierModel),
-        thinking: selectedThinking(verifierThinking),
-      },
-    },
-    modelAvailabilityFromRegistry(registry),
-  );
-
-  ui.notify("Ged subagents configured", "info");
-
-  return result;
-}
-
 async function runInteractiveAdvancedSetup(
   ctx: AppCommandContext,
 ): Promise<string> {
@@ -485,9 +307,11 @@ async function runInteractiveAdvancedSetup(
   ]);
   if (!scopeChoice || scopeChoice === "Cancel") return "Setup cancelled.";
   const targetPath = scopeChoice === "This project only" ? "PROJECT" : "GLOBAL";
+  const scopeLabel = targetPath === "PROJECT" ? "project" : "global";
   const filePath = resolveTargetPath(ctx.cwd, targetPath);
   const existing = await readGedRuntimeSettings(filePath);
-  let next: GedAgentsSettings = { ...(existing.agents ?? {}), enabled: true };
+  let next: GedAgentsSettings = { ...(existing.agents ?? {}) };
+  let dirty = false;
 
   const ensureRole = (role: GedAgentRole): Record<string, unknown> => {
     const roles = { ...(next.roles ?? {}) };
@@ -506,27 +330,140 @@ async function runInteractiveAdvancedSetup(
     return current;
   };
 
-  const addFallback = (role: GedAgentRole, modelId: string) => {
-    const roleSettings = ensureRole(role);
-    const fallback = Array.isArray(roleSettings.fallback)
-      ? roleSettings.fallback.filter(
+  const defaultConfig = (): Record<string, unknown> =>
+    roleModelObject(next.defaultModel);
+
+  const setDefaultConfig = (config: Record<string, unknown>) => {
+    next.defaultModel =
+      typeof config.model === "string"
+        ? (config as AgentModelConfig)
+        : next.defaultModel;
+  };
+
+  const addFallbackToConfig = (
+    config: Record<string, unknown>,
+    modelId: string,
+  ) => {
+    const fallback = Array.isArray(config.fallback)
+      ? config.fallback.filter(
           (item): item is string => typeof item === "string",
         )
       : [];
-    roleSettings.fallback = [...new Set([...fallback, modelId])];
+    config.fallback = [...new Set([...fallback, modelId])];
+  };
+
+  const promptForFallbacks = async (
+    config: Record<string, unknown>,
+    titlePrefix: string,
+  ): Promise<boolean> => {
+    while (true) {
+      const add = await ui.select(`${titlePrefix}: add fallback?`, [
+        "Yes",
+        "No",
+        "Cancel",
+      ]);
+      if (add === "Cancel" || !add) return false;
+      if (add === "No") return true;
+      const fallback = await pickModel(
+        ui,
+        registry,
+        `${titlePrefix} fallback model`,
+      );
+      if (fallback === null) return false;
+      addFallbackToConfig(config, formatModelRef(fallback));
+    }
+  };
+
+  const configureModel = async (
+    target: "default" | GedAgentRole,
+  ): Promise<boolean> => {
+    const label = target === "default" ? "Default model" : `${target} model`;
+    const model = await pickModel(ui, registry, label);
+    if (model === null) return false;
+    const thinking = await pickThinkingLevel(ui, `${label} thinking level`);
+    if (thinking === "cancel") return false;
+    const config =
+      target === "default" ? defaultConfig() : { ...ensureRole(target) };
+    config.model = formatModelRef(model);
+    if (thinking === "inherit") delete config.thinking;
+    else config.thinking = thinking;
+    const fallbackComplete = await promptForFallbacks(config, label);
+    if (!fallbackComplete) return false;
+    if (target === "default") setDefaultConfig(config);
+    else Object.assign(ensureRole(target), config);
+    dirty = true;
+    return true;
+  };
+
+  const addFallbacks = async (
+    target: "default" | GedAgentRole,
+  ): Promise<boolean> => {
+    const config =
+      target === "default" ? defaultConfig() : { ...ensureRole(target) };
+    const ok = await promptForFallbacks(
+      config,
+      target === "default" ? "Default model" : `${target} fallback`,
+    );
+    if (!ok) return false;
+    if (target === "default") setDefaultConfig(config);
+    else Object.assign(ensureRole(target), config);
+    dirty = true;
+    return true;
   };
 
   while (true) {
     const choice = await ui.select("Ged agent orchestration setup", [
-      "Intercom bridge",
-      "Critique mode",
-      ...GED_AGENT_ROLES,
+      `Subagents: ${next.enabled ? "enabled" : "disabled"}`,
+      `${defaultSummary(next)}`,
+      `Intercom bridge: ${next.intercomBridge === false ? "disabled" : "enabled"}`,
+      `Critique mode: ${next.critiqueMode ?? "risk-based"}`,
+      ...GED_AGENT_ROLES.map((role) => roleSummary(next, role)),
       "Done",
       "Cancel",
     ]);
     if (!choice || choice === "Cancel") return "Setup cancelled.";
     if (choice === "Done") break;
-    if (choice === "Intercom bridge") {
+    if (choice.startsWith("Subagents:")) {
+      next.enabled = !next.enabled;
+      dirty = true;
+      continue;
+    }
+    if (choice.startsWith("Default model:")) {
+      const hasDefaultModel = Boolean(defaultConfig().model);
+      const action = await ui.select(
+        `Configure default model (${scopeLabel})`,
+        [
+          "Set model",
+          ...(hasDefaultModel
+            ? ["Set thinking", "Add fallback", "Clear fallbacks"]
+            : []),
+          "Back",
+        ],
+      );
+      if (!action || action === "Back") continue;
+      const config = defaultConfig();
+      if (action === "Set model") {
+        if (!(await configureModel("default"))) return "Setup cancelled.";
+      } else if (action === "Set thinking") {
+        const thinking = await pickThinkingLevel(
+          ui,
+          "Default model thinking level",
+        );
+        if (thinking === "cancel") return "Setup cancelled.";
+        if (thinking === "inherit") delete config.thinking;
+        else config.thinking = thinking;
+        setDefaultConfig(config);
+        dirty = true;
+      } else if (action === "Add fallback") {
+        if (!(await addFallbacks("default"))) return "Setup cancelled.";
+      } else if (action === "Clear fallbacks") {
+        delete config.fallback;
+        setDefaultConfig(config);
+        dirty = true;
+      }
+      continue;
+    }
+    if (choice.startsWith("Intercom bridge:")) {
       const bridge = await ui.select("Intercom bridge", [
         "Enabled",
         "Disabled",
@@ -534,9 +471,10 @@ async function runInteractiveAdvancedSetup(
       ]);
       if (bridge === "Enabled") next.intercomBridge = true;
       if (bridge === "Disabled") next.intercomBridge = false;
+      if (bridge === "Enabled" || bridge === "Disabled") dirty = true;
       continue;
     }
-    if (choice === "Critique mode") {
+    if (choice.startsWith("Critique mode:")) {
       const mode = await ui.select("Critique mode", [
         "off",
         "risk-based",
@@ -549,42 +487,58 @@ async function runInteractiveAdvancedSetup(
         GED_CRITIQUE_MODES.includes(mode as never)
       ) {
         next.critiqueMode = mode as GedAgentsSettings["critiqueMode"];
+        dirty = true;
       }
       continue;
     }
-    if (!GED_AGENT_ROLES.includes(choice as GedAgentRole)) continue;
-    const role = choice as GedAgentRole;
-    const action = await ui.select(`Configure ${role}`, [
-      "Enable role",
-      "Disable role",
-      "Set model",
-      "Set thinking",
-      "Add fallback",
-      "Clear fallbacks",
-      ...(role === "ged-worker"
-        ? ["Worker max parallel", "Worker worktree"]
-        : []),
-      "Back",
-    ]);
+    const role = GED_AGENT_ROLES.find((candidate) =>
+      choice.startsWith(`${candidate}:`),
+    );
+    if (!role) continue;
+    const roleSettingsForMenu = {
+      ...roleModelObject(next.models?.[role]),
+      ...(next.roles?.[role] ?? {}),
+    };
+    const roleEnabled =
+      typeof roleSettingsForMenu.enabled === "boolean"
+        ? roleSettingsForMenu.enabled
+        : role !== "ged-worker";
+    const hasRoleModel = typeof roleSettingsForMenu.model === "string";
+    const action = await ui.select(
+      `Configure ${role} (${roleSummary(next, role)})`,
+      [
+        roleEnabled ? "Disable role" : "Enable role",
+        "Set model",
+        ...(hasRoleModel
+          ? ["Set thinking", "Add fallback", "Clear fallbacks"]
+          : []),
+        ...(role === "ged-worker"
+          ? ["Worker max parallel", "Worker worktree"]
+          : []),
+        "Back",
+      ],
+    );
     if (!action || action === "Back") continue;
     const roleSettings = ensureRole(role);
-    if (action === "Enable role") roleSettings.enabled = true;
-    else if (action === "Disable role") roleSettings.enabled = false;
-    else if (action === "Set model") {
-      const model = await pickModel(ui, registry, `${role} model`);
-      if (model === null) return "Setup cancelled.";
-      roleSettings.model = formatModelRef(model);
+    if (action === "Enable role") {
+      roleSettings.enabled = true;
+      dirty = true;
+    } else if (action === "Disable role") {
+      roleSettings.enabled = false;
+      dirty = true;
+    } else if (action === "Set model") {
+      if (!(await configureModel(role))) return "Setup cancelled.";
     } else if (action === "Set thinking") {
       const thinking = await pickThinkingLevel(ui, `${role} thinking level`);
       if (thinking === "cancel") return "Setup cancelled.";
       if (thinking === "inherit") delete roleSettings.thinking;
       else roleSettings.thinking = thinking;
+      dirty = true;
     } else if (action === "Add fallback") {
-      const model = await pickModel(ui, registry, `${role} fallback model`);
-      if (model === null) return "Setup cancelled.";
-      addFallback(role, formatModelRef(model));
+      if (!(await addFallbacks(role))) return "Setup cancelled.";
     } else if (action === "Clear fallbacks") {
       delete roleSettings.fallback;
+      dirty = true;
     } else if (action === "Worker max parallel") {
       const value = await ui.select("Worker max parallel", [
         "1",
@@ -593,17 +547,28 @@ async function runInteractiveAdvancedSetup(
         "4",
         "Back",
       ]);
-      if (value && value !== "Back") roleSettings.maxParallel = Number(value);
+      if (value && value !== "Back") {
+        roleSettings.maxParallel = Number(value);
+        dirty = true;
+      }
     } else if (action === "Worker worktree") {
       const value = await ui.select("Worker worktree isolation", [
         "Preferred",
         "Optional",
         "Back",
       ]);
-      if (value === "Preferred") roleSettings.preferWorktreeIsolation = true;
-      if (value === "Optional") roleSettings.preferWorktreeIsolation = false;
+      if (value === "Preferred") {
+        roleSettings.preferWorktreeIsolation = true;
+        dirty = true;
+      }
+      if (value === "Optional") {
+        roleSettings.preferWorktreeIsolation = false;
+        dirty = true;
+      }
     }
   }
+
+  if (!dirty) return "Ged advanced subagent setup unchanged.";
 
   await writeGedAgentsSettings(filePath, next);
   await syncGedSubagentRuntimeConfig(ctx.cwd, {
@@ -622,6 +587,10 @@ async function executeGedAgentsCommand(
 ): Promise<string> {
   const [action = "status", ...rest] = args;
 
+  if (args.length === 0 && ctx?.runtime?.ctx.hasUI) {
+    return await runInteractiveAdvancedSetup({ ...ctx, cwd });
+  }
+
   if (action === "status") {
     return formatGedAgentsStatus(await readEffectiveGedAgentsSettings(cwd));
   }
@@ -632,8 +601,7 @@ async function executeGedAgentsCommand(
 
   if (action === "setup") {
     if (ctx?.runtime?.ctx.hasUI) {
-      if (rest[0] === "advanced") return await runInteractiveAdvancedSetup(ctx);
-      return await runInteractiveSetup(ctx);
+      return await runInteractiveAdvancedSetup(ctx);
     }
     return formatCompactSetup();
   }

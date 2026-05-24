@@ -373,18 +373,20 @@ describe("Ged command surface", () => {
     ];
     const selectResponses = [
       "This project only",
-      "Intercom bridge",
+      "Subagents:",
+      "Intercom bridge:",
       "Disabled",
-      "ged-worker",
+      "ged-worker:",
       "Enable role",
-      "ged-worker",
+      "ged-worker:",
       "Set model",
-      "ged-worker",
-      "Add fallback",
-      "ged-worker",
+      "Low",
+      "Yes",
+      "No",
+      "ged-worker:",
       "Worker max parallel",
       "3",
-      "ged-worker",
+      "ged-worker:",
       "Worker worktree",
       "Preferred",
       "Done",
@@ -399,7 +401,12 @@ describe("Ged command surface", () => {
         ctx: {
           hasUI: true,
           ui: {
-            select: async () => selectResponses.shift(),
+            select: async (_title: string, options: string[]) => {
+              const response = selectResponses.shift();
+              return options.find((option) =>
+                option.startsWith(response ?? ""),
+              );
+            },
             custom: async () => models[customIndex++],
             confirm: async () => true,
             notify: () => {},
@@ -424,6 +431,7 @@ describe("Ged command surface", () => {
         "ged-worker": {
           enabled: true,
           model: "openai/gpt-5.5",
+          thinking: "low",
           fallback: ["anthropic/claude-opus-4.7"],
           maxParallel: 3,
           preferWorktreeIsolation: true,
@@ -432,7 +440,7 @@ describe("Ged command surface", () => {
     });
   });
 
-  test("ged-agents setup stores selected thinking levels", async () => {
+  test("ged-agents opens a guided menu from the bare command", async () => {
     const command = createGedCommands().find(
       (candidate) => candidate.name === "ged-agents",
     );
@@ -444,34 +452,33 @@ describe("Ged command surface", () => {
     ];
     const selectResponses = [
       "This project only",
-      "Inherit/default",
+      "Subagents:",
+      "ged-planner:",
+      "Set model",
       "Low",
-      "Off",
+      "Yes",
+      "Yes",
+      "No",
+      "Done",
     ];
     let customIndex = 0;
 
     const result = await command?.execute({
       cwd,
-      args: ["setup"],
+      args: [],
       runtime: {
         pi: {} as never,
         ctx: {
           hasUI: true,
           ui: {
-            select: async () => selectResponses.shift(),
-            custom: async () => models[customIndex++],
-            confirm: async (_title: string, summary: string) => {
-              expect(summary).toContain(
-                "Explorer: deepseek/deepseek-v4-flash [thinking: inherit/default]",
+            select: async (_title: string, options: string[]) => {
+              const response = selectResponses.shift();
+              return options.find((option) =>
+                option.startsWith(response ?? ""),
               );
-              expect(summary).toContain(
-                "Planner: openai/gpt-5.5 [thinking: low]",
-              );
-              expect(summary).toContain(
-                "Verifier: anthropic/claude-opus-4.7 [thinking: off]",
-              );
-              return true;
             },
+            custom: async () => models[customIndex++],
+            confirm: async () => true,
             notify: () => {},
           },
           modelRegistry: {
@@ -485,24 +492,143 @@ describe("Ged command surface", () => {
       },
     });
 
-    expect(result).toContain("Planner: openai/gpt-5.5 [thinking: low]");
-    expect(result).toContain(
-      "Verifier: anthropic/claude-opus-4.7 [thinking: off]",
-    );
+    expect(result).toContain("advanced subagent setup saved");
 
     const settings = await readGedRuntimeSettings(projectGedSettingsPath(cwd));
-    expect(settings.agents?.models?.["ged-explorer"]).toEqual({
+    expect(settings.agents?.enabled).toBe(true);
+    expect(settings.agents?.roles?.["ged-planner"]).toMatchObject({
       model: "deepseek/deepseek-v4-flash",
+      thinking: "low",
       fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
     });
-    expect(settings.agents?.models?.["ged-planner"]).toMatchObject({
-      model: "openai/gpt-5.5",
-      thinking: "low",
+    expect(settings.agents?.roles?.["ged-worker"]?.enabled).toBeUndefined();
+  });
+
+  test("ged-agents status remains text-only in UI sessions", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    let selectCalled = false;
+
+    const result = await command?.execute({
+      cwd,
+      args: ["status"],
+      runtime: {
+        pi: {} as never,
+        ctx: {
+          hasUI: true,
+          ui: {
+            select: async () => {
+              selectCalled = true;
+              return "Cancel";
+            },
+            custom: async () => null,
+            confirm: async () => false,
+            notify: () => {},
+          },
+        } as never,
+      },
     });
-    expect(settings.agents?.models?.["ged-verifier"]).toMatchObject({
-      model: "anthropic/claude-opus-4.7",
-      thinking: "off",
+
+    expect(selectCalled).toBe(false);
+    expect(result).toContain("Subagents:");
+  });
+
+  test("ged-agents menu exits without enabling subagents or worker", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    const models = [{ provider: "openai", id: "gpt-5.5", name: "GPT" }];
+    const selectResponses = ["This project only", "Done"];
+
+    const result = await command?.execute({
+      cwd,
+      args: [],
+      runtime: {
+        pi: {} as never,
+        ctx: {
+          hasUI: true,
+          ui: {
+            select: async (_title: string, options: string[]) => {
+              const response = selectResponses.shift();
+              return options.find((option) =>
+                option.startsWith(response ?? ""),
+              );
+            },
+            custom: async () => models[0],
+            confirm: async () => true,
+            notify: () => {},
+          },
+          modelRegistry: {
+            getAvailable: () => models,
+            find: () => models[0],
+          },
+        } as never,
+      },
     });
+
+    expect(result).toContain("unchanged");
+    const settings = await readGedRuntimeSettings(projectGedSettingsPath(cwd));
+    expect(settings.agents?.enabled).toBeUndefined();
+    expect(settings.agents?.roles?.["ged-worker"]?.enabled).toBeUndefined();
+  });
+
+  test("ged-agents role menus show only the relevant enable toggle", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+    const models = [{ provider: "openai", id: "gpt-5.5", name: "GPT" }];
+    const selectResponses = [
+      "This project only",
+      "ged-worker:",
+      "Back",
+      "ged-planner:",
+      "Back",
+      "Done",
+    ];
+    const roleMenus: Record<string, string[]> = {};
+
+    await command?.execute({
+      cwd,
+      args: ["setup", "advanced"],
+      runtime: {
+        pi: {} as never,
+        ctx: {
+          hasUI: true,
+          ui: {
+            select: async (title: string, options: string[]) => {
+              if (title.startsWith("Configure ged-worker")) {
+                roleMenus.worker = options;
+              }
+              if (title.startsWith("Configure ged-planner")) {
+                roleMenus.planner = options;
+              }
+              const response = selectResponses.shift();
+              return options.find((option) =>
+                option.startsWith(response ?? ""),
+              );
+            },
+            custom: async () => models[0],
+            confirm: async () => true,
+            notify: () => {},
+          },
+          modelRegistry: {
+            getAvailable: () => models,
+            find: () => models[0],
+          },
+        } as never,
+      },
+    });
+
+    expect(roleMenus.worker).toContain("Enable role");
+    expect(roleMenus.worker).not.toContain("Disable role");
+    expect(roleMenus.worker).not.toContain("Set thinking");
+    expect(roleMenus.worker).not.toContain("Add fallback");
+    expect(roleMenus.planner).toContain("Disable role");
+    expect(roleMenus.planner).not.toContain("Enable role");
   });
 
   test("ged-agents setup cancels without writing at thinking selection", async () => {

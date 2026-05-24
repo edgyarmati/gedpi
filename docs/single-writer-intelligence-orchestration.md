@@ -125,6 +125,8 @@ Checkpoint recording should use successful `subagent` foreground results and `su
 
 ## `/ged-agents` setup command
 
+In interactive Pi sessions, bare `/ged-agents` opens the comprehensive status/configuration menu. `/ged-agents status` remains the text-only status view, and `/ged-agents setup` / `/ged-agents setup advanced` are compatibility aliases for the same menu. In non-UI sessions, `/ged-agents` keeps returning text status and `/ged-agents setup` returns copy/paste setup commands.
+
 The setup/status UI should show:
 
 - effective `agents.enabled` state;
@@ -135,7 +137,7 @@ The setup/status UI should show:
 - worker `maxParallel` and worktree preference;
 - default builtin suppression state.
 
-Guided setup should use Pi's runtime model registry for primary and fallback model selection and avoid invented model IDs.
+Guided setup should use Pi's runtime model registry for primary and fallback model selection and avoid invented model IDs. Setting a model should also prompt for the role/default thinking level and then offer to add one or more ordered fallback models. Fallbacks remain a flat ordered model list and use the role/default thinking setting rather than unsupported per-fallback thinking.
 
 ## Tests to keep current
 
