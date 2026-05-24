@@ -17,6 +17,6 @@ This file is retained as planning guidance, but GedPi now exposes a single brain
 
 ## Rules
 
-- Every task slice must fit inside one focused worker session.
+- Every task slice must fit inside one focused implementation session. Optional workers may receive only bounded, low-risk, low-ambiguity, mechanically verifiable slices after the main agent's suitability check.
 - Every task slice must have explicit done criteria.
 - Prefer a small number of high-value tasks over a noisy task list.

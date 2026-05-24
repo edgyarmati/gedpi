@@ -262,7 +262,7 @@ function workerInstruction(
   if (!worker.enabled) {
     return "ged-worker is disabled; do not call it. Implement approved slices yourself.";
   }
-  return `ged-worker is enabled. Delegate only disjoint, approved, low-ambiguity slices; use at most ${worker.maxParallel ?? 2} worker tasks at once${worker.preferWorktreeIsolation ? " and prefer `worktree: true` for parallel worker runs" : ""}.`;
+  return `ged-worker is enabled. Before every worker dispatch, perform a worker-suitability check: delegate only approved slices that are bounded, disjoint, low-ambiguity, low-risk, mechanically implementable, and easy to verify. If the slice is too difficult, ambiguous, risky, coupled, hard to verify, or requires product, security, architecture, migration, API, or UX judgment, implement it directly as the main agent instead of calling a worker. Use at most ${worker.maxParallel ?? 2} worker tasks at once${worker.preferWorktreeIsolation ? " and prefer `worktree: true` for parallel worker runs" : ""}. After ged-verifier reports findings, adjudicate and fix accepted verifier findings directly by default; do not re-invoke worker for verifier fixes unless the fix is a rare new isolated mechanical slice with a clear verification path.`;
 }
 
 function intercomInstruction(
@@ -331,9 +331,9 @@ When subagents are enabled and the task is non-trivial, use mandatory intelligen
 
 4. **plan review / critique** — After you accept and write the planner draft, honor the Plan Review Preference on the written plan files. ${critiqueInstruction(settings)} You adjudicate reviewer findings.
 
-5. **ged-worker (optional)** — ${workerInstruction(settings)} Workers may edit assigned implementation files but must not commit, push, rebase, merge, or make product/scope decisions. Worker completion never substitutes for verification or main-agent acceptance.
+5. **ged-worker (optional)** — ${workerInstruction(settings)} Treat plan-reviewer worker-safety findings as a strong signal to keep the slice in the main agent. Workers may edit assigned implementation files but must not commit, push, rebase, merge, or make product/scope decisions. Worker completion never substitutes for verification or main-agent acceptance.
 
-6. **ged-verifier** — Use \`subagent({ agent: "ged-verifier", task: "review diff and verification evidence..." })\` for clean-context review before committing meaningful implementation changes when enabled. The verifier reviews your diff and tests with minimal prior assumptions. You adjudicate each finding (accept, reject, needs-user), fix accepted issues, and rerun verification. If disabled, perform and record main-agent fallback verification.
+6. **ged-verifier** — Use \`subagent({ agent: "ged-verifier", task: "review diff and verification evidence..." })\` for clean-context review before committing meaningful implementation changes when enabled. The verifier reviews your diff and tests with minimal prior assumptions. You adjudicate each finding (accept, reject, needs-user), fix accepted issues directly by default as the main agent, and rerun verification. Do not re-invoke worker for verifier fixes unless the fix is a rare new isolated mechanical slice with a clear verification path. If disabled, perform and record main-agent fallback verification.
 
 Use the \`subagent\` tool from \`pi-subagents\` for single, chain, parallel, and async runs. GedPi records checkpoints from successful foreground \`subagent\` results and \`subagent:async-complete\` events. Do not mark checkpoints complete on launch alone.
 

@@ -18,7 +18,7 @@ The rule to preserve is:
 - Main agent accepts, edits, or rejects planner drafts and writes final `.ged` artifacts.
 - `ged-plan-reviewer` provides optional/risk-based critique after the main agent has accepted/written the draft plan.
 - `ged-verifier` performs clean-context review of diffs and verification evidence before commits.
-- `ged-worker` is optional and disabled by default. When enabled, it may implement bounded approved slices, including parallel disjoint slices. It must not commit, push, rebase, merge, make product decisions, or replace verifier/main acceptance.
+- `ged-worker` is optional and disabled by default. When enabled, it may implement bounded approved slices, including parallel disjoint slices, only after the main agent performs a worker-suitability check. It must not commit, push, rebase, merge, make product decisions, or replace verifier/main acceptance.
 - Intern/ops agent remains deferred/absent.
 - `pi-intercom` / `contact_supervisor` is for blocked decisions or progress-changing discoveries, not routine completion handoffs.
 
@@ -81,15 +81,15 @@ Planning author. It drafts plan artifacts from clarified requirements and explor
 
 ### `ged-plan-reviewer`
 
-Risk reviewer for accepted planner drafts. It separates blockers from non-blocking suggestions and does not implement or rewrite scope on its own.
+Risk reviewer for accepted planner drafts. It separates blockers from non-blocking suggestions, flags worker-safety risks, and does not implement or rewrite scope on its own.
 
 ### `ged-verifier`
 
-Clean-context review and verification support. It reports findings with evidence, confidence, suggested fix, and commit-blocking status. The main brain adjudicates and fixes.
+Clean-context review and verification support. It reports findings with evidence, confidence, suggested fix, and commit-blocking status. The main brain adjudicates, fixes accepted findings directly by default, and reruns verification.
 
 ### `ged-worker`
 
-Optional implementation worker, disabled by default and generated only when enabled. Use it only for approved, bounded, low-ambiguity, disjoint slices with a clear verification path. It may edit implementation files but must not run git commit/push/rebase/merge or make product/scope decisions. Parallel workers should target separate slices or file areas; optional worktree isolation may be preferred for safer parallelism.
+Optional implementation worker, disabled by default and generated only when enabled. Use it only for approved, bounded, low-ambiguity, low-risk, disjoint slices with a clear verification path. Before delegating, the main agent checks whether the slice is mechanically implementable and unlikely to require product, security, architecture, migration, API, or UX judgment. If a slice is too difficult, ambiguous, risky, coupled, hard to verify, or judgment-heavy, the main agent implements it directly. It may edit implementation files but must not run git commit/push/rebase/merge or make product/scope decisions. Parallel workers should target separate slices or file areas; optional worktree isolation may be preferred for safer parallelism.
 
 ## Workflow integration
 
@@ -103,10 +103,10 @@ When Ged mode is active:
 6. Main brain accepts/edits/rejects the draft, writes final `.ged` plan artifacts, and records `planAcceptance` with accepted plan paths.
 7. Run configured human/Glimpse plan review on the written draft.
 8. Run `ged-plan-reviewer` according to critique mode: `off`, `risk-based`, or `always`.
-9. Implement one bounded slice at a time, optionally using enabled `ged-worker` for disjoint approved slices.
+9. Implement one bounded slice at a time. When `ged-worker` is enabled, perform a worker-suitability check before each delegation and keep unsuitable slices in the main agent.
 10. Run planned checks.
 11. Use `ged-verifier` when enabled, or explicit main-agent fallback verification when disabled.
-12. Main brain adjudicates findings, fixes accepted issues, records progress, and commits.
+12. Main brain adjudicates findings, fixes accepted issues directly by default, reruns verification, records progress, and commits. Do not re-invoke `ged-worker` for verifier fixes unless the fix is a rare new isolated mechanical slice with a clear verification path.
 
 ## Mandatory checkpoints
 
@@ -116,7 +116,8 @@ For non-trivial changes with agents enabled:
 - `ged-explorer` or a role-disabled fallback is required before source inspection/planning;
 - `ged-planner` draft plus main accepted/written plan recorded as `planAcceptance`, or planner-disabled fallback plan plus `planAcceptance`, is required before source edits;
 - `ged-verifier` or verifier-disabled fallback verification is required before meaningful commits;
-- worker completion never satisfies verifier/commit requirements.
+- worker completion never satisfies verifier/commit requirements;
+- main-agent direct fixes after verifier findings still require rerunning verification before commit.
 
 Worker completions are retained as non-authorizing `workerRuns` audit metadata so multiple disjoint worker slices can be reconciled without overwriting one checkpoint slot.
 

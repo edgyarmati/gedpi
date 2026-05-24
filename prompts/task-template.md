@@ -13,4 +13,4 @@ Turn the current spec into bounded task slices.
 - dependencies
 - role assignment
 
-Update `.ged/work/<work-id>/TASKS.md` and keep tasks small enough for one focused worker session.
+Update `.ged/work/<work-id>/TASKS.md` and keep tasks small enough for one focused implementation session. If optional workers are enabled later, only bounded, low-risk, low-ambiguity, mechanically verifiable slices should be considered worker-suitable.

@@ -282,6 +282,10 @@ describe("Ged brain runtime", () => {
     expect(beforeStart.systemPrompt).toContain("BASE");
     expect(beforeStart.systemPrompt).toContain("GedPi Single-Brain Mode");
     expect(beforeStart.systemPrompt).toContain("use grill-me in chat");
+    expect(beforeStart.systemPrompt).toContain("worker-suitability check");
+    expect(beforeStart.systemPrompt).toContain(
+      "fix accepted verifier findings directly by default",
+    );
     expect(beforeStart.systemPrompt).toContain("## Plan Review Preference");
     expect(beforeStart.systemPrompt).toContain(
       "Review with Plannotator (plannotator)",

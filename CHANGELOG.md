@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixes
+
+- Hardened GedPi worker orchestration prompts so optional workers require a main-agent suitability check and verifier findings are fixed directly by the main agent by default.
+
 ## 0.19.0 - 2026-05-23
 
 ### Dependencies

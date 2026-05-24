@@ -438,6 +438,12 @@ describe("Ged optional agent settings", () => {
     expect(worker).toContain("Optional Ged implementation worker");
     expect(worker).toContain("model: openai/gpt-5-mini");
     expect(worker).toContain("tools: read, grep, find, ls, bash, edit, write");
+    expect(worker).toContain("after its worker-suitability check");
+    expect(worker).toContain(
+      "too difficult, ambiguous, risky, coupled, hard to verify",
+    );
+    expect(worker).toContain("main agent should implement it directly");
+    expect(worker).toContain("new isolated mechanical slice");
     expect(worker).toContain("Do not commit, push, rebase, merge");
   });
 

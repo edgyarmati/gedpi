@@ -1132,6 +1132,33 @@ describe("orchestration prompt", () => {
     expect(result).toContain("adjudicate");
   });
 
+  it("requires worker suitability checks and main-agent verifier fixes", () => {
+    const result = buildOrchestrationPrompt({
+      enabled: true,
+      intercomBridge: true,
+      critiqueMode: "risk-based",
+      roles: {
+        "ged-explorer": { enabled: true },
+        "ged-planner": { enabled: true },
+        "ged-plan-reviewer": { enabled: true },
+        "ged-verifier": { enabled: true },
+        "ged-worker": { enabled: true, maxParallel: 2 },
+      },
+    });
+    expect(result).toContain("worker-suitability check");
+    expect(result).toContain(
+      "too difficult, ambiguous, risky, coupled, hard to verify",
+    );
+    expect(result).toContain("product, security, architecture");
+    expect(result).toContain("implement it directly as the main agent");
+    expect(result).toContain(
+      "fix accepted verifier findings directly by default",
+    );
+    expect(result).toContain("Do not re-invoke worker for verifier fixes");
+    expect(result).toContain("rare new isolated mechanical slice");
+    expect(result).toContain("rerun verification");
+  });
+
   it("requires immediate tool-call continuation instead of status-only narration", () => {
     const result = buildOrchestrationPrompt(true);
     expect(result).toContain(
