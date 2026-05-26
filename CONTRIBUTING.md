@@ -8,7 +8,7 @@ Thanks for your interest in contributing.
 2. Clone your fork locally:
 
    ```bash
-   git clone https://github.com/<your-username>/GedPi.git
+   git clone https://github.com/<your-username>/ged-mono.git
    cd GedPi
    npm install
    ```
