@@ -5,6 +5,7 @@ import { getSettingsListTheme } from "@earendil-works/pi-coding-agent";
 import { Container, SettingsList } from "@earendil-works/pi-tui";
 import {
   type AgentModelConfig,
+  formatFallbackModelRef,
   formatGedAgentsStatus,
   GED_AGENT_ROLES,
   GED_CRITIQUE_MODES,
@@ -12,6 +13,7 @@ import {
   type GedAgentsSettings,
   globalGedSettingsPath,
   type ModelAvailability,
+  modelRefWithoutThinkingSuffix,
   projectGedSettingsPath,
   readEffectiveGedAgentsSettings,
   readGedPreferences,
@@ -46,6 +48,10 @@ const THINKING_LEVELS = [
 type ThinkingLevel = (typeof THINKING_LEVELS)[number];
 type ThinkingChoice = ThinkingLevel | "inherit";
 type ThinkingPickerResult = ThinkingChoice | "cancel";
+
+function withThinkingSuffix(modelId: string, thinking: ThinkingChoice): string {
+  return thinking === "inherit" ? modelId : `${modelId}:${thinking}`;
+}
 
 // ─── Scope helpers ─────────────────────────────────────────────────────
 
@@ -82,6 +88,7 @@ function formatModelRef(model: Model<Api>): string {
 function splitModelRef(
   ref: string,
 ): { provider: string; id: string } | undefined {
+  ref = modelRefWithoutThinkingSuffix(ref);
   const slashIndex = ref.indexOf("/");
   if (slashIndex <= 0 || slashIndex === ref.length - 1) return undefined;
   return {
@@ -163,7 +170,7 @@ function modelSummary(config: AgentModelConfig | undefined): string {
   const fallback = Array.isArray(config.fallback)
     ? config.fallback.filter((item): item is string => typeof item === "string")
     : [];
-  return `${config.model}${formatThinkingTag(config)}${fallback.length > 0 ? ` → ${fallback.join(" → ")}` : ""}`;
+  return `${config.model}${formatThinkingTag(config)}${fallback.length > 0 ? ` → ${fallback.map(formatFallbackModelRef).join(" → ")}` : ""}`;
 }
 
 function roleSummary(settings: GedAgentsSettings, role: GedAgentRole): string {
@@ -239,7 +246,7 @@ function formatModelsList(
     const label = config
       ? typeof config === "string"
         ? config
-        : `${config.model}${config.fallback && config.fallback.length > 0 ? ` → ${config.fallback.join(" → ")}` : ""}${formatThinkingTag(config)}`
+        : modelSummary(config)
       : effective.defaultModel
         ? `inherit (${typeof effective.defaultModel === "string" ? effective.defaultModel : effective.defaultModel.model}${formatThinkingTag(effective.defaultModel)})`
         : "inherit (orchestrator)";
@@ -356,6 +363,23 @@ async function runInteractiveAdvancedSetup(
     config.fallback = [...new Set([...fallback, modelId])];
   };
 
+  const pickFallbackModelRef = async (
+    titlePrefix: string,
+  ): Promise<string | null> => {
+    const fallback = await pickModel(
+      ui,
+      registry,
+      `${titlePrefix} fallback model`,
+    );
+    if (fallback === null) return null;
+    const thinking = await pickThinkingLevel(
+      ui,
+      `${titlePrefix} fallback thinking level`,
+    );
+    if (thinking === "cancel") return null;
+    return withThinkingSuffix(formatModelRef(fallback), thinking);
+  };
+
   const promptForFallbacks = async (
     config: Record<string, unknown>,
     titlePrefix: string,
@@ -368,13 +392,9 @@ async function runInteractiveAdvancedSetup(
       ]);
       if (add === "Cancel" || !add) return false;
       if (add === "No") return true;
-      const fallback = await pickModel(
-        ui,
-        registry,
-        `${titlePrefix} fallback model`,
-      );
+      const fallback = await pickFallbackModelRef(titlePrefix);
       if (fallback === null) return false;
-      addFallbackToConfig(config, formatModelRef(fallback));
+      addFallbackToConfig(config, fallback);
     }
   };
 
@@ -776,7 +796,7 @@ async function executeGedAgentsCommand(
     const { targetPath, remaining } = resolveScope(rest);
     const [role, op, modelId, position, targetModelId] = remaining;
     if (!role || !op) {
-      return "Usage: /ged-agents fallback <role> <list|add <model-id>|set <model-id...>|remove <model-id>|move <model-id> <before|after> <target-model-id>|clear> [--project|--global]";
+      return "Usage: /ged-agents fallback <role> <list|add <model-id> [thinking]|set <model-id...>|remove <model-id>|move <model-id> <before|after> <target-model-id>|clear> [--project|--global]";
     }
     if (role !== "default" && !GED_AGENT_ROLES.includes(role as GedAgentRole)) {
       return `Unknown role: ${role}. Valid roles: default, ${GED_AGENT_ROLES.join(", ")}.`;
@@ -785,7 +805,7 @@ async function executeGedAgentsCommand(
       return "Fallback operation must be list, add, set, remove, move, or clear.";
     }
     if ((op === "add" || op === "remove") && !modelId) {
-      return `Usage: /ged-agents fallback <role> ${op} <model-id> [--project|--global]`;
+      return `Usage: /ged-agents fallback <role> ${op} <model-id>${op === "add" ? " [thinking]" : ""} [--project|--global]`;
     }
     if (op === "move" && (!modelId || !position || !targetModelId)) {
       return "Usage: /ged-agents fallback <role> move <model-id> <before|after> <target-model-id> [--project|--global]";
@@ -793,6 +813,17 @@ async function executeGedAgentsCommand(
     if (op === "move" && position !== "before" && position !== "after") {
       return "Fallback move position must be before or after.";
     }
+    const addThinking =
+      op === "add" && THINKING_LEVELS.includes(position as ThinkingLevel)
+        ? (position as ThinkingLevel)
+        : undefined;
+    if (op === "add" && position && !addThinking) {
+      return `Fallback thinking level must be one of: ${THINKING_LEVELS.join(", ")}.`;
+    }
+    const addedModelId =
+      modelId && addThinking
+        ? withThinkingSuffix(modelId, addThinking)
+        : modelId;
     const filePath = resolveTargetPath(cwd, targetPath);
     const existing = await readGedRuntimeSettings(filePath);
     let next: GedAgentsSettings = { ...(existing.agents ?? {}) };
@@ -810,31 +841,47 @@ async function executeGedAgentsCommand(
       : [];
     if (op === "list") {
       return currentFallback.length > 0
-        ? `${role} fallback models:\n${currentFallback.map((item, index) => `${index + 1}. ${item}`).join("\n")}`
+        ? `${role} fallback models:\n${currentFallback.map((item, index) => `${index + 1}. ${formatFallbackModelRef(item)}`).join("\n")}`
         : `${role} fallback models: none`;
     }
-    const unique = (items: string[]) => [...new Set(items.filter(Boolean))];
+    const findFallbackRef = (
+      items: string[],
+      ref: string,
+    ): string | undefined =>
+      items.find((item) => item === ref) ??
+      items.find((item) => modelRefWithoutThinkingSuffix(item) === ref);
+    const unique = (items: string[]) => {
+      const byBase = new Map<string, string>();
+      for (const item of items.filter(Boolean)) {
+        byBase.set(modelRefWithoutThinkingSuffix(item), item);
+      }
+      return [...byBase.values()];
+    };
     const apply = (config: Record<string, unknown>) => {
       let fallback = [...currentFallback];
       if (op === "clear") fallback = [];
-      else if (op === "add" && modelId)
-        fallback = unique([...fallback, modelId]);
+      else if (op === "add" && addedModelId)
+        fallback = unique([...fallback, addedModelId]);
       else if (op === "set") fallback = unique(remaining.slice(2));
       else if (op === "remove" && modelId)
-        fallback = fallback.filter((item) => item !== modelId);
+        fallback = fallback.filter(
+          (item) => item !== findFallbackRef(fallback, modelId),
+        );
       else if (op === "move" && modelId && position && targetModelId) {
-        if (!fallback.includes(modelId)) {
+        const storedModelId = findFallbackRef(fallback, modelId);
+        const storedTargetModelId = findFallbackRef(fallback, targetModelId);
+        if (!storedModelId) {
           throw new Error(`Fallback model not found: ${modelId}`);
         }
-        if (!fallback.includes(targetModelId)) {
+        if (!storedTargetModelId) {
           throw new Error(`Target fallback model not found: ${targetModelId}`);
         }
-        fallback = fallback.filter((item) => item !== modelId);
-        const targetIndex = fallback.indexOf(targetModelId);
+        fallback = fallback.filter((item) => item !== storedModelId);
+        const targetIndex = fallback.indexOf(storedTargetModelId);
         fallback.splice(
           position === "before" ? targetIndex : targetIndex + 1,
           0,
-          modelId,
+          storedModelId,
         );
       }
       if (fallback.length === 0) delete config.fallback;
@@ -874,7 +921,7 @@ async function executeGedAgentsCommand(
       ),
     });
     if (op === "clear") return `Cleared ${role} fallback models.`;
-    if (op === "add") return `Added ${modelId} as ${role} fallback model.`;
+    if (op === "add") return `Added ${addedModelId} as ${role} fallback model.`;
     if (op === "set") return `Set ${role} fallback model order.`;
     if (op === "remove")
       return `Removed ${modelId} from ${role} fallback models.`;

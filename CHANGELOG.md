@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Features
+
+- Added fallback thinking-level selection to advanced `/ged-agents setup`, preserving explicit choices with pi-subagents-compatible model suffixes.
+
 ### Fixes
 
 - Hardened GedPi worker orchestration prompts so optional workers require a main-agent suitability check and verifier findings are fixed directly by the main agent by default.

@@ -37,6 +37,29 @@ const ALLOWED_THINKING_LEVELS = new Set([
   "xhigh",
 ]);
 
+export function splitFallbackThinkingSuffix(ref: string): {
+  model: string;
+  thinking?: string;
+} {
+  const trimmed = ref.trim();
+  const colonIndex = trimmed.lastIndexOf(":");
+  if (colonIndex === -1) return { model: trimmed };
+  const suffix = trimmed.slice(colonIndex + 1);
+  if (!ALLOWED_THINKING_LEVELS.has(suffix)) return { model: trimmed };
+  return { model: trimmed.slice(0, colonIndex), thinking: suffix };
+}
+
+export function modelRefWithoutThinkingSuffix(ref: string): string {
+  return splitFallbackThinkingSuffix(ref).model;
+}
+
+export function formatFallbackModelRef(ref: string): string {
+  const parsed = splitFallbackThinkingSuffix(ref);
+  return parsed.thinking
+    ? `${parsed.model} [thinking: ${parsed.thinking}]`
+    : parsed.model;
+}
+
 export type AgentModelConfig =
   | string
   | ({ model: string; fallback?: string[]; fallbackModels?: string[] } & Record<
@@ -547,7 +570,9 @@ export function selectAgentModel(
   const candidates = modelCandidates(value);
   if (candidates.length === 0) return undefined;
   if (!availability) return candidates[0];
-  return candidates.find((candidate) => availability.isAvailable(candidate));
+  return candidates.find((candidate) =>
+    availability.isAvailable(modelRefWithoutThinkingSuffix(candidate)),
+  );
 }
 
 function fallbackChain(value: AgentModelConfig | undefined): string[] {
@@ -576,7 +601,7 @@ function formatModelConfig(value: AgentModelConfig | undefined): string {
   const primary = value.model;
   const fb = fallbackChain(value);
   if (fb.length === 0) return primary;
-  return `${primary} → ${fb.join(" → ")}`;
+  return `${primary} → ${fb.map(formatFallbackModelRef).join(" → ")}`;
 }
 
 function frontmatterModelLines(config: AgentModelConfig | undefined): string {

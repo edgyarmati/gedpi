@@ -391,6 +391,44 @@ describe("Ged optional agent settings", () => {
     expect(planner).toContain("fallbackModels: provider/available-fallback");
   });
 
+  test("runtime sync preserves recognized fallback thinking suffixes", async () => {
+    const rootDir = await tempDir("ged-agent-sync-root-");
+    await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
+      enabled: true,
+      models: {
+        "ged-planner": {
+          model: "openai/gpt-5.5",
+          fallback: [
+            "anthropic/claude-opus-4.7:high",
+            "provider/model:free",
+            "provider/model:free:off",
+          ],
+          thinking: "medium",
+        },
+      },
+    });
+
+    await syncGedSubagentRuntimeConfig(rootDir, {
+      modelAvailability: {
+        isAvailable: (modelId) =>
+          [
+            "openai/gpt-5.5",
+            "anthropic/claude-opus-4.7",
+            "provider/model:free",
+          ].includes(modelId),
+      },
+    });
+
+    const planner = await readFile(
+      path.join(rootDir, ".pi", "agents", "ged-planner.md"),
+      "utf8",
+    );
+    expect(planner).toContain(
+      "fallbackModels: anthropic/claude-opus-4.7:high, provider/model:free, provider/model:free:off",
+    );
+    expect(planner).toContain("thinking: medium");
+  });
+
   test("runtime sync omits invalid unavailable fallback filtering", async () => {
     const rootDir = await tempDir("ged-agent-sync-root-");
     await writeGedAgentsSettings(projectGedSettingsPath(rootDir), {
@@ -479,6 +517,22 @@ describe("Ged optional agent settings", () => {
     };
     expect(formatGedAgentsStatus(effective)).toContain(
       "- ged-planner: enabled; openai/gpt-5.5 [thinking: off]",
+    );
+  });
+
+  test("status formats fallback thinking suffixes readably", () => {
+    const effective = effectiveFixture({
+      models: {
+        "ged-planner": {
+          model: "openai/gpt-5.5",
+          fallback: ["anthropic/claude-opus-4.7:high", "provider/model:free"],
+          thinking: "medium",
+        },
+      },
+    });
+    effective.roles["ged-planner"].model = effective.models["ged-planner"];
+    expect(formatGedAgentsStatus(effective)).toContain(
+      "openai/gpt-5.5 → anthropic/claude-opus-4.7 [thinking: high] → provider/model:free [thinking: medium]",
     );
   });
 

@@ -362,6 +362,75 @@ describe("Ged command surface", () => {
     ]);
   });
 
+  test("ged-agents fallback supports thinking suffixes and base-model operations", async () => {
+    const command = createGedCommands().find(
+      (candidate) => candidate.name === "ged-agents",
+    );
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "ged-agents-command-"));
+
+    await command?.execute({
+      cwd,
+      args: ["model", "ged-planner", "openai/gpt-5.5", "--project"],
+    });
+    await command?.execute({
+      cwd,
+      args: [
+        "fallback",
+        "ged-planner",
+        "add",
+        "anthropic/claude-opus-4.7",
+        "high",
+        "--project",
+      ],
+    });
+    await command?.execute({
+      cwd,
+      args: [
+        "fallback",
+        "ged-planner",
+        "add",
+        "provider/model:free",
+        "--project",
+      ],
+    });
+
+    const list = await command?.execute({
+      cwd,
+      args: ["fallback", "ged-planner", "list", "--project"],
+    });
+    expect(list).toContain("1. anthropic/claude-opus-4.7 [thinking: high]");
+    expect(list).toContain("2. provider/model:free");
+
+    await command?.execute({
+      cwd,
+      args: [
+        "fallback",
+        "ged-planner",
+        "remove",
+        "anthropic/claude-opus-4.7",
+        "--project",
+      ],
+    });
+    const settings = await readGedRuntimeSettings(projectGedSettingsPath(cwd));
+    expect(settings.agents?.roles?.["ged-planner"]?.fallback).toEqual([
+      "provider/model:free",
+    ]);
+
+    await expect(
+      command?.execute({
+        cwd,
+        args: [
+          "fallback",
+          "ged-planner",
+          "add",
+          "anthropic/claude-opus-4.7",
+          "turbo",
+          "--project",
+        ],
+      }),
+    ).resolves.toContain("Fallback thinking level must be one of");
+  });
+
   test("ged-agents setup advanced configures role-aware settings", async () => {
     const command = createGedCommands().find(
       (candidate) => candidate.name === "ged-agents",
@@ -382,6 +451,7 @@ describe("Ged command surface", () => {
       "Set model",
       "Low",
       "Yes",
+      "High",
       "No",
       "ged-worker:",
       "Worker max parallel",
@@ -432,7 +502,7 @@ describe("Ged command surface", () => {
           enabled: true,
           model: "openai/gpt-5.5",
           thinking: "low",
-          fallback: ["anthropic/claude-opus-4.7"],
+          fallback: ["anthropic/claude-opus-4.7:high"],
           maxParallel: 3,
           preferWorktreeIsolation: true,
         },
@@ -457,7 +527,9 @@ describe("Ged command surface", () => {
       "Set model",
       "Low",
       "Yes",
+      "High",
       "Yes",
+      "Inherit/default",
       "No",
       "Done",
     ];
@@ -499,7 +571,7 @@ describe("Ged command surface", () => {
     expect(settings.agents?.roles?.["ged-planner"]).toMatchObject({
       model: "deepseek/deepseek-v4-flash",
       thinking: "low",
-      fallback: ["openai/gpt-5.5", "anthropic/claude-opus-4.7"],
+      fallback: ["openai/gpt-5.5:high", "anthropic/claude-opus-4.7"],
     });
     expect(settings.agents?.roles?.["ged-worker"]?.enabled).toBeUndefined();
   });
