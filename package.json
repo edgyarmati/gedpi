@@ -90,12 +90,12 @@
     ]
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.75.4",
-    "@earendil-works/pi-coding-agent": "0.75.4",
-    "@earendil-works/pi-tui": "0.75.4",
+    "@earendil-works/pi-ai": "0.76.0",
+    "@earendil-works/pi-coding-agent": "0.76.0",
+    "@earendil-works/pi-tui": "0.76.0",
     "@howaboua/pi-codex-conversion": "1.5.13",
-    "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@0.75.4",
-    "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.75.4",
+    "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@0.76.0",
+    "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.76.0",
     "@plannotator/pi-extension": "0.19.18",
     "glimpseui": "0.8.1",
     "jiti": "^2.7.0",

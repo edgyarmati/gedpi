@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Dependencies
+
+- Bumped GedPi's Pi runtime dependencies and compatibility aliases from 0.75.4 to 0.76.0 after checking the Pi 0.76.0 release notes for breaking changes.
+
 ### Features
 
 - Added fallback thinking-level selection to advanced `/ged-agents setup`, preserving explicit choices with pi-subagents-compatible model suffixes.
