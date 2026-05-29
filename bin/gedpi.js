@@ -190,17 +190,22 @@ export function suppressBundledPiChangelog(baseEnv = process.env) {
   });
 }
 
-export function ensureDefaultTheme(baseEnv = process.env) {
+const REMOVED_BUNDLED_THEMES = new Set([
+  "amp-dark",
+  "amp-gruvbox-dark-hard",
+  "amp-light",
+  "midnight",
+]);
+
+export function clearRemovedBundledTheme(baseEnv = process.env) {
   const agentDir = resolveAgentDir(baseEnv);
   const settings = readAgentSettings(agentDir);
-  if (!settings || settings.theme !== undefined) {
+  if (!settings || !REMOVED_BUNDLED_THEMES.has(settings.theme)) {
     return;
   }
 
-  writeAgentSettings(agentDir, {
-    ...settings,
-    theme: "amp-gruvbox-dark-hard",
-  });
+  const { theme: _theme, ...rest } = settings;
+  writeAgentSettings(agentDir, rest);
 }
 
 export function buildPiProcessSpec(
@@ -216,7 +221,7 @@ export function buildPiProcessSpec(
 
 export async function runGed(argv = process.argv.slice(2), options = {}) {
   ensureQuietStartupDefault(options.env);
-  ensureDefaultTheme(options.env);
+  clearRemovedBundledTheme(options.env);
   suppressBundledPiChangelog(options.env);
   const spec = buildPiProcessSpec(argv, options.env);
 

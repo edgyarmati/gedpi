@@ -35,7 +35,7 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `agent-settings.ts` — preferences persistence in `~/.gedoc/settings.json`
 - `vendor/amp-editor.ts` — local Amp-style editor chrome
 - `vendor/amp-user-message.ts` — local Amp-style user-message rendering
-- local themes — `midnight`, `amp-dark`, `amp-light`, and `amp-gruvbox-dark-hard` live in `themes/`
+- local Amp-style editor chrome and user-message rendering live in `vendor/`; GedPi defers theme rendering to Pi's native themes
 
 **Skills**: Bundled workflow skills live in `skills/`. Pi discovers them via `pi.skills` in `package.json`.
 Bundled defaults now include `find-skills`, `skill-creator`, and `brainstorming`, so Ged can discover, create, and use planning-oriented skills without external installation.

@@ -15,7 +15,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildGedEnvironment,
   buildPiProcessSpec,
-  ensureDefaultTheme,
+  clearRemovedBundledTheme,
   ensureQuietStartupDefault,
   getBundledPiVersion,
   getGedPackageDir,
@@ -112,17 +112,43 @@ describe("ged launcher", () => {
     expect(modeBits((await stat(settingsPath)).mode)).toBe(0o600);
   });
 
-  test("ensureDefaultTheme keeps the existing fresh-install default", async () => {
+  test("clearRemovedBundledTheme removes stale GedPi theme choices", async () => {
     const tempDir = await mkdtemp(path.join(os.tmpdir(), "ged-agent-theme-"));
     const agentDir = path.join(tempDir, "agent");
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      path.join(agentDir, "settings.json"),
+      `${JSON.stringify({ theme: "amp-gruvbox-dark-hard", quietStartup: false }, null, 2)}\n`,
+      "utf8",
+    );
 
-    ensureDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
+    clearRemovedBundledTheme({ PI_CODING_AGENT_DIR: agentDir });
+
+    const settings = JSON.parse(
+      await readFile(path.join(agentDir, "settings.json"), "utf8"),
+    ) as { theme?: string; quietStartup?: boolean };
+
+    expect(settings.theme).toBeUndefined();
+    expect(settings.quietStartup).toBe(false);
+  });
+
+  test("clearRemovedBundledTheme preserves non-GedPi theme choices", async () => {
+    const tempDir = await mkdtemp(path.join(os.tmpdir(), "ged-agent-theme-"));
+    const agentDir = path.join(tempDir, "agent");
+    await mkdir(agentDir, { recursive: true });
+    await writeFile(
+      path.join(agentDir, "settings.json"),
+      `${JSON.stringify({ theme: "rose" }, null, 2)}\n`,
+      "utf8",
+    );
+
+    clearRemovedBundledTheme({ PI_CODING_AGENT_DIR: agentDir });
 
     const settings = JSON.parse(
       await readFile(path.join(agentDir, "settings.json"), "utf8"),
     ) as { theme?: string };
 
-    expect(settings.theme).toBe("amp-gruvbox-dark-hard");
+    expect(settings.theme).toBe("rose");
   });
 
   test("suppressBundledPiChangelog records the bundled Pi version", async () => {

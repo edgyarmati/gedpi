@@ -14,7 +14,7 @@ Requires Node.js 22 or newer.
 - Keeps durable standards and project context in `.ged/`.
 - Writes specs, tasks, and progress into `.ged/` and tracks workflow state across sessions.
 - Adds a repo map that indexes supported source files, ranks them by structure plus recent activity, and injects a compact codebase-awareness block into Ged prompts.
-- Bundles web search, local Amp-style UI styling, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
+- Bundles web search, local Amp-style input/message UI, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
 - Documents a [main-owned intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as decision owner while using explorer, planner, reviewer, verifier, and optional worker subagents for additional throughput.
 
 ## Install
@@ -77,7 +77,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
 | **@plannotator/pi-extension** | Plan/code review UI; GedPi draft-plan approval prefers native Glimpse when available and falls back to Plannotator's browser UI |
 | **~/.gedoc/settings.json** | GedPi workflow preferences (commit behavior, draft-plan review) via `/ged-settings` command |
-| **local Amp UI** | Bundled `midnight`, `amp-dark`, `amp-light`, and `amp-gruvbox-dark-hard` themes plus local Amp-style editor/user-message styling |
+| **local Amp UI** | Local Amp-style editor and user-message styling while deferring tool/read rendering to Pi's native themes |
 
 ### Native Micro-UI
 
@@ -90,7 +90,7 @@ GedPi bundles [Glimpse](https://github.com/HazAT/glimpse) for native micro-UI wi
 | `/diff-review` | Open a native git diff review window and insert feedback into the editor |
 | `/commit` | Review local changes and create a descriptive conventional commit |
 | `/push` | Push the current branch, with automatic recovery flow if the first push fails |
-| `/settings` | Open Pi settings, including bundled theme selection such as `midnight` and local Amp-style themes |
+| `/settings` | Open Pi settings, including native Pi theme selection |
 | `/update` | Check for GedPi updates |
 | `/grill-me` | Start an explicit one-question-at-a-time clarification session, or record why clarification is skipped as sufficient |
 | `/rtk` | Install RTK and check Ged's automatic bash-side RTK routing (status, install) |

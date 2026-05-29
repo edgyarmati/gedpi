@@ -42,11 +42,11 @@ describe("package Pi configuration", () => {
     };
 
     expect(packageJson.engines?.node).toBe(">=22.19.0");
-    expect(packageJson.dependencies?.["@earendil-works/pi-ai"]).toBe("0.76.0");
+    expect(packageJson.dependencies?.["@earendil-works/pi-ai"]).toBe("0.77.0");
     expect(packageJson.dependencies?.["@earendil-works/pi-coding-agent"]).toBe(
-      "0.76.0",
+      "0.77.0",
     );
-    expect(packageJson.dependencies?.["@earendil-works/pi-tui"]).toBe("0.76.0");
+    expect(packageJson.dependencies?.["@earendil-works/pi-tui"]).toBe("0.77.0");
     expect(packageJson.overrides).not.toHaveProperty("@earendil-works/pi-tui");
     expect(packageJson.dependencies?.["@plannotator/pi-extension"]).toBe(
       "0.19.18",
@@ -69,6 +69,26 @@ describe("package Pi configuration", () => {
       localExtensions.map((extension) =>
         access(path.join(process.cwd(), extension)),
       ),
+    );
+  });
+
+  test("Amp-style editor extensions remain packaged", async () => {
+    const packageJson = JSON.parse(
+      await readFile(path.join(process.cwd(), "package.json"), "utf8"),
+    ) as { files?: string[]; pi?: { extensions?: string[] } };
+
+    expect(packageJson.files ?? []).toEqual(
+      expect.arrayContaining([
+        "vendor/amp-editor.ts",
+        "vendor/amp-command-palette.ts",
+        "vendor/amp-user-message.ts",
+      ]),
+    );
+    expect(packageJson.pi?.extensions ?? []).toEqual(
+      expect.arrayContaining([
+        "./vendor/amp-editor.ts",
+        "./vendor/amp-user-message.ts",
+      ]),
     );
   });
 
