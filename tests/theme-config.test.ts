@@ -32,32 +32,77 @@ describe("GedPi theme packaging", () => {
     await expect(access(path.join(process.cwd(), "themes"))).rejects.toThrow();
   });
 
-  test("preserves non-theme Amp-style input and message UI", async () => {
+  test("does not bundle Amp-style input and message UI overrides", async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(process.cwd(), "package.json"), "utf8"),
     ) as { files?: string[]; pi?: { extensions?: string[] } };
 
-    expect(packageJson.files ?? []).toEqual(
-      expect.arrayContaining([
-        "vendor/amp-editor.ts",
-        "vendor/amp-command-palette.ts",
-        "vendor/amp-user-message.ts",
-      ]),
-    );
-    expect(packageJson.pi?.extensions ?? []).toEqual(
-      expect.arrayContaining([
-        "./vendor/amp-editor.ts",
-        "./vendor/amp-user-message.ts",
-      ]),
-    );
+    for (const fileName of [
+      "vendor/amp-editor.ts",
+      "vendor/amp-command-palette.ts",
+      "vendor/amp-user-message.ts",
+    ]) {
+      expect(packageJson.files ?? []).not.toContain(fileName);
+    }
+    for (const extensionPath of [
+      "./vendor/amp-editor.ts",
+      "./vendor/amp-user-message.ts",
+    ]) {
+      expect(packageJson.pi?.extensions ?? []).not.toContain(extensionPath);
+    }
 
     await Promise.all(
       [
         "vendor/amp-editor.ts",
         "vendor/amp-command-palette.ts",
         "vendor/amp-user-message.ts",
-      ].map((fileName) => access(path.join(process.cwd(), fileName))),
+      ].map((fileName) =>
+        expect(access(path.join(process.cwd(), fileName))).rejects.toThrow(),
+      ),
     );
+  });
+
+  test("does not register native Pi UI replacement hooks", async () => {
+    const searchableRoots = ["src", "extensions", "vendor"];
+    const forbiddenPatterns = [
+      "setEditorComponent",
+      "setFooter",
+      "setWorkingVisible",
+      "UserMessageComponent.prototype.render",
+    ];
+
+    async function collectFiles(dir: string): Promise<string[]> {
+      const entries = await readdir(path.join(process.cwd(), dir), {
+        withFileTypes: true,
+      });
+      const files = await Promise.all(
+        entries.map((entry) => {
+          const relativePath = path.join(dir, entry.name);
+          return entry.isDirectory()
+            ? collectFiles(relativePath)
+            : relativePath;
+        }),
+      );
+      return files.flat();
+    }
+
+    const files = (await Promise.all(searchableRoots.map(collectFiles)))
+      .flat()
+      .filter((fileName) => /\.[cm]?[tj]s$/.test(fileName));
+    const contents = await Promise.all(
+      files.map(async (fileName) => ({
+        fileName,
+        content: await readFile(path.join(process.cwd(), fileName), "utf8"),
+      })),
+    );
+
+    for (const { fileName, content } of contents) {
+      for (const pattern of forbiddenPatterns) {
+        expect(content, `${fileName} should not call ${pattern}`).not.toContain(
+          pattern,
+        );
+      }
+    }
   });
 
   test("package files do not reference removed bundled theme names", async () => {

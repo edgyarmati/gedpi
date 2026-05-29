@@ -72,24 +72,24 @@ describe("package Pi configuration", () => {
     );
   });
 
-  test("Amp-style editor extensions remain packaged", async () => {
+  test("Amp-style editor extensions are not packaged", async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(process.cwd(), "package.json"), "utf8"),
     ) as { files?: string[]; pi?: { extensions?: string[] } };
 
-    expect(packageJson.files ?? []).toEqual(
-      expect.arrayContaining([
-        "vendor/amp-editor.ts",
-        "vendor/amp-command-palette.ts",
-        "vendor/amp-user-message.ts",
-      ]),
-    );
-    expect(packageJson.pi?.extensions ?? []).toEqual(
-      expect.arrayContaining([
-        "./vendor/amp-editor.ts",
-        "./vendor/amp-user-message.ts",
-      ]),
-    );
+    for (const fileName of [
+      "vendor/amp-editor.ts",
+      "vendor/amp-command-palette.ts",
+      "vendor/amp-user-message.ts",
+    ]) {
+      expect(packageJson.files ?? []).not.toContain(fileName);
+    }
+    for (const extensionPath of [
+      "./vendor/amp-editor.ts",
+      "./vendor/amp-user-message.ts",
+    ]) {
+      expect(packageJson.pi?.extensions ?? []).not.toContain(extensionPath);
+    }
   });
 
   test("node_modules Pi extension paths are backed by declared dependencies", async () => {

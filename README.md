@@ -14,7 +14,7 @@ Requires Node.js 22 or newer.
 - Keeps durable standards and project context in `.ged/`.
 - Writes specs, tasks, and progress into `.ged/` and tracks workflow state across sessions.
 - Adds a repo map that indexes supported source files, ranks them by structure plus recent activity, and injects a compact codebase-awareness block into Ged prompts.
-- Bundles web search, local Amp-style input/message UI, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
+- Bundles web search, native micro-UI via Glimpse, native git diff review, prompt-template-powered workflow commands, and automatic updates out of the box.
 - Documents a [main-owned intelligence orchestration](docs/single-writer-intelligence-orchestration.md) model: keep the Ged brain as decision owner while using explorer, planner, reviewer, verifier, and optional worker subagents for additional throughput.
 
 ## Install
@@ -77,7 +77,7 @@ Current deferred roadmap items remain intentional and visible in docs rather tha
 | **pi-prompt-template-model** | Prompt templates can set thinking/model behavior and back commands like `/commit` and `/push` |
 | **@plannotator/pi-extension** | Plan/code review UI; GedPi draft-plan approval prefers native Glimpse when available and falls back to Plannotator's browser UI |
 | **~/.gedoc/settings.json** | GedPi workflow preferences (commit behavior, draft-plan review) via `/ged-settings` command |
-| **local Amp UI** | Local Amp-style editor and user-message styling while deferring tool/read rendering to Pi's native themes |
+| **native Pi UI** | GedPi uses Pi's native input, footer, working indicator, command palette, user-message, tool, and read rendering |
 
 ### Native Micro-UI
 

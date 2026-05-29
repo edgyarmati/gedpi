@@ -36,9 +36,6 @@
     "skills",
     "src",
     "templates",
-    "vendor/amp-editor.ts",
-    "vendor/amp-command-palette.ts",
-    "vendor/amp-user-message.ts",
     "vendor/pi-diff-review",
     "README.md",
     "CREDITS.md"
@@ -68,9 +65,7 @@
       "./vendor/pi-diff-review/src/index.ts",
       "./node_modules/pi-prompt-template-model/index.ts",
       "./node_modules/@plannotator/pi-extension/index.ts",
-      "./node_modules/@howaboua/pi-codex-conversion/src/index.ts",
-      "./vendor/amp-editor.ts",
-      "./vendor/amp-user-message.ts"
+      "./node_modules/@howaboua/pi-codex-conversion/src/index.ts"
     ],
     "skills": [
       "./skills",

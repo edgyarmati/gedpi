@@ -18,7 +18,7 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
 ## UI inspiration
 
 - [amp-themes](https://www.npmjs.com/package/amp-themes)
-  - Inspired GedPi's local Amp-style editor and user-message styling
+  - Earlier GedPi UI experiments drew inspiration from Amp-style styling
 
 ## Workflow and orchestration inspiration
 

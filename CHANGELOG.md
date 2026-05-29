@@ -13,7 +13,7 @@
 
 ### Fixes
 
-- Removed bundled GedPi custom themes so tool/read and syntax rendering use Pi's native theme-aware display, while preserving the local Amp-style input and user-message UI.
+- Removed bundled GedPi custom themes and Amp-style input/message overrides so input, footer, working indicator, command palette, user-message, tool, read, and syntax rendering use Pi's native display.
 - Cleaned up stale GedPi-bundled theme selections from launcher settings on startup so removed theme names fall back to native Pi theme behavior.
 - Hardened GedPi worker orchestration prompts so optional workers require a main-agent suitability check and verifier findings are fixed directly by the main agent by default.
 - Improved `/ged-agents` so the bare command opens the interactive status/configuration menu in UI sessions, with guided model/thinking/fallback setup and safer role toggles.

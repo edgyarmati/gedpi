@@ -33,9 +33,7 @@ Future orchestration work should follow `docs/single-writer-intelligence-orchest
 - `pi-prompt-template-model` — prompt template / model wiring
 - `@plannotator/pi-extension` — visual plan/code review UI used by the `plannotator` draft-plan review preference
 - `agent-settings.ts` — preferences persistence in `~/.gedoc/settings.json`
-- `vendor/amp-editor.ts` — local Amp-style editor chrome
-- `vendor/amp-user-message.ts` — local Amp-style user-message rendering
-- local Amp-style editor chrome and user-message rendering live in `vendor/`; GedPi defers theme rendering to Pi's native themes
+- GedPi uses Pi's native input, footer, working indicator, command palette, user-message, tool, and read rendering; keep custom UI overrides out unless intentionally reintroduced.
 
 **Skills**: Bundled workflow skills live in `skills/`. Pi discovers them via `pi.skills` in `package.json`.
 Bundled defaults now include `find-skills`, `skill-creator`, and `brainstorming`, so Ged can discover, create, and use planning-oriented skills without external installation.
