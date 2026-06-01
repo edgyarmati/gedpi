@@ -193,7 +193,14 @@ describe("GedPi theme packaging", () => {
     expect(shellSkin).toContain("class EmptyFooter");
     expect(shellSkin).toContain('const topRight = theme.fg("muted"');
     expect(shellSkin).toContain("this.api.getThinkingLevel()");
-    expect(shellSkin).toContain("const bottomRight = branch");
+    expect(shellSkin).toContain("diff");
+    expect(shellSkin).toContain("HEAD");
+    expect(shellSkin).toContain("--numstat");
+    expect(shellSkin).toContain("ls-files");
+    expect(shellSkin).toContain("--others");
+    expect(shellSkin).toContain("tool_execution_end");
+    expect(shellSkin).toContain("formatDiffSummary");
+    expect(shellSkin).toContain('bottomRightParts.join(" · ")');
     expect(shellSkin).toContain("formatContext(this.ctx)");
     expect(shellSkin).toContain("formatCost(this.ctx)");
     expect(shellSkin).not.toContain("ghostlight-ready");
