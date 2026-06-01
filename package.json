@@ -32,6 +32,7 @@
     "agents",
     "CHANGELOG.md",
     "extensions",
+    "themes",
     "prompts",
     "skills",
     "src",
@@ -78,6 +79,9 @@
     ],
     "prompts": [
       "./prompts"
+    ],
+    "themes": [
+      "./themes"
     ]
   },
   "dependencies": {

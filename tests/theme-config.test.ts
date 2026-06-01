@@ -4,7 +4,61 @@ import path from "node:path";
 import { describe, expect, test } from "vitest";
 
 describe("GedPi theme packaging", () => {
-  test("does not bundle custom themes", async () => {
+  const requiredThemeTokens = [
+    "accent",
+    "border",
+    "borderAccent",
+    "borderMuted",
+    "success",
+    "error",
+    "warning",
+    "muted",
+    "dim",
+    "text",
+    "thinkingText",
+    "selectedBg",
+    "userMessageBg",
+    "userMessageText",
+    "customMessageBg",
+    "customMessageText",
+    "customMessageLabel",
+    "toolPendingBg",
+    "toolSuccessBg",
+    "toolErrorBg",
+    "toolTitle",
+    "toolOutput",
+    "mdHeading",
+    "mdLink",
+    "mdLinkUrl",
+    "mdCode",
+    "mdCodeBlock",
+    "mdCodeBlockBorder",
+    "mdQuote",
+    "mdQuoteBorder",
+    "mdHr",
+    "mdListBullet",
+    "toolDiffAdded",
+    "toolDiffRemoved",
+    "toolDiffContext",
+    "syntaxComment",
+    "syntaxKeyword",
+    "syntaxFunction",
+    "syntaxVariable",
+    "syntaxString",
+    "syntaxNumber",
+    "syntaxType",
+    "syntaxOperator",
+    "syntaxPunctuation",
+    "thinkingOff",
+    "thinkingMinimal",
+    "thinkingLow",
+    "thinkingMedium",
+    "thinkingHigh",
+    "thinkingXhigh",
+    "bashMode",
+  ];
+
+  test("bundles only the Ghostlight GedPi theme", async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(process.cwd(), "package.json"), "utf8"),
     ) as {
@@ -13,9 +67,12 @@ describe("GedPi theme packaging", () => {
       pi?: { extensions?: string[]; skills?: string[]; themes?: string[] };
     };
 
-    expect(packageJson.files ?? []).not.toContain("themes");
-    expect(packageJson.pi).not.toHaveProperty("themes");
+    expect(packageJson.files ?? []).toContain("themes");
+    expect(packageJson.pi?.themes).toEqual(["./themes"]);
     expect(packageJson.dependencies ?? {}).not.toHaveProperty("amp-themes");
+    await expect(
+      access(path.join(process.cwd(), "themes")),
+    ).resolves.toBeUndefined();
 
     const packageSurface = [
       ...(packageJson.pi?.extensions ?? []),
@@ -28,8 +85,17 @@ describe("GedPi theme packaging", () => {
     );
   });
 
-  test("removed theme directory is absent", async () => {
-    await expect(access(path.join(process.cwd(), "themes"))).rejects.toThrow();
+  test("ghostlight theme defines every required token", async () => {
+    const themePath = path.join(process.cwd(), "themes", "ghostlight.json");
+    const theme = JSON.parse(await readFile(themePath, "utf8")) as {
+      name?: string;
+      colors?: Record<string, unknown>;
+    };
+
+    expect(theme.name).toBe("ghostlight");
+    expect(Object.keys(theme.colors ?? {}).sort()).toEqual(
+      [...requiredThemeTokens].sort(),
+    );
   });
 
   test("does not bundle Amp-style input and message UI overrides", async () => {
@@ -62,14 +128,20 @@ describe("GedPi theme packaging", () => {
     );
   });
 
-  test("does not register native Pi UI replacement hooks", async () => {
+  test("registers native Pi UI replacement hooks only in the GedPi shell skin", async () => {
     const searchableRoots = ["src", "extensions", "vendor"];
     const forbiddenPatterns = [
       "setEditorComponent",
       "setFooter",
+      "setWorkingIndicator",
       "setWorkingVisible",
       "UserMessageComponent.prototype.render",
     ];
+    const allowedHookFile = path.join(
+      "extensions",
+      "ged-core",
+      "ghostlight-ui.ts",
+    );
 
     async function collectFiles(dir: string): Promise<string[]> {
       const entries = await readdir(path.join(process.cwd(), dir), {
@@ -98,11 +170,27 @@ describe("GedPi theme packaging", () => {
 
     for (const { fileName, content } of contents) {
       for (const pattern of forbiddenPatterns) {
+        if (
+          fileName === allowedHookFile &&
+          ["setEditorComponent", "setFooter", "setWorkingIndicator"].includes(
+            pattern,
+          )
+        ) {
+          continue;
+        }
         expect(content, `${fileName} should not call ${pattern}`).not.toContain(
           pattern,
         );
       }
     }
+
+    const shellSkin = await readFile(
+      path.join(process.cwd(), allowedHookFile),
+      "utf8",
+    );
+    expect(shellSkin).toContain("getExtensionStatuses");
+    expect(shellSkin).toContain("onBranchChange");
+    expect(shellSkin).toContain("dispose");
   });
 
   test("package files do not reference removed bundled theme names", async () => {

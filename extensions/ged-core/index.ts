@@ -51,6 +51,7 @@ import { ensurePiSettings, formatGedStatus } from "../../src/theme.js";
 import { registerUpdater } from "../../src/updater.js";
 import type { CheckpointAgent } from "../../src/vendor/shared-checkpoints.js";
 import { buildOnboardingInterviewKickoff } from "../../src/workflow.js";
+import { registerGhostlightUi } from "./ghostlight-ui.js";
 
 // ─── Session-level touched-files tracking ──────────────────────────
 const touchedSourceFiles = new Set<string>();
@@ -407,6 +408,7 @@ export default async function gedCoreExtension(
   registerRtkBashRouting(api);
   registerRepoMapTracking(api);
   registerPlanReviewTool(api);
+  registerGhostlightUi(api);
 
   // ─── Session start ──────────────────────────────────────────────
 
