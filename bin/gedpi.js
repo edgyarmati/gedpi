@@ -208,6 +208,16 @@ export function clearRemovedBundledTheme(baseEnv = process.env) {
   writeAgentSettings(agentDir, rest);
 }
 
+export function ensureGhostlightDefaultTheme(baseEnv = process.env) {
+  const agentDir = resolveAgentDir(baseEnv);
+  const settings = readAgentSettings(agentDir);
+  if (!settings || settings.theme !== undefined) {
+    return;
+  }
+
+  writeAgentSettings(agentDir, { ...settings, theme: "ghostlight" });
+}
+
 export function buildPiProcessSpec(
   argv = process.argv.slice(2),
   baseEnv = process.env,
@@ -222,6 +232,7 @@ export function buildPiProcessSpec(
 export async function runGed(argv = process.argv.slice(2), options = {}) {
   ensureQuietStartupDefault(options.env);
   clearRemovedBundledTheme(options.env);
+  ensureGhostlightDefaultTheme(options.env);
   suppressBundledPiChangelog(options.env);
   const spec = buildPiProcessSpec(argv, options.env);
 

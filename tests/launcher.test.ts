@@ -16,6 +16,7 @@ import {
   buildGedEnvironment,
   buildPiProcessSpec,
   clearRemovedBundledTheme,
+  ensureGhostlightDefaultTheme,
   ensureQuietStartupDefault,
   getBundledPiVersion,
   getGedPackageDir,
@@ -110,6 +111,33 @@ describe("ged launcher", () => {
     ensureQuietStartupDefault({ PI_CODING_AGENT_DIR: agentDir });
 
     expect(modeBits((await stat(settingsPath)).mode)).toBe(0o600);
+  });
+
+  test("ensureGhostlightDefaultTheme creates a global default without replacing explicit themes", async () => {
+    const tempDir = await mkdtemp(
+      path.join(os.tmpdir(), "ged-agent-theme-default-"),
+    );
+    const agentDir = path.join(tempDir, "agent");
+
+    ensureGhostlightDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
+
+    let settings = JSON.parse(
+      await readFile(path.join(agentDir, "settings.json"), "utf8"),
+    ) as { theme?: string };
+    expect(settings.theme).toBe("ghostlight");
+
+    await writeFile(
+      path.join(agentDir, "settings.json"),
+      `${JSON.stringify({ theme: "rose" }, null, 2)}\n`,
+      "utf8",
+    );
+
+    ensureGhostlightDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
+
+    settings = JSON.parse(
+      await readFile(path.join(agentDir, "settings.json"), "utf8"),
+    ) as { theme?: string };
+    expect(settings.theme).toBe("rose");
   });
 
   test("clearRemovedBundledTheme removes stale GedPi theme choices", async () => {

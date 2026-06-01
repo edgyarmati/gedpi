@@ -117,15 +117,16 @@ class GhostlightEditor extends CustomEditor {
     const theme = this.ctx.ui.theme;
     const branch = this.getBranch();
     const topLeft = theme.fg("accent", " ✦ gedpi ");
-    const topRight = branch ? theme.fg("muted", ` ${branch} `) : "";
+    const topRight = theme.fg("muted", ` ${this.api.getThinkingLevel()} `);
     const bottomLeft = theme.fg(
       "muted",
-      ` ${this.api.getThinkingLevel()} · ${formatContext(this.ctx)} · ${formatCost(this.ctx)} `,
+      ` ${formatContext(this.ctx)} · ${formatCost(this.ctx)} `,
     );
+    const bottomRight = branch ? theme.fg("muted", ` ${branch} `) : "";
     const border = (text: string) => this.borderColor(text);
 
     lines[0] = fitBorder(topLeft, topRight, width, border);
-    lines[lines.length - 1] = fitBorder(bottomLeft, "", width, border);
+    lines[lines.length - 1] = fitBorder(bottomLeft, bottomRight, width, border);
     return lines;
   }
 }

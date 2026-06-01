@@ -88,6 +88,7 @@ describe("RTK integration", () => {
       await readFile(path.join(cwd, ".pi", "settings.json"), "utf8"),
     ) as Record<string, unknown>;
     expect(settings.rtkMode).toBeUndefined();
+    expect(settings.theme).toBeUndefined();
     expect(settings.quietStartup).toBe(false);
   });
 

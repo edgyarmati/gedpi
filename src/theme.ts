@@ -46,13 +46,11 @@ export async function ensurePiSettings(cwd: string): Promise<void> {
     modified = true;
   }
 
-  // One-time cleanup: remove the old hardcoded "dark" fallback that
-  // ensurePiSettings() used to write. It overrides the user's global
-  // theme choice because Pi resolves project-local settings first. Users
-  // who genuinely want "dark" can re-select it via /settings — it will
-  // be stored globally.
+  // Older versions wrote a project-local "dark" fallback. Migrate only
+  // that stale GedPi-authored value to Ghostlight; do not write a local
+  // theme when absent because local settings override explicit global choices.
   if (existing.theme === "dark") {
-    delete existing.theme;
+    existing.theme = "ghostlight";
     modified = true;
   }
 
