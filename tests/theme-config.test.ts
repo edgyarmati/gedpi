@@ -188,9 +188,14 @@ describe("GedPi theme packaging", () => {
       path.join(process.cwd(), allowedHookFile),
       "utf8",
     );
-    expect(shellSkin).toContain("getExtensionStatuses");
-    expect(shellSkin).toContain("onBranchChange");
-    expect(shellSkin).toContain("dispose");
+    expect(shellSkin).toContain("git");
+    expect(shellSkin).toContain("branch");
+    expect(shellSkin).toContain("class EmptyFooter");
+    expect(shellSkin).not.toContain("ghostlight-ready");
+    expect(shellSkin).not.toContain(".ged workflow");
+    expect(shellSkin).not.toContain("formatModel");
+    expect(shellSkin).not.toContain("getExtensionStatuses");
+    expect(shellSkin).not.toContain("onBranchChange");
   });
 
   test("package files do not reference removed bundled theme names", async () => {
