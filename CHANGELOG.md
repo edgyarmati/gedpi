@@ -11,8 +11,8 @@
 
 - Added fallback thinking-level selection to advanced `/ged-agents setup`, preserving explicit choices with pi-subagents-compatible model suffixes.
 - Added the selectable `ghostlight` theme plus a GedPi-branded terminal shell with custom input border, footer, and working indicator.
-- Made `ghostlight` the default GedPi theme while preserving explicit user theme choices.
-- Added selectable companion themes: `archivist`, `blueprint`, `deep-ink`, `emberglass`, and `signal-garden`.
+- Made `dracula` the default GedPi theme while preserving explicit user theme choices.
+- Added bundled community themes from `hasit/pi-community-themes`, using the official `dracula/pi-coding-agent` Dracula theme override.
 
 ### Fixes
 

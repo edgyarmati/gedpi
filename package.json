@@ -39,7 +39,8 @@
     "templates",
     "vendor/pi-diff-review",
     "README.md",
-    "CREDITS.md"
+    "CREDITS.md",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "scripts": {
     "chat": "node ./bin/gedpi.js",

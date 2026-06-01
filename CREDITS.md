@@ -39,3 +39,10 @@ GedPi exists because of the Pi ecosystem and the work of earlier authors.
 ## Attribution intent
 
 GedPi is an original project, but it is intentionally built in conversation with upstream Pi work. This file is the canonical source for attribution and should be kept up to date as the project evolves.
+
+## Bundled themes
+
+- [hasit/pi-community-themes](https://github.com/hasit/pi-community-themes) by Hasit and contributors
+  - Source for bundled community Pi themes. Imported from tag `v0.3.0` under the MIT license.
+- [dracula/pi-coding-agent](https://github.com/dracula/pi-coding-agent) by the Dracula theme maintainers and contributors
+  - Source for the bundled `dracula` theme override. Imported from commit `0c2228a01822a071563a0b65028e16b3fc1d5579` under the MIT license.

@@ -16,7 +16,7 @@ import {
   buildGedEnvironment,
   buildPiProcessSpec,
   clearRemovedBundledTheme,
-  ensureGhostlightDefaultTheme,
+  ensureDraculaDefaultTheme,
   ensureQuietStartupDefault,
   getBundledPiVersion,
   getGedPackageDir,
@@ -113,18 +113,18 @@ describe("ged launcher", () => {
     expect(modeBits((await stat(settingsPath)).mode)).toBe(0o600);
   });
 
-  test("ensureGhostlightDefaultTheme creates a global default without replacing explicit themes", async () => {
+  test("ensureDraculaDefaultTheme creates a global default without replacing explicit themes", async () => {
     const tempDir = await mkdtemp(
       path.join(os.tmpdir(), "ged-agent-theme-default-"),
     );
     const agentDir = path.join(tempDir, "agent");
 
-    ensureGhostlightDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
+    ensureDraculaDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
 
     let settings = JSON.parse(
       await readFile(path.join(agentDir, "settings.json"), "utf8"),
     ) as { theme?: string };
-    expect(settings.theme).toBe("ghostlight");
+    expect(settings.theme).toBe("dracula");
 
     await writeFile(
       path.join(agentDir, "settings.json"),
@@ -132,7 +132,7 @@ describe("ged launcher", () => {
       "utf8",
     );
 
-    ensureGhostlightDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
+    ensureDraculaDefaultTheme({ PI_CODING_AGENT_DIR: agentDir });
 
     settings = JSON.parse(
       await readFile(path.join(agentDir, "settings.json"), "utf8"),

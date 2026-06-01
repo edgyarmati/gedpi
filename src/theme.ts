@@ -46,11 +46,11 @@ export async function ensurePiSettings(cwd: string): Promise<void> {
     modified = true;
   }
 
-  // Older versions wrote a project-local "dark" fallback. Migrate only
-  // that stale GedPi-authored value to Ghostlight; do not write a local
+  // Older versions wrote project-local default fallbacks. Migrate only
+  // those stale GedPi-authored values to Dracula; do not write a local
   // theme when absent because local settings override explicit global choices.
-  if (existing.theme === "dark") {
-    existing.theme = "ghostlight";
+  if (existing.theme === "dark" || existing.theme === "ghostlight") {
+    existing.theme = "dracula";
     modified = true;
   }
 

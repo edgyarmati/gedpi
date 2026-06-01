@@ -91,12 +91,23 @@ describe("GedPi theme packaging", () => {
       .filter((fileName) => fileName.endsWith(".json"))
       .sort();
     expect(themeFiles).toEqual([
-      "archivist.json",
-      "blueprint.json",
-      "deep-ink.json",
-      "emberglass.json",
+      "atom-one-dark.json",
+      "atom-one-light.json",
+      "catppuccin-frappe.json",
+      "catppuccin-latte.json",
+      "catppuccin-macchiato.json",
+      "catppuccin-mocha.json",
+      "dracula.json",
       "ghostlight.json",
-      "signal-garden.json",
+      "gruvbox-dark-hard.json",
+      "gruvbox-dark-medium.json",
+      "gruvbox-dark-soft.json",
+      "gruvbox-light-hard.json",
+      "gruvbox-light-medium.json",
+      "gruvbox-light-soft.json",
+      "nord.json",
+      "solarized-dark.json",
+      "solarized-light.json",
     ]);
 
     const names = new Set<string>();
@@ -112,6 +123,12 @@ describe("GedPi theme packaging", () => {
         [...requiredThemeTokens].sort(),
       );
     }
+
+    const dracula = JSON.parse(
+      await readFile(path.join(themeDir, "dracula.json"), "utf8"),
+    ) as { vars?: Record<string, string> };
+    expect(dracula.vars?.background).toBe("#282a36");
+    expect(dracula.vars?.purple).toBe("#bd93f9");
   });
 
   test("does not bundle Amp-style input and message UI overrides", async () => {

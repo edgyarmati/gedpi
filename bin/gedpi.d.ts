@@ -7,7 +7,7 @@ export function buildGedEnvironment(
 ): NodeJS.ProcessEnv;
 export function ensureQuietStartupDefault(baseEnv?: NodeJS.ProcessEnv): void;
 export function clearRemovedBundledTheme(baseEnv?: NodeJS.ProcessEnv): void;
-export function ensureGhostlightDefaultTheme(baseEnv?: NodeJS.ProcessEnv): void;
+export function ensureDraculaDefaultTheme(baseEnv?: NodeJS.ProcessEnv): void;
 export function suppressBundledPiChangelog(baseEnv?: NodeJS.ProcessEnv): void;
 export function buildPiProcessSpec(
   argv?: string[],
