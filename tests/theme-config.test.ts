@@ -58,7 +58,7 @@ describe("GedPi theme packaging", () => {
     "bashMode",
   ];
 
-  test("bundles only the Ghostlight GedPi theme", async () => {
+  test("bundles GedPi themes", async () => {
     const packageJson = JSON.parse(
       await readFile(path.join(process.cwd(), "package.json"), "utf8"),
     ) as {
@@ -85,17 +85,33 @@ describe("GedPi theme packaging", () => {
     );
   });
 
-  test("ghostlight theme defines every required token", async () => {
-    const themePath = path.join(process.cwd(), "themes", "ghostlight.json");
-    const theme = JSON.parse(await readFile(themePath, "utf8")) as {
-      name?: string;
-      colors?: Record<string, unknown>;
-    };
+  test("every bundled GedPi theme defines every required token", async () => {
+    const themeDir = path.join(process.cwd(), "themes");
+    const themeFiles = (await readdir(themeDir))
+      .filter((fileName) => fileName.endsWith(".json"))
+      .sort();
+    expect(themeFiles).toEqual([
+      "archivist.json",
+      "blueprint.json",
+      "deep-ink.json",
+      "emberglass.json",
+      "ghostlight.json",
+      "signal-garden.json",
+    ]);
 
-    expect(theme.name).toBe("ghostlight");
-    expect(Object.keys(theme.colors ?? {}).sort()).toEqual(
-      [...requiredThemeTokens].sort(),
-    );
+    const names = new Set<string>();
+    for (const fileName of themeFiles) {
+      const theme = JSON.parse(
+        await readFile(path.join(themeDir, fileName), "utf8"),
+      ) as { name?: string; colors?: Record<string, unknown> };
+
+      expect(theme.name).toBe(fileName.replace(/\.json$/u, ""));
+      expect(names.has(theme.name ?? "")).toBe(false);
+      names.add(theme.name ?? "");
+      expect(Object.keys(theme.colors ?? {}).sort()).toEqual(
+        [...requiredThemeTokens].sort(),
+      );
+    }
   });
 
   test("does not bundle Amp-style input and message UI overrides", async () => {
