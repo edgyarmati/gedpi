@@ -20,6 +20,7 @@
 - Cleaned up stale GedPi-bundled theme selections from launcher settings on startup so removed theme names fall back to native Pi theme behavior.
 - Simplified the Ghostlight shell by removing noisy footer metadata, showing the branch in the editor border, and placing session cost next to context usage.
 - Added a compact uncommitted diff summary next to the branch in the Ghostlight editor border.
+- Tuned the GedPi input shell to use theme-native accent/muted/dim tokens so it fits Dracula and other bundled themes.
 - Hardened GedPi worker orchestration prompts so optional workers require a main-agent suitability check and verifier findings are fixed directly by the main agent by default.
 - Improved `/ged-agents` so the bare command opens the interactive status/configuration menu in UI sessions, with guided model/thinking/fallback setup and safer role toggles.
 - Fixed `/ged-agents` role labels so configured default-enabled roles show `enabled` instead of `inherit` as their status.

@@ -224,8 +224,11 @@ describe("GedPi theme packaging", () => {
     expect(shellSkin).toContain("git");
     expect(shellSkin).toContain("branch");
     expect(shellSkin).toContain("class EmptyFooter");
+    expect(shellSkin).toContain("class GedShellEditor");
     expect(shellSkin).toContain('const topRight = theme.fg("muted"');
     expect(shellSkin).toContain("this.api.getThinkingLevel()");
+    expect(shellSkin).toContain("const bottomLeft = theme.fg(");
+    expect(shellSkin).toContain('"dim"');
     expect(shellSkin).toContain("diff");
     expect(shellSkin).toContain("HEAD");
     expect(shellSkin).toContain("--numstat");

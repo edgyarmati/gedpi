@@ -169,7 +169,7 @@ class EmptyFooter implements Component {
   invalidate(): void {}
 }
 
-class GhostlightEditor extends CustomEditor {
+class GedShellEditor extends CustomEditor {
   constructor(
     tui: TUI,
     theme: EditorTheme,
@@ -195,7 +195,7 @@ class GhostlightEditor extends CustomEditor {
     const topLeft = theme.fg("accent", " ✦ gedpi ");
     const topRight = theme.fg("muted", ` ${this.api.getThinkingLevel()} `);
     const bottomLeft = theme.fg(
-      "muted",
+      "dim",
       ` ${formatContext(this.ctx)} · ${formatCost(this.ctx)} `,
     );
     const bottomRight =
@@ -263,7 +263,7 @@ export function registerGhostlightUi(api: ExtensionAPI): void {
 
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {
       activeTui = tui;
-      return new GhostlightEditor(
+      return new GedShellEditor(
         tui,
         theme,
         keybindings,
