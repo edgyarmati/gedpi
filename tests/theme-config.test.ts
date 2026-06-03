@@ -227,6 +227,10 @@ describe("GedPi theme packaging", () => {
     expect(shellSkin).toContain("class GedShellEditor");
     expect(shellSkin).toContain('const topRight = theme.fg("muted"');
     expect(shellSkin).toContain("this.api.getThinkingLevel()");
+    expect(shellSkin).toContain("formatModel(this.ctx.model)");
+    expect(shellSkin).toContain('topRightParts.join(" · ")');
+    expect(shellSkin).toContain('api.on("model_select"');
+    expect(shellSkin).toContain('api.on("thinking_level_select"');
     expect(shellSkin).toContain("const bottomLeft = theme.fg(");
     expect(shellSkin).toContain('"dim"');
     expect(shellSkin).toContain("diff");
@@ -241,7 +245,6 @@ describe("GedPi theme packaging", () => {
     expect(shellSkin).toContain("formatCost(this.ctx)");
     expect(shellSkin).not.toContain("ghostlight-ready");
     expect(shellSkin).not.toContain(".ged workflow");
-    expect(shellSkin).not.toContain("formatModel");
     expect(shellSkin).not.toContain("getExtensionStatuses");
     expect(shellSkin).not.toContain("onBranchChange");
   });

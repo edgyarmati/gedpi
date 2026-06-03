@@ -83,6 +83,15 @@ function formatCost(ctx: ExtensionContext): string {
   return `$${cost.toFixed(3)}`;
 }
 
+function formatModel(model: ExtensionContext["model"]): string | undefined {
+  if (!model) return undefined;
+  const provider = model.provider?.trim();
+  const id = model.id?.trim();
+  const name = model.name?.trim();
+  if (provider && id) return `${provider}/${id}`;
+  return id || name || provider || undefined;
+}
+
 function emptyDiffSummary(): DiffSummary {
   return { paths: new Set<string>(), added: 0, deleted: 0 };
 }
@@ -193,7 +202,11 @@ class GedShellEditor extends CustomEditor {
       (value): value is string => Boolean(value),
     );
     const topLeft = theme.fg("accent", " ✦ gedpi ");
-    const topRight = theme.fg("muted", ` ${this.api.getThinkingLevel()} `);
+    const topRightParts = [
+      this.api.getThinkingLevel(),
+      formatModel(this.ctx.model),
+    ].filter((value): value is string => Boolean(value));
+    const topRight = theme.fg("muted", ` ${topRightParts.join(" · ")} `);
     const bottomLeft = theme.fg(
       "dim",
       ` ${formatContext(this.ctx)} · ${formatCost(this.ctx)} `,
@@ -259,6 +272,12 @@ export function registerGhostlightUi(api: ExtensionAPI): void {
     });
     api.on("agent_end", () => {
       void refreshGitStatus();
+    });
+    api.on("model_select", () => {
+      activeTui?.requestRender();
+    });
+    api.on("thinking_level_select", () => {
+      activeTui?.requestRender();
     });
 
     ctx.ui.setEditorComponent((tui, theme, keybindings) => {

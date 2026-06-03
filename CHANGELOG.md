@@ -16,6 +16,7 @@
 
 ### Fixes
 
+- Restored the active model label next to the thinking level in the Ghostlight shell border.
 - Removed bundled GedPi custom themes and Amp-style input/message overrides so input, footer, working indicator, command palette, user-message, tool, read, and syntax rendering use Pi's native display.
 - Cleaned up stale GedPi-bundled theme selections from launcher settings on startup so removed theme names fall back to native Pi theme behavior.
 - Simplified the Ghostlight shell by removing noisy footer metadata, showing the branch in the editor border, and placing session cost next to context usage.
