@@ -15,7 +15,7 @@ async function createTempProject(prefix: string): Promise<string> {
 describe("Ged runtime flow", () => {
   test("bundles Codex conversion adapter with an exact lock", () => {
     expect(packageJson.dependencies).toMatchObject({
-      "@howaboua/pi-codex-conversion": "1.5.13",
+      "@howaboua/pi-codex-conversion": "1.5.21",
     });
     expect(packageJson.pi.extensions).toEqual(
       expect.arrayContaining([
@@ -25,18 +25,18 @@ describe("Ged runtime flow", () => {
 
     const rootPackage = packageLock.packages[""];
     expect(rootPackage?.dependencies).toMatchObject({
-      "@howaboua/pi-codex-conversion": "1.5.13",
+      "@howaboua/pi-codex-conversion": "1.5.21",
     });
 
     const codexPackage =
       packageLock.packages["node_modules/@howaboua/pi-codex-conversion"];
     expect(codexPackage).toMatchObject({
-      version: "1.5.13",
+      version: "1.5.21",
       resolved: expect.stringContaining(
-        "@howaboua/pi-codex-conversion/-/pi-codex-conversion-1.5.13.tgz",
+        "@howaboua/pi-codex-conversion/-/pi-codex-conversion-1.5.21.tgz",
       ),
       integrity:
-        "sha512-JvanGVIikldRL4C+3aWJ1ncVOV7ecxwI3nSny/BAK8hQABK8UTZSuuzDLxhyDPchbQu/Z5z7lWMHIY7cvO9ruQ==",
+        "sha512-P8G4BClHnrovAh+rACLDsfngsamKkK6hkS8fZDXRr+VKxgJ/Tn5b9H5lVyuB63CpMl3vfdYyLjSg9nxHpqa43Q==",
     });
   });
 

@@ -89,7 +89,7 @@
     "@earendil-works/pi-ai": "0.77.0",
     "@earendil-works/pi-coding-agent": "0.77.0",
     "@earendil-works/pi-tui": "0.77.0",
-    "@howaboua/pi-codex-conversion": "1.5.13",
+    "@howaboua/pi-codex-conversion": "1.5.21",
     "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@0.77.0",
     "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.77.0",
     "@plannotator/pi-extension": "0.19.27",
