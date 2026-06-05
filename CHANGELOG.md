@@ -4,6 +4,7 @@
 
 ### Dependencies
 
+- Updated dev tooling dependencies: `@biomejs/biome` to 2.4.16, `@types/node` to 25.9.1, and `vitest` to 4.1.8.
 - Bumped GedPi's Pi runtime dependencies and compatibility aliases from 0.75.4 to 0.76.0 after checking the Pi 0.76.0 release notes for breaking changes.
 - Bumped GedPi's Pi runtime dependencies and compatibility aliases from 0.76.0 to 0.77.0.
 
