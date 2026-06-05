@@ -4,6 +4,7 @@
 
 ### Dependencies
 
+- Bumped GedPi's Pi runtime dependencies and compatibility aliases from 0.77.0 to 0.78.1 after reviewing the Pi 0.78.0 and 0.78.1 release notes.
 - Bumped `pi-subagents` from 0.25.0 to 0.28.0 and updated GedPi's worker handoff guidance to prefer structured acceptance contracts for delegated implementation slices.
 - Bumped `@howaboua/pi-codex-conversion` from 1.5.13 to 1.5.21 for the latest Codex adapter fixes and Pi 0.77/0.78 compatibility improvements.
 - Bumped `@plannotator/pi-extension` from 0.19.18 to 0.19.27 for the latest plan-review integration fixes.

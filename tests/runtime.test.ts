@@ -45,8 +45,8 @@ describe("Ged runtime flow", () => {
       "pi-subagents": "0.28.0",
       "pi-intercom": "0.6.0",
       "@mariozechner/pi-coding-agent":
-        "npm:@earendil-works/pi-coding-agent@0.77.0",
-      "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.77.0",
+        "npm:@earendil-works/pi-coding-agent@0.78.1",
+      "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.78.1",
     });
     expect(packageJson.dependencies).not.toHaveProperty(
       "@tintinweb/pi-subagents",
