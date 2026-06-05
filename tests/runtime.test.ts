@@ -42,7 +42,7 @@ describe("Ged runtime flow", () => {
 
   test("bundles current pi-subagents and pi-intercom", () => {
     expect(packageJson.dependencies).toMatchObject({
-      "pi-subagents": "0.25.0",
+      "pi-subagents": "0.28.0",
       "pi-intercom": "0.6.0",
       "@mariozechner/pi-coding-agent":
         "npm:@earendil-works/pi-coding-agent@0.77.0",
@@ -68,7 +68,7 @@ describe("Ged runtime flow", () => {
     );
 
     expect(packageLock.packages["node_modules/pi-subagents"]).toMatchObject({
-      version: "0.25.0",
+      version: "0.28.0",
     });
     expect(packageLock.packages["node_modules/pi-intercom"]).toMatchObject({
       version: "0.6.0",

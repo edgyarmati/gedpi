@@ -4,6 +4,7 @@
 
 ### Dependencies
 
+- Bumped `pi-subagents` from 0.25.0 to 0.28.0 and updated GedPi's worker handoff guidance to prefer structured acceptance contracts for delegated implementation slices.
 - Bumped `@howaboua/pi-codex-conversion` from 1.5.13 to 1.5.21 for the latest Codex adapter fixes and Pi 0.77/0.78 compatibility improvements.
 - Bumped `@plannotator/pi-extension` from 0.19.18 to 0.19.27 for the latest plan-review integration fixes.
 - Updated dev tooling dependencies: `@biomejs/biome` to 2.4.16, `@types/node` to 25.9.1, and `vitest` to 4.1.8.
