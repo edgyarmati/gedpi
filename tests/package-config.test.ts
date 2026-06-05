@@ -49,7 +49,7 @@ describe("package Pi configuration", () => {
     expect(packageJson.dependencies?.["@earendil-works/pi-tui"]).toBe("0.77.0");
     expect(packageJson.overrides).not.toHaveProperty("@earendil-works/pi-tui");
     expect(packageJson.dependencies?.["@plannotator/pi-extension"]).toBe(
-      "0.19.18",
+      "0.19.27",
     );
     expect(packageJson.dependencies?.glimpseui).toBe("0.8.1");
   });
