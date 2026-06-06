@@ -437,10 +437,12 @@ export default async function gedCoreExtension(
         new URL("../../templates/managed-prompts", import.meta.url),
       ),
     );
-    ctx.ui.setTitle("GedPi");
-    ctx.ui.setHeader((_tui, theme) => renderHeader(theme));
-    ctx.ui.setStatus("gedpi", formatGedStatus());
-    await refreshRtkStatusIndicator(ctx);
+    if (ctx.mode === "tui") {
+      ctx.ui.setTitle("GedPi");
+      ctx.ui.setHeader((_tui, theme) => renderHeader(theme));
+      ctx.ui.setStatus("gedpi", formatGedStatus());
+      await refreshRtkStatusIndicator(ctx);
+    }
     void warmRepoMap(ctx.cwd);
   });
 

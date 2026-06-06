@@ -154,3 +154,54 @@ Guided setup should use Pi's runtime model registry for primary and fallback mod
 - Planner intelligence authors draft plans while the main brain owns final artifacts.
 - Optional worker parallelism is available only when explicitly enabled and documented.
 - Subagent/worker results improve throughput without weakening main-agent acceptance, verification, or commit ownership.
+
+## Worker acceptance contracts
+
+When `ged-worker` is explicitly enabled and a slice passes worker-suitability, the main brain should prefer a structured pi-subagents `acceptance` contract instead of placing all done-criteria in prose. Keep contracts lightweight and scoped to the assigned slice; they help the worker self-review and report evidence, but they do not replace main-agent acceptance or `ged-verifier` review.
+
+Example worker handoff shape:
+
+```ts
+subagent({
+  agent: "ged-worker",
+  task: "Implement only approved slice T03 from .ged/work/<work-id>/TASKS.md.",
+  acceptance: {
+    criteria: [
+      { id: "slice", must: "Implement only the assigned T03 scope" },
+      { id: "tests", must: "Run the focused verification listed for T03" }
+    ],
+    evidence: ["changed-files", "commands-run", "diff-summary", "residual-risks"],
+    verify: [
+      { id: "focused", command: "npm test -- tests/foo.test.ts", timeoutMs: 120000 }
+    ],
+    stopRules: [
+      "Stop if scope expands beyond T03",
+      "Stop if product/API/security judgment is needed"
+    ],
+    maxFinalizationTurns: 2
+  },
+  timeoutMs: 600000
+})
+```
+
+Do not use obsolete public acceptance shorthands such as `level`. The supported public shape is object-based: `criteria`, `evidence`, `verify`, optional `review`, `stopRules`, and `maxFinalizationTurns`.
+
+## Deferred orchestration roadmap from Pi 0.78 / pi-subagents 0.28
+
+These are design targets, not implemented runtime behavior yet. Keep GedOC parity and checkpoint compatibility in mind before changing `.ged` schemas.
+
+### Structured verifier and checkpoint evidence
+
+Future verifier and worker records can store compact metadata such as `findingCount`, `blocksCommit`, `acceptanceStatus`, `acceptanceReportPath`, `timedOut`, `resourceLimitExceeded`, and completed explorer scopes. Full reports should stay in `.pi/` artifacts; `.ged/runtime/*/checkpoints.json` should store only durable audit pointers and guard-relevant facts.
+
+### Structured planner and explorer outputs
+
+`pi-subagents` supports `outputSchema` and named outputs. GedPi should start with structured `ged-planner` drafts because SPEC/TASKS/TESTS naturally map to schema fields. Structured explorer output should follow once multi-explorer merging is designed.
+
+### Parallel explorer agents and dynamic fanout
+
+Exploration is read-only and often parallelizable. A safe first phase is static parallel explorers with disjoint prompts, for example UI/runtime, checkpoint/schema, and docs/tests scopes. The main brain must synthesize all findings before planning. Later phases can add scoped explorer checkpoint metadata and eventually dynamic fanout (`expand`/`parallel`/`collect`) from a structured scope-planning step. Do not let one completed explorer clear source-inspection safety for scopes that were not explored.
+
+### Prompt-context dedupe
+
+Pi 0.78 exposes `ctx.getSystemPromptOptions()` for extension command contexts. Before relying on it in agent lifecycle hooks, verify API availability in the relevant context. The goal is to reduce duplicated Ged/Pi context and tailor prompt suffixes to active tools, skills, and context files without weakening mandatory workflow instructions.

@@ -221,6 +221,7 @@ describe("GedPi theme packaging", () => {
       path.join(process.cwd(), allowedHookFile),
       "utf8",
     );
+    expect(shellSkin).toContain('ctx.mode !== "tui"');
     expect(shellSkin).toContain("git");
     expect(shellSkin).toContain("branch");
     expect(shellSkin).toContain("class EmptyFooter");
@@ -247,6 +248,24 @@ describe("GedPi theme packaging", () => {
     expect(shellSkin).not.toContain(".ged workflow");
     expect(shellSkin).not.toContain("getExtensionStatuses");
     expect(shellSkin).not.toContain("onBranchChange");
+  });
+
+  test("Ged core gates terminal-only session UI by ctx.mode", async () => {
+    const core = await readFile(
+      path.join(process.cwd(), "extensions", "ged-core", "index.ts"),
+      "utf8",
+    );
+    const rtk = await readFile(
+      path.join(process.cwd(), "src", "rtk.ts"),
+      "utf8",
+    );
+
+    expect(core).toContain('if (ctx.mode === "tui")');
+    expect(core).toContain('ctx.ui.setTitle("GedPi")');
+    expect(core).toContain("ctx.ui.setHeader");
+    expect(core).toContain('ctx.ui.setStatus("gedpi"');
+    expect(core).toContain("await refreshRtkStatusIndicator(ctx)");
+    expect(rtk).toContain('if (ctx.mode !== "tui") return;');
   });
 
   test("package files do not reference removed bundled theme names", async () => {

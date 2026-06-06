@@ -225,6 +225,7 @@ class GedShellEditor extends CustomEditor {
 
 export function registerGhostlightUi(api: ExtensionAPI): void {
   api.on("session_start", (_event, ctx) => {
+    if (ctx.mode !== "tui") return;
     if (
       typeof ctx.ui.setEditorComponent !== "function" ||
       typeof ctx.ui.setFooter !== "function" ||

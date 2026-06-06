@@ -98,6 +98,11 @@ describe("Ged brain runtime", () => {
     expect(prompt).toContain("make that tool call in the same response");
     expect(prompt).toContain('subagent({ agent: "ged-explorer"');
     expect(prompt).toContain("ged-planner");
+    expect(prompt).toContain("criteria");
+    expect(prompt).toContain("evidence");
+    expect(prompt).toContain("verify");
+    expect(prompt).toContain("stopRules");
+    expect(prompt).toContain("maxFinalizationTurns");
     expect(prompt).toContain("## Plan Review Preference");
     expect(prompt).toContain(
       "Current setting: Review with Plannotator (plannotator)",

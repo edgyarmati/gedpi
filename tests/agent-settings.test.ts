@@ -485,6 +485,11 @@ describe("Ged optional agent settings", () => {
     expect(worker).toContain("main agent should implement it directly");
     expect(worker).toContain("new isolated mechanical slice");
     expect(worker).toContain("Do not commit, push, rebase, merge");
+    expect(worker).toContain("acceptance: { criteria:");
+    expect(worker).toContain("changed-files");
+    expect(worker).toContain("commands-run");
+    expect(worker).toContain("stopRules");
+    expect(worker).toContain("maxFinalizationTurns");
   });
 
   test("runtime sync disables legacy ged-brain project agent", async () => {

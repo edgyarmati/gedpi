@@ -1157,6 +1157,12 @@ describe("orchestration prompt", () => {
     expect(result).toContain("Do not re-invoke worker for verifier fixes");
     expect(result).toContain("rare new isolated mechanical slice");
     expect(result).toContain("rerun verification");
+    expect(result).toContain("acceptance: { criteria:");
+    expect(result).toContain("changed-files");
+    expect(result).toContain("commands-run");
+    expect(result).toContain("diff-summary");
+    expect(result).toContain("stopRules");
+    expect(result).toContain("maxFinalizationTurns");
   });
 
   it("requires immediate tool-call continuation instead of status-only narration", () => {

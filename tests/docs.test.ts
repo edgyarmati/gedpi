@@ -40,4 +40,35 @@ describe("documentation coverage", () => {
     expect(backlog).toContain("Deferred follow-up work:");
     expect(backlog).toContain("dead-code / unused-export analysis");
   });
+
+  test("orchestration docs cover acceptance contracts and deferred parallel exploration roadmap", () => {
+    const orchestration = readFileSync(
+      new URL(
+        "../docs/single-writer-intelligence-orchestration.md",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    const backlog = readFileSync(
+      new URL("../docs/BACKLOG.md", import.meta.url),
+      "utf8",
+    );
+
+    expect(orchestration).toContain("## Worker acceptance contracts");
+    expect(orchestration).toContain("criteria");
+    expect(orchestration).toContain("evidence");
+    expect(orchestration).toContain("verify");
+    expect(orchestration).toContain("stopRules");
+    expect(orchestration).toContain("maxFinalizationTurns");
+    expect(orchestration).toContain(
+      "Structured verifier and checkpoint evidence",
+    );
+    expect(orchestration).toContain("Structured planner and explorer outputs");
+    expect(orchestration).toContain(
+      "Parallel explorer agents and dynamic fanout",
+    );
+    expect(orchestration).toContain("Prompt-context dedupe");
+    expect(backlog).toContain("parallel `ged-explorer` agents");
+    expect(backlog).toContain("ctx.getSystemPromptOptions()");
+  });
 });

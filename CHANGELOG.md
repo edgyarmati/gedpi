@@ -14,6 +14,7 @@
 
 ### Features
 
+- Added `ctx.mode`-aware guards for GedPi's terminal-only shell UI and documented structured worker `acceptance` contracts plus deferred orchestration follow-ups for parallel explorers and structured evidence.
 - Added fallback thinking-level selection to advanced `/ged-agents setup`, preserving explicit choices with pi-subagents-compatible model suffixes.
 - Added the selectable `ghostlight` theme plus a GedPi-branded terminal shell with custom input border, footer, and working indicator.
 - Made `dracula` the default GedPi theme while preserving explicit user theme choices.

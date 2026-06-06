@@ -268,9 +268,10 @@ function formatMissingInstall(plan: InstallPlan | null): string {
 }
 
 export async function refreshRtkStatusIndicator(
-  ctx: Pick<ExtensionCommandContext, "cwd" | "ui">,
+  ctx: Pick<ExtensionCommandContext, "cwd" | "ui" | "mode">,
   exec: ExecFileFn = defaultExecFile,
 ): Promise<void> {
+  if (ctx.mode !== "tui") return;
   const detected = await detectRtk(ctx.cwd, exec);
   ctx.ui.setStatus("rtk", formatRtkStatusIndicator(detected.installed));
 }

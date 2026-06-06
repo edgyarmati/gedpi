@@ -26,3 +26,13 @@ Deferred follow-up work:
 - dead-code / unused-export analysis
 - clone-detection or other secondary analysis views
 - broader parser and language coverage where it materially improves results
+
+## Orchestration roadmap from Pi 0.78 / pi-subagents 0.28
+
+Deferred follow-up work:
+
+- structured verifier/checkpoint evidence with compact artifact pointers
+- structured planner/explorer outputs using `outputSchema` and named chain outputs
+- parallel `ged-explorer` agents for disjoint read-only reconnaissance scopes
+- dynamic fanout from a structured exploration-scope step once checkpoint coverage can track multiple scopes
+- prompt-context dedupe using `ctx.getSystemPromptOptions()` where the Pi API is available

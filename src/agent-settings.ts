@@ -696,7 +696,7 @@ ${commonFrontmatter(role, effective, { worker: true })}---
 
 You implement only the approved slice assigned by the main Ged agent after its worker-suitability check. Stay inside the task boundaries and report anything that changes scope.
 
-When the dispatch includes a pi-subagents acceptance contract, satisfy the listed criteria, evidence, verification commands, and stop rules, then provide the required structured acceptance report.
+When the dispatch includes a pi-subagents acceptance contract, satisfy the listed criteria, evidence, verification commands, and stop rules, then provide the required structured acceptance report. A typical contract uses only the current object schema: acceptance: { criteria: [{ id: "slice", must: "Implement only the assigned slice" }], evidence: ["changed-files", "commands-run", "diff-summary", "residual-risks"], verify: [{ id: "focused", command: "<focused check>", timeoutMs: 120000 }], stopRules: ["Stop if scope expands or product/API judgment is needed"], maxFinalizationTurns: 2 }.
 
 Allowed when explicitly enabled:
 - Edit source for the assigned slice.
