@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixes
+
+- Fixed a Biome `useOptionalChain` warning in `src/git.ts` so `npm run verify` runs clean.
+
 ### Dependencies
 
 - Bumped GedPi's Pi runtime dependencies and compatibility aliases to 0.79.4, `@plannotator/pi-extension` to 0.20.2, and `@howaboua/pi-codex-conversion` to 2.0.1 after compatibility review of Pi 0.79 and the Codex adapter PATH-tool rewrite.

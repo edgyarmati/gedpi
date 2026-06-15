@@ -62,7 +62,7 @@ export async function readLastCompletedTask(
 
     const lastRow = doneRows[doneRows.length - 1];
     const task = parseTaskRow(lastRow);
-    if (!task || task.status !== "done") return null;
+    if (task?.status !== "done") return null;
     return { taskId: task.id, task };
   } catch {
     return null;
