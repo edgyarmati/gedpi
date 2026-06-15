@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.19.1 - 2026-06-15
+
 ### Fixes
 
 - Gated the runtime checkpoint guards (explorer-first, planner, and verifier) on subagents being enabled. Previously they fired purely on task classification, so the default solo configuration (subagents off) blocked source reads, edits, and commits with messages demanding `ged-explorer`/`ged-planner`/`ged-verifier` dispatches that don't exist in solo mode — contradicting the solo system prompt. With subagents disabled, the workflow now runs solo without any subagent guards.
