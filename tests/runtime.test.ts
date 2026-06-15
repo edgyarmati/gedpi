@@ -15,7 +15,7 @@ async function createTempProject(prefix: string): Promise<string> {
 describe("Ged runtime flow", () => {
   test("bundles Codex conversion adapter with an exact lock", () => {
     expect(packageJson.dependencies).toMatchObject({
-      "@howaboua/pi-codex-conversion": "1.5.21",
+      "@howaboua/pi-codex-conversion": "2.0.1",
     });
     expect(packageJson.pi.extensions).toEqual(
       expect.arrayContaining([
@@ -25,18 +25,18 @@ describe("Ged runtime flow", () => {
 
     const rootPackage = packageLock.packages[""];
     expect(rootPackage?.dependencies).toMatchObject({
-      "@howaboua/pi-codex-conversion": "1.5.21",
+      "@howaboua/pi-codex-conversion": "2.0.1",
     });
 
     const codexPackage =
       packageLock.packages["node_modules/@howaboua/pi-codex-conversion"];
     expect(codexPackage).toMatchObject({
-      version: "1.5.21",
+      version: "2.0.1",
       resolved: expect.stringContaining(
-        "@howaboua/pi-codex-conversion/-/pi-codex-conversion-1.5.21.tgz",
+        "@howaboua/pi-codex-conversion/-/pi-codex-conversion-2.0.1.tgz",
       ),
       integrity:
-        "sha512-P8G4BClHnrovAh+rACLDsfngsamKkK6hkS8fZDXRr+VKxgJ/Tn5b9H5lVyuB63CpMl3vfdYyLjSg9nxHpqa43Q==",
+        "sha512-+9iS5gyi+ICM9DBxbWQC14fKRAGUlVYAMb0DHYgCAbyzQSbXF6ehov4LRbIlK/VpgDHxPQv9DvyUd5hIe4prrA==",
     });
   });
 
@@ -45,8 +45,8 @@ describe("Ged runtime flow", () => {
       "pi-subagents": "0.28.0",
       "pi-intercom": "0.6.0",
       "@mariozechner/pi-coding-agent":
-        "npm:@earendil-works/pi-coding-agent@0.78.1",
-      "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.78.1",
+        "npm:@earendil-works/pi-coding-agent@0.79.4",
+      "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.79.4",
     });
     expect(packageJson.dependencies).not.toHaveProperty(
       "@tintinweb/pi-subagents",
