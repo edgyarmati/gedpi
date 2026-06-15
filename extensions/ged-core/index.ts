@@ -500,6 +500,18 @@ export default async function gedCoreExtension(
           ? input.toolName
           : "";
 
+    // Subagent orchestration is the only thing these guards enforce. When
+    // subagents are disabled, the workflow runs solo (see BRAIN_SYSTEM_APPEND_SOLO)
+    // and never mentions ged-explorer/ged-planner/ged-verifier or checkpoints —
+    // so the guards must stay inert. Otherwise the runtime would block work and
+    // demand subagent dispatches that don't exist in solo mode.
+    const agentSettings = await readEffectiveGedAgentsSettings(ctx.cwd).catch(
+      () => null,
+    );
+    if (!agentSettings?.enabled) {
+      return;
+    }
+
     // --- Explorer-first guard: block source inspection before explorer runs ---
     // Non-trivial work must dispatch ged-explorer before reading source files.
     // Only .md and .ged/ reads are allowed before explorer completes.

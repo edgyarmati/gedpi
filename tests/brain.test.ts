@@ -584,4 +584,60 @@ describe("Ged brain runtime", () => {
     )) as { block: boolean; reason: string };
     expect(bashBypass.block).toBe(true);
   });
+
+  test("gedCoreExtension guards stay inert when subagents are disabled", async () => {
+    const rootDir = await createTempProject("ged-brain-solo-guard-");
+    // Note: subagents NOT enabled (default). A non-trivial checkpoint that would
+    // normally block must be ignored entirely so the solo workflow never demands
+    // ged-explorer/ged-planner/ged-verifier dispatches.
+    await mkdir(path.join(rootDir, ".ged", "runtime", "root"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(rootDir, ".ged", "runtime", "root", "checkpoints.json"),
+      JSON.stringify({
+        schemaVersion: 3,
+        lifecycleStatus: "active",
+        classification: "non-trivial",
+        classificationReason: "test",
+        planCheckpoints: {},
+        taskCheckpoints: {},
+      }),
+    );
+    const handlers = new Map<string, (...args: unknown[]) => unknown>();
+
+    await gedCoreExtension({
+      registerMessageRenderer() {
+        return undefined;
+      },
+      registerCommand() {},
+      registerShortcut() {},
+      registerTool() {},
+      sendMessage() {},
+      on(event: string, handler: (...args: unknown[]) => unknown) {
+        handlers.set(event, handler);
+      },
+    } as never);
+
+    // Source inspection must not be blocked.
+    const read = await handlers.get("tool_call")?.(
+      { toolName: "read", input: { path: "src/index.ts" } },
+      { cwd: rootDir },
+    );
+    expect(read).toBeUndefined();
+
+    // Source edits must not be blocked.
+    const write = await handlers.get("tool_call")?.(
+      { toolName: "write", input: { path: "src/index.ts" } },
+      { cwd: rootDir },
+    );
+    expect(write).toBeUndefined();
+
+    // Commits must not be blocked.
+    const commit = await handlers.get("tool_call")?.(
+      { toolName: "bash", input: { command: 'git commit -m "test"' } },
+      { cwd: rootDir },
+    );
+    expect(commit).toBeUndefined();
+  });
 });
