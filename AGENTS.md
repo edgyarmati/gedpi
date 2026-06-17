@@ -51,7 +51,7 @@ When changing Ged's workflow, update the durable documentation and generated pro
 - `src/agent-settings.ts` controls the bundled Ged runtime agent prompts generated into `.pi/agents/`: `ged-explorer`, `ged-planner`, `ged-plan-reviewer`, `ged-verifier`, and optional `ged-worker`.
 - `src/commit-settings.ts` controls user-configurable workflow preferences that are also appended to the system prompt.
 - `AGENTS.md` documents the intended workflow for future coding sessions.
-- Keep GedOC parity in mind when prompt/checkpoint behavior is duplicated there.
+- Keep `.ged/` memory schema changes deliberate and backward-compatible; GedPi is now the canonical implementation.
 
 For non-trivial work, the main agent must run the first clarification/sufficiency pass before planning. Use grill-me in chat when goal, users/audience, scope, constraints, relevant context, risks, tests, or success criteria are unclear. If the request is already clear, synthesize that evidence instead of asking unnecessary questions. With subagents enabled, dispatch `ged-explorer` after clarification to perform read-only skill-fit reconnaissance (inventory/evaluate/search) plus codebase discovery; the main agent then adjudicates findings and performs any mutating project-skill install/create actions. For large reconnaissance, the main agent may run multiple read-only `ged-explorer` agents in parallel on disjoint scopes, then synthesize all findings before planning. The `ged-planner` role now authors the draft SPEC/TASKS/TESTS plan from clarified requirements and explorer findings; the main agent accepts/edits/rejects that draft, writes final `.ged` plan files, and records `planAcceptance` before source edits. Human/Glimpse plan review applies to the accepted/written draft, followed by optional `ged-plan-reviewer` critique according to critique mode. `ged-worker` is disabled by default and should only be enabled for bounded, disjoint, approved implementation slices after a worker-suitability check; if a slice is too difficult, ambiguous, risky, coupled, hard to verify, or judgment-heavy, the main agent implements it directly. Worker handoffs should use explicit pi-subagents `acceptance` contracts when available, with criteria, required evidence, verification commands, and stop rules captured structurally instead of only in prose. Worker completions are `workerRuns` audit metadata and never replace verifier review or main-agent acceptance. After `ged-verifier` reports issues, the main agent fixes accepted findings directly by default and reruns verification rather than re-invoking a worker, except for rare new isolated mechanical slices.
 
@@ -73,7 +73,7 @@ GedPi is published to npm as `gedpi`.
 ### How to release
 
 1. Ensure `CHANGELOG.md` has all changes under `## Unreleased`.
-2. Bump `version` in `packages/gedpi/package.json` to the new version.
+2. Bump `version` in `package.json` to the new version.
 3. Rename `## Unreleased` to `## X.Y.Z - YYYY-MM-DD` and add a new `## Unreleased` section at the top.
 4. Commit: `chore: release gedpi X.Y.Z`.
 5. Tag: `git tag gedpi-vX.Y.Z`.
@@ -83,7 +83,6 @@ GedPi is published to npm as `gedpi`.
 ### Tag format
 
 - GedPi releases use `gedpi-v*` tags (e.g., `gedpi-v0.13.0`).
-- GedOC releases use `gedoc-v*` tags — they are independent.
 
 ### Packaging guardrails
 

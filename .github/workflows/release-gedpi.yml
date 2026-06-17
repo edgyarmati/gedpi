@@ -1,0 +1,53 @@
+name: Release GedPi
+
+on:
+  push:
+    tags:
+      - "gedpi-v*"
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#gedpi-v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify release candidate
+        run: npm run verify
+
+      - name: Verify version matches tag
+        run: |
+          PKG_VERSION=$(node -e "console.log(require('./package.json').version)")
+          if [ "$PKG_VERSION" != "${{ steps.version.outputs.VERSION }}" ]; then
+            echo "Package version ($PKG_VERSION) does not match tag version (${{ steps.version.outputs.VERSION }})"
+            exit 1
+          fi
+
+      - name: Create package tarball
+        run: npm pack
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+
+      - name: Create GitHub release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" ./gedpi-*.tgz --generate-notes

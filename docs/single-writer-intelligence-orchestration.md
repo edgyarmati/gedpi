@@ -188,7 +188,7 @@ Do not use obsolete public acceptance shorthands such as `level`. The supported 
 
 ## Deferred orchestration roadmap from Pi 0.78 / pi-subagents 0.28
 
-These are design targets, not implemented runtime behavior yet. Keep GedOC parity and checkpoint compatibility in mind before changing `.ged` schemas.
+These are design targets, not implemented runtime behavior yet. Keep checkpoint compatibility in mind before changing `.ged` schemas.
 
 ### Structured verifier and checkpoint evidence
 

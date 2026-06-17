@@ -6,7 +6,7 @@ Requires Node.js 22 or newer.
 
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![npm version](https://img.shields.io/npm/v/gedpi.svg)](https://www.npmjs.com/package/gedpi)
-[![CI](https://github.com/edgyarmati/ged-mono/actions/workflows/ci.yml/badge.svg)](https://github.com/edgyarmati/ged-mono/actions/workflows/ci.yml)
+[![CI](https://github.com/edgyarmati/gedpi/actions/workflows/ci.yml/badge.svg)](https://github.com/edgyarmati/gedpi/actions/workflows/ci.yml)
 
 ## What It Does
 
@@ -271,10 +271,10 @@ The checkpoint file records checkpoint provenance. Structural guards trust auto-
 ## Development
 
 ```bash
-git clone https://github.com/edgyarmati/ged-mono.git
-cd ged-mono
+git clone https://github.com/edgyarmati/gedpi.git
+cd gedpi
 npm install
-npm --prefix packages/gedpi run chat    # launch locally in dev mode
+npm run chat    # launch locally in dev mode
 ```
 
 | Command | Purpose |
