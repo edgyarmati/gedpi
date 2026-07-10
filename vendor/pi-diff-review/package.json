@@ -16,9 +16,9 @@
     "@earendil-works/pi-coding-agent": "*"
   },
   "devDependencies": {
-    "@types/node": "^24.5.2",
-    "@typescript/native-preview": "^7.0.0-dev.20260313.1",
+    "@types/node": "^24.13.3",
+    "@typescript/native-preview": "^7.0.0-dev.20260707.2",
     "husky": "^9.1.7",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   }
 }

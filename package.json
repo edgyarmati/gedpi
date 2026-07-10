@@ -53,10 +53,10 @@
     "prepublishOnly": "npm run verify"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.16",
-    "@types/node": "^25.9.1",
+    "@biomejs/biome": "^2.5.3",
+    "@types/node": "^25.9.5",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "pi": {
     "extensions": [
@@ -86,24 +86,24 @@
     ]
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "0.79.4",
-    "@earendil-works/pi-coding-agent": "0.79.4",
-    "@earendil-works/pi-tui": "0.79.4",
-    "@howaboua/pi-codex-conversion": "2.0.1",
-    "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@0.79.4",
-    "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.79.4",
-    "@plannotator/pi-extension": "0.20.2",
+    "@earendil-works/pi-ai": "0.80.6",
+    "@earendil-works/pi-coding-agent": "0.80.6",
+    "@earendil-works/pi-tui": "0.80.6",
+    "@howaboua/pi-codex-conversion": "2.1.6",
+    "@mariozechner/pi-coding-agent": "npm:@earendil-works/pi-coding-agent@0.80.6",
+    "@mariozechner/pi-tui": "npm:@earendil-works/pi-tui@0.80.6",
+    "@plannotator/pi-extension": "0.23.0",
     "glimpseui": "0.8.1",
     "jiti": "^2.7.0",
     "pi-intercom": "0.6.0",
-    "pi-prompt-template-model": "^0.9.1",
-    "pi-subagents": "0.28.0",
-    "pi-web-access": "^0.10.7"
+    "pi-prompt-template-model": "^0.10.0",
+    "pi-subagents": "0.34.0",
+    "pi-web-access": "^0.13.0"
   },
   "overrides": {
     "@mozilla/readability": "0.6.0",
     "picomatch": "4.0.4",
-    "vite": "7.3.2",
+    "vite": "7.3.6",
     "esbuild": "0.28.1"
   }
 }
