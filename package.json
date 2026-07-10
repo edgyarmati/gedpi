@@ -7,7 +7,7 @@
   "author": "Eduard-David Gyarmati",
   "repository": {
     "type": "git",
-    "url": "https://github.com/edgyarmati/gedpi"
+    "url": "git+https://github.com/edgyarmati/gedpi.git"
   },
   "homepage": "https://github.com/edgyarmati/gedpi#readme",
   "bugs": {
