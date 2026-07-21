@@ -1,0 +1,6 @@
+# Ephemeral session state
+runtime/
+
+# Local repo-map cache artifacts
+REPO-MAP.md
+REPO-MAP.json

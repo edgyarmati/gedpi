@@ -11,3 +11,5 @@ node_modules/
 *.tsbuildinfo
 coverage/
 Thumbs.db
+.gedoc/
+.gedcode/
